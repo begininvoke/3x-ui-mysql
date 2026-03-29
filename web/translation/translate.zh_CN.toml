@@ -427,6 +427,15 @@
 "information" = "信息"
 "language" = "语言"
 "telegramBotLanguage" = "Telegram 机器人语言"
+"dbSettings" = "Database"
+"dbSettingsDesc" = "Database settings are configured via environment variables. To switch to MySQL, set XUI_DB_TYPE=mysql and configure XUI_MYSQL_* variables, then restart the panel."
+"dbType" = "Database Type"
+"dbTypeDesc" = "Current database backend (sqlite or mysql). Set via XUI_DB_TYPE environment variable."
+"mysqlHost" = "MySQL Host"
+"mysqlPort" = "MySQL Port"
+"mysqlUser" = "MySQL User"
+"mysqlPassword" = "MySQL Password"
+"mysqlDBName" = "MySQL Database Name"
 
 [pages.xray]
 "title" = "Xray 配置"

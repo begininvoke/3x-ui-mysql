@@ -1,16 +1,39 @@
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: 3xui_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: changeme
+      MYSQL_DATABASE: x-ui
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    restart: unless-stopped
+
   3xui:
     build:
       context: .
       dockerfile: ./Dockerfile
     container_name: 3xui_app
     # hostname: yourhostname <- optional
+    depends_on:
+      - mysql
     volumes:
       - $PWD/db/:/etc/x-ui/
       - $PWD/cert/:/root/cert/
     environment:
       XRAY_VMESS_AEAD_FORCED: "false"
       XUI_ENABLE_FAIL2BAN: "true"
+      XUI_DB_TYPE: "mysql"
+      XUI_MYSQL_HOST: "mysql"
+      XUI_MYSQL_PORT: "3306"
+      XUI_MYSQL_USER: "root"
+      XUI_MYSQL_PASSWORD: "changeme"
+      XUI_MYSQL_DBNAME: "x-ui"
     tty: true
     network_mode: host
     restart: unless-stopped
+
+volumes:
+  mysql_data:

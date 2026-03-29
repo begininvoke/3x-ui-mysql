@@ -882,19 +882,20 @@ func (s *ServerService) GetConfigJson() (any, error) {
 }
 
 func (s *ServerService) GetDb() ([]byte, error) {
-	// Update by manually trigger a checkpoint operation
+	if database.IsMySQL() {
+		return nil, common.NewError("Database export is not supported when using MySQL. Use MySQL tools (mysqldump) to export your data.")
+	}
+
 	err := database.Checkpoint()
 	if err != nil {
 		return nil, err
 	}
-	// Open the file for reading
 	file, err := os.Open(config.GetDBPath())
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	// Read the file contents
 	fileContents, err := io.ReadAll(file)
 	if err != nil {
 		return nil, err
@@ -904,7 +905,10 @@ func (s *ServerService) GetDb() ([]byte, error) {
 }
 
 func (s *ServerService) ImportDB(file multipart.File) error {
-	// Check if the file is a SQLite database
+	if database.IsMySQL() {
+		return common.NewError("Database import is not supported when using MySQL. Use MySQL tools to import your data.")
+	}
+
 	isValidDb, err := database.IsSQLiteDB(file)
 	if err != nil {
 		return common.NewErrorf("Error checking db file format: %v", err)

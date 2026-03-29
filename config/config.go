@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
@@ -98,6 +99,66 @@ func GetDBFolderPath() string {
 // GetDBPath returns the full path to the database file.
 func GetDBPath() string {
 	return fmt.Sprintf("%s/%s.db", GetDBFolderPath(), GetName())
+}
+
+// GetDBType returns the database type ("sqlite" or "mysql") based on XUI_DB_TYPE env var.
+func GetDBType() string {
+	dbType := strings.ToLower(strings.TrimSpace(os.Getenv("XUI_DB_TYPE")))
+	if dbType == "mysql" {
+		return "mysql"
+	}
+	return "sqlite"
+}
+
+// IsMySQL returns true if the configured database type is MySQL.
+func IsMySQL() bool {
+	return GetDBType() == "mysql"
+}
+
+func GetMySQLHost() string {
+	host := os.Getenv("XUI_MYSQL_HOST")
+	if host == "" {
+		return "localhost"
+	}
+	return host
+}
+
+func GetMySQLPort() int {
+	portStr := os.Getenv("XUI_MYSQL_PORT")
+	if portStr == "" {
+		return 3306
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return 3306
+	}
+	return port
+}
+
+func GetMySQLUser() string {
+	user := os.Getenv("XUI_MYSQL_USER")
+	if user == "" {
+		return "root"
+	}
+	return user
+}
+
+func GetMySQLPassword() string {
+	return os.Getenv("XUI_MYSQL_PASSWORD")
+}
+
+func GetMySQLDBName() string {
+	dbName := os.Getenv("XUI_MYSQL_DBNAME")
+	if dbName == "" {
+		return "x-ui"
+	}
+	return dbName
+}
+
+// GetMySQLDSN builds a MySQL DSN string from environment config.
+func GetMySQLDSN() string {
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		GetMySQLUser(), GetMySQLPassword(), GetMySQLHost(), GetMySQLPort(), GetMySQLDBName())
 }
 
 // GetLogFolder returns the path to the log folder based on environment variables or platform defaults.

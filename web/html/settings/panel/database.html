@@ -1,0 +1,48 @@
+{{define "settings/panel/database"}}
+<a-collapse default-active-key="1">
+    <a-collapse-panel key="1" header='{{ i18n "pages.settings.dbSettings"}}'>
+        <a-alert type="info" :style="{ marginBottom: '16px' }"
+            message='{{ i18n "pages.settings.dbSettingsDesc"}}' show-icon>
+        </a-alert>
+        <a-setting-list-item paddings="small">
+            <template #title>{{ i18n "pages.settings.dbType"}}</template>
+            <template #description>{{ i18n "pages.settings.dbTypeDesc"}}</template>
+            <template #control>
+                <a-input type="text" v-model="allSetting.dbType" disabled></a-input>
+            </template>
+        </a-setting-list-item>
+        <template v-if="allSetting.dbType === 'mysql'">
+            <a-setting-list-item paddings="small">
+                <template #title>{{ i18n "pages.settings.mysqlHost"}}</template>
+                <template #control>
+                    <a-input type="text" v-model="allSetting.mysqlHost" disabled></a-input>
+                </template>
+            </a-setting-list-item>
+            <a-setting-list-item paddings="small">
+                <template #title>{{ i18n "pages.settings.mysqlPort"}}</template>
+                <template #control>
+                    <a-input-number :min="1" :max="65535" v-model="allSetting.mysqlPort" disabled :style="{ width: '100%' }"></a-input-number>
+                </template>
+            </a-setting-list-item>
+            <a-setting-list-item paddings="small">
+                <template #title>{{ i18n "pages.settings.mysqlUser"}}</template>
+                <template #control>
+                    <a-input type="text" v-model="allSetting.mysqlUser" disabled></a-input>
+                </template>
+            </a-setting-list-item>
+            <a-setting-list-item paddings="small">
+                <template #title>{{ i18n "pages.settings.mysqlPassword"}}</template>
+                <template #control>
+                    <a-input type="password" v-model="allSetting.mysqlPassword" disabled></a-input>
+                </template>
+            </a-setting-list-item>
+            <a-setting-list-item paddings="small">
+                <template #title>{{ i18n "pages.settings.mysqlDBName"}}</template>
+                <template #control>
+                    <a-input type="text" v-model="allSetting.mysqlDBName" disabled></a-input>
+                </template>
+            </a-setting-list-item>
+        </template>
+    </a-collapse-panel>
+</a-collapse>
+{{end}}

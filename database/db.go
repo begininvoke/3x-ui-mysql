@@ -1,10 +1,11 @@
 // Package database provides database initialization, migration, and management utilities
-// for the 3x-ui panel using GORM with SQLite.
+// for the 3x-ui panel using GORM with SQLite or MySQL.
 package database
 
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"log"
@@ -17,12 +18,14 @@ import (
 	"github.com/mhsanaei/3x-ui/v2/util/crypto"
 	"github.com/mhsanaei/3x-ui/v2/xray"
 
+	"gorm.io/driver/mysql"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
 var db *gorm.DB
+var dbType string
 
 const (
 	defaultUsername = "admin"
@@ -120,15 +123,11 @@ func isTableEmpty(tableName string) (bool, error) {
 }
 
 // InitDB sets up the database connection, migrates models, and runs seeders.
+// It auto-detects whether to use SQLite or MySQL based on config.GetDBType().
 func InitDB(dbPath string) error {
-	dir := path.Dir(dbPath)
-	err := os.MkdirAll(dir, fs.ModePerm)
-	if err != nil {
-		return err
-	}
+	dbType = config.GetDBType()
 
 	var gormLogger logger.Interface
-
 	if config.IsDebug() {
 		gormLogger = logger.Default
 	} else {
@@ -138,9 +137,28 @@ func InitDB(dbPath string) error {
 	c := &gorm.Config{
 		Logger: gormLogger,
 	}
-	db, err = gorm.Open(sqlite.Open(dbPath), c)
-	if err != nil {
-		return err
+
+	var err error
+
+	switch dbType {
+	case "mysql":
+		dsn := config.GetMySQLDSN()
+		db, err = gorm.Open(mysql.Open(dsn), c)
+		if err != nil {
+			return fmt.Errorf("failed to connect to MySQL: %w", err)
+		}
+		log.Printf("Connected to MySQL database at %s:%d/%s",
+			config.GetMySQLHost(), config.GetMySQLPort(), config.GetMySQLDBName())
+	default:
+		dir := path.Dir(dbPath)
+		err = os.MkdirAll(dir, fs.ModePerm)
+		if err != nil {
+			return err
+		}
+		db, err = gorm.Open(sqlite.Open(dbPath), c)
+		if err != nil {
+			return err
+		}
 	}
 
 	if err := initModels(); err != nil {
@@ -175,6 +193,16 @@ func GetDB() *gorm.DB {
 	return db
 }
 
+// GetDBType returns the current database type ("sqlite" or "mysql").
+func GetDBType() string {
+	return dbType
+}
+
+// IsMySQL returns true if the current database backend is MySQL.
+func IsMySQL() bool {
+	return dbType == "mysql"
+}
+
 // IsNotFound checks if the given error is a GORM record not found error.
 func IsNotFound(err error) bool {
 	return err == gorm.ErrRecordNotFound
@@ -191,9 +219,12 @@ func IsSQLiteDB(file io.ReaderAt) (bool, error) {
 	return bytes.Equal(buf, signature), nil
 }
 
-// Checkpoint performs a WAL checkpoint on the SQLite database to ensure data consistency.
+// Checkpoint performs a WAL checkpoint on the SQLite database.
+// It is a no-op when using MySQL.
 func Checkpoint() error {
-	// Update WAL
+	if IsMySQL() {
+		return nil
+	}
 	err := db.Exec("PRAGMA wal_checkpoint;").Error
 	if err != nil {
 		return err
@@ -203,9 +234,12 @@ func Checkpoint() error {
 
 // ValidateSQLiteDB opens the provided sqlite DB path with a throw-away connection
 // and runs a PRAGMA integrity_check to ensure the file is structurally sound.
-// It does not mutate global state or run migrations.
+// Returns an error if the current backend is MySQL.
 func ValidateSQLiteDB(dbPath string) error {
-	if _, err := os.Stat(dbPath); err != nil { // file must exist
+	if IsMySQL() {
+		return errors.New("ValidateSQLiteDB is not supported when using MySQL")
+	}
+	if _, err := os.Stat(dbPath); err != nil {
 		return err
 	}
 	gdb, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{Logger: logger.Discard})

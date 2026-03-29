@@ -46,6 +46,7 @@ func runWebServer() {
 
 	godotenv.Load()
 
+	log.Printf("Database type: %s", config.GetDBType())
 	err := database.InitDB(config.GetDBPath())
 	if err != nil {
 		log.Fatalf("Error initializing database: %v", err)

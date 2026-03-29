@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mhsanaei/3x-ui/v2/config"
 	"github.com/mhsanaei/3x-ui/v2/database"
 	"github.com/mhsanaei/3x-ui/v2/database/model"
 	"github.com/mhsanaei/3x-ui/v2/logger"
@@ -81,6 +82,14 @@ var defaultValueMap = map[string]string{
 	"externalTrafficInformURI":    "",
 	"xrayOutboundTestUrl":         "https://www.google.com/generate_204",
 
+	// Database defaults
+	"dbType":        "sqlite",
+	"mysqlHost":     "localhost",
+	"mysqlPort":     "3306",
+	"mysqlUser":     "root",
+	"mysqlPassword": "",
+	"mysqlDBName":   "x-ui",
+
 	// LDAP defaults
 	"ldapEnable":            "false",
 	"ldapHost":              "",
@@ -120,7 +129,7 @@ func (s *SettingService) GetDefaultJSONConfig() (any, error) {
 func (s *SettingService) GetAllSetting() (*entity.AllSetting, error) {
 	db := database.GetDB()
 	settings := make([]*model.Setting, 0)
-	err := db.Model(model.Setting{}).Not("key = ?", "xrayTemplateConfig").Find(&settings).Error
+	err := db.Model(model.Setting{}).Not("`key` = ?", "xrayTemplateConfig").Find(&settings).Error
 	if err != nil {
 		return nil, err
 	}
@@ -189,6 +198,13 @@ func (s *SettingService) GetAllSetting() (*entity.AllSetting, error) {
 		}
 	}
 
+	allSetting.DBType = config.GetDBType()
+	allSetting.MySQLHost = config.GetMySQLHost()
+	allSetting.MySQLPort = config.GetMySQLPort()
+	allSetting.MySQLUser = config.GetMySQLUser()
+	allSetting.MySQLPassword = config.GetMySQLPassword()
+	allSetting.MySQLDBName = config.GetMySQLDBName()
+
 	return allSetting, nil
 }
 
@@ -205,7 +221,7 @@ func (s *SettingService) ResetSettings() error {
 func (s *SettingService) getSetting(key string) (*model.Setting, error) {
 	db := database.GetDB()
 	setting := &model.Setting{}
-	err := db.Model(model.Setting{}).Where("key = ?", key).First(setting).Error
+	err := db.Model(model.Setting{}).Where("`key` = ?", key).First(setting).Error
 	if err != nil {
 		return nil, err
 	}
@@ -688,6 +704,30 @@ func (s *SettingService) GetLdapDefaultLimitIP() (int, error) {
 	return s.getInt("ldapDefaultLimitIP")
 }
 
+func (s *SettingService) GetDBType() (string, error) {
+	return config.GetDBType(), nil
+}
+
+func (s *SettingService) GetMySQLHost() (string, error) {
+	return config.GetMySQLHost(), nil
+}
+
+func (s *SettingService) GetMySQLPort() (int, error) {
+	return config.GetMySQLPort(), nil
+}
+
+func (s *SettingService) GetMySQLUser() (string, error) {
+	return config.GetMySQLUser(), nil
+}
+
+func (s *SettingService) GetMySQLPassword() (string, error) {
+	return config.GetMySQLPassword(), nil
+}
+
+func (s *SettingService) GetMySQLDBName() (string, error) {
+	return config.GetMySQLDBName(), nil
+}
+
 func (s *SettingService) UpdateAllSetting(allSetting *entity.AllSetting) error {
 	if err := allSetting.CheckValid(); err != nil {
 		return err
@@ -757,6 +797,7 @@ func (s *SettingService) GetDefaultSettings(host string) (any, error) {
 		"remarkModel":   func() (any, error) { return s.GetRemarkModel() },
 		"datepicker":    func() (any, error) { return s.GetDatepicker() },
 		"ipLimitEnable": func() (any, error) { return s.GetIpLimitEnable() },
+		"dbType":        func() (any, error) { return s.GetDBType() },
 	}
 
 	result := make(map[string]any)

@@ -3630,35 +3630,37 @@ func (t *Tgbot) sendBackup(chatId int64) {
 	output := t.I18nBot("tgbot.messages.backupTime", "Time=="+time.Now().Format("2006-01-02 15:04:05"))
 	t.SendMsgToTgbot(chatId, output)
 
-	// Update by manually trigger a checkpoint operation
-	err := database.Checkpoint()
-	if err != nil {
-		logger.Error("Error in trigger a checkpoint operation: ", err)
-	}
-
-	// Send database backup
-	file, err := os.Open(config.GetDBPath())
-	if err == nil {
-		defer file.Close()
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		document := tu.Document(
-			tu.ID(chatId),
-			tu.File(file),
-		)
-		_, err = bot.SendDocument(ctx, document)
-		if err != nil {
-			logger.Error("Error in uploading backup: ", err)
-		}
+	if database.IsMySQL() {
+		t.SendMsgToTgbot(chatId, "Database backup via Telegram is not supported when using MySQL. Use mysqldump instead.")
 	} else {
-		logger.Error("Error in opening db file for backup: ", err)
+		err := database.Checkpoint()
+		if err != nil {
+			logger.Error("Error in trigger a checkpoint operation: ", err)
+		}
+
+		file, err := os.Open(config.GetDBPath())
+		if err == nil {
+			defer file.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			document := tu.Document(
+				tu.ID(chatId),
+				tu.File(file),
+			)
+			_, err = bot.SendDocument(ctx, document)
+			if err != nil {
+				logger.Error("Error in uploading backup: ", err)
+			}
+		} else {
+			logger.Error("Error in opening db file for backup: ", err)
+		}
 	}
 
 	// Small delay between file sends
 	time.Sleep(500 * time.Millisecond)
 
 	// Send config.json backup
-	file, err = os.Open(xray.GetConfigPath())
+	file, err := os.Open(xray.GetConfigPath())
 	if err == nil {
 		defer file.Close()
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

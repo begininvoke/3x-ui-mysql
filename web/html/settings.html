@@ -89,6 +89,13 @@
                     </template>
                     {{ template "settings/panel/subscription/json" . }}
                   </a-tab-pane>
+                  <a-tab-pane key="6" :style="{ paddingTop: '20px' }">
+                    <template #tab>
+                      <a-icon type="database"></a-icon>
+                      <span>{{ i18n "pages.settings.dbSettings" }}</span>
+                    </template>
+                    {{ template "settings/panel/database" . }}
+                  </a-tab-pane>
                 </a-tabs>
               </a-col>
             </a-row>

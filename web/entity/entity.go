@@ -81,6 +81,14 @@ type AllSetting struct {
 	SubJsonMux                  string `json:"subJsonMux" form:"subJsonMux"`                                   // JSON subscription mux configuration
 	SubJsonRules                string `json:"subJsonRules" form:"subJsonRules"`
 
+	// Database settings
+	DBType        string `json:"dbType" form:"dbType"`
+	MySQLHost     string `json:"mysqlHost" form:"mysqlHost"`
+	MySQLPort     int    `json:"mysqlPort" form:"mysqlPort"`
+	MySQLUser     string `json:"mysqlUser" form:"mysqlUser"`
+	MySQLPassword string `json:"mysqlPassword" form:"mysqlPassword"`
+	MySQLDBName   string `json:"mysqlDBName" form:"mysqlDBName"`
+
 	// LDAP settings
 	LdapEnable     bool   `json:"ldapEnable" form:"ldapEnable"`
 	LdapHost       string `json:"ldapHost" form:"ldapHost"`
