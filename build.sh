@@ -6,6 +6,6 @@ for o in ${os[@]}
 do
 for arch in ${archs[@]}
 do
-        env GOOS=${o} GOARCH=${arch} go build -o bin/x-ui_${o}_${arch}
+        env CGO_ENABLED=0 GOOS=${o} GOARCH=${arch} go build -ldflags "-w -s" -o bin/x-ui_${o}_${arch}
 done
 done
