@@ -760,22 +760,93 @@ config_after_install() {
     ${xui_folder}/x-ui migrate
 }
 
+setup_mysql_env() {
+    echo ""
+    echo -e "${green}═══════════════════════════════════════════${plain}"
+    echo -e "${green}     MySQL Database Configuration           ${plain}"
+    echo -e "${green}═══════════════════════════════════════════${plain}"
+    echo ""
+    read -rp "Would you like to use MySQL instead of SQLite? [y/n] (default: n): " use_mysql
+    if [[ "${use_mysql}" != "y" && "${use_mysql}" != "Y" ]]; then
+        echo -e "${green}Using SQLite (default).${plain}"
+        return
+    fi
+
+    echo -e "${yellow}Enter MySQL connection details:${plain}"
+
+    local mysql_host=""
+    read -rp "  MySQL Host (default: 127.0.0.1): " mysql_host
+    mysql_host="${mysql_host:-127.0.0.1}"
+
+    local mysql_port=""
+    read -rp "  MySQL Port (default: 3306): " mysql_port
+    mysql_port="${mysql_port:-3306}"
+
+    local mysql_user=""
+    read -rp "  MySQL User (default: root): " mysql_user
+    mysql_user="${mysql_user:-root}"
+
+    local mysql_password=""
+    read -rp "  MySQL Password: " mysql_password
+
+    local mysql_dbname=""
+    read -rp "  MySQL Database Name (default: x-ui): " mysql_dbname
+    mysql_dbname="${mysql_dbname:-x-ui}"
+
+    local env_file="${xui_folder}/.env"
+    cat > "${env_file}" <<ENVEOF
+XUI_DB_TYPE=mysql
+XUI_MYSQL_HOST=${mysql_host}
+XUI_MYSQL_PORT=${mysql_port}
+XUI_MYSQL_USER=${mysql_user}
+XUI_MYSQL_PASSWORD=${mysql_password}
+XUI_MYSQL_DBNAME=${mysql_dbname}
+ENVEOF
+
+    chmod 600 "${env_file}"
+
+    export XUI_DB_TYPE=mysql
+    export XUI_MYSQL_HOST="${mysql_host}"
+    export XUI_MYSQL_PORT="${mysql_port}"
+    export XUI_MYSQL_USER="${mysql_user}"
+    export XUI_MYSQL_PASSWORD="${mysql_password}"
+    export XUI_MYSQL_DBNAME="${mysql_dbname}"
+
+    local service_file="${xui_service}/x-ui.service"
+    if [[ -f "${service_file}" ]]; then
+        if ! grep -q "EnvironmentFile" "${service_file}"; then
+            sed -i "/\[Service\]/a EnvironmentFile=-${env_file}" "${service_file}"
+        fi
+    fi
+
+    echo ""
+    echo -e "${green}MySQL configured successfully!${plain}"
+    echo -e "${green}  Host:     ${mysql_host}${plain}"
+    echo -e "${green}  Port:     ${mysql_port}${plain}"
+    echo -e "${green}  User:     ${mysql_user}${plain}"
+    echo -e "${green}  Database: ${mysql_dbname}${plain}"
+    echo -e "${yellow}  Config:   ${env_file}${plain}"
+    echo ""
+}
+
+GITHUB_REPO="begininvoke/3x-ui-mysql"
+
 install_x-ui() {
     cd ${xui_folder%/x-ui}/
     
     # Download resources
     if [ $# == 0 ]; then
-        tag_version=$(curl -Ls "https://api.github.com/repos/MHSanaei/3x-ui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+        tag_version=$(curl -Ls "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
         if [[ ! -n "$tag_version" ]]; then
             echo -e "${yellow}Trying to fetch version with IPv4...${plain}"
-            tag_version=$(curl -4 -Ls "https://api.github.com/repos/MHSanaei/3x-ui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+            tag_version=$(curl -4 -Ls "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
             if [[ ! -n "$tag_version" ]]; then
                 echo -e "${red}Failed to fetch x-ui version, it may be due to GitHub API restrictions, please try it later${plain}"
                 exit 1
             fi
         fi
         echo -e "Got x-ui latest version: ${tag_version}, beginning the installation..."
-        curl -4fLRo ${xui_folder}-linux-$(arch).tar.gz https://github.com/MHSanaei/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz
+        curl -4fLRo ${xui_folder}-linux-$(arch).tar.gz https://github.com/${GITHUB_REPO}/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz
         if [[ $? -ne 0 ]]; then
             echo -e "${red}Downloading x-ui failed, please be sure that your server can access GitHub ${plain}"
             exit 1
@@ -790,7 +861,7 @@ install_x-ui() {
             exit 1
         fi
         
-        url="https://github.com/MHSanaei/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
+        url="https://github.com/${GITHUB_REPO}/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
         echo -e "Beginning to install x-ui $1"
         curl -4fLRo ${xui_folder}-linux-$(arch).tar.gz ${url}
         if [[ $? -ne 0 ]]; then
@@ -798,7 +869,7 @@ install_x-ui() {
             exit 1
         fi
     fi
-    curl -4fLRo /usr/bin/x-ui-temp https://raw.githubusercontent.com/MHSanaei/3x-ui/main/x-ui.sh
+    curl -4fLRo /usr/bin/x-ui-temp https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.sh
     if [[ $? -ne 0 ]]; then
         echo -e "${red}Failed to download x-ui.sh${plain}"
         exit 1
@@ -833,6 +904,7 @@ install_x-ui() {
     mv -f /usr/bin/x-ui-temp /usr/bin/x-ui
     chmod +x /usr/bin/x-ui
     mkdir -p /var/log/x-ui
+    setup_mysql_env
     config_after_install
 
     # Etckeeper compatibility
@@ -850,7 +922,7 @@ install_x-ui() {
     fi
     
     if [[ $release == "alpine" ]]; then
-        curl -4fLRo /etc/init.d/x-ui https://raw.githubusercontent.com/MHSanaei/3x-ui/main/x-ui.rc
+        curl -4fLRo /etc/init.d/x-ui https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.rc
         if [[ $? -ne 0 ]]; then
             echo -e "${red}Failed to download x-ui.rc${plain}"
             exit 1
@@ -907,13 +979,13 @@ install_x-ui() {
             echo -e "${yellow}Service files not found in tar.gz, downloading from GitHub...${plain}"
             case "${release}" in
                 ubuntu | debian | armbian)
-                    curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/MHSanaei/3x-ui/main/x-ui.service.debian >/dev/null 2>&1
+                    curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.service.debian >/dev/null 2>&1
                 ;;
                 arch | manjaro | parch)
-                    curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/MHSanaei/3x-ui/main/x-ui.service.arch >/dev/null 2>&1
+                    curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.service.arch >/dev/null 2>&1
                 ;;
                 *)
-                    curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/MHSanaei/3x-ui/main/x-ui.service.rhel >/dev/null 2>&1
+                    curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.service.rhel >/dev/null 2>&1
                 ;;
             esac
             

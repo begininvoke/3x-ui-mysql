@@ -1,5 +1,3 @@
-[English](/README.md) | [فارسی](/README.fa_IR.md) | [العربية](/README.ar_EG.md) |  [中文](/README.zh_CN.md) | [Español](/README.es_ES.md) | [Русский](/README.ru_RU.md)
-
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./media/3x-ui-dark.png">
@@ -7,51 +5,202 @@
   </picture>
 </p>
 
-[![Release](https://img.shields.io/github/v/release/mhsanaei/3x-ui.svg)](https://github.com/MHSanaei/3x-ui/releases)
-[![Build](https://img.shields.io/github/actions/workflow/status/mhsanaei/3x-ui/release.yml.svg)](https://github.com/MHSanaei/3x-ui/actions)
-[![GO Version](https://img.shields.io/github/go-mod/go-version/mhsanaei/3x-ui.svg)](#)
-[![Downloads](https://img.shields.io/github/downloads/mhsanaei/3x-ui/total.svg)](https://github.com/MHSanaei/3x-ui/releases/latest)
-[![License](https://img.shields.io/badge/license-GPL%20V3-blue.svg?longCache=true)](https://www.gnu.org/licenses/gpl-3.0.en.html)
-[![Go Reference](https://pkg.go.dev/badge/github.com/mhsanaei/3x-ui/v2.svg)](https://pkg.go.dev/github.com/mhsanaei/3x-ui/v2)
-[![Go Report Card](https://goreportcard.com/badge/github.com/mhsanaei/3x-ui/v2)](https://goreportcard.com/report/github.com/mhsanaei/3x-ui/v2)
+<h3 align="center">3X-UI with MySQL Support</h3>
 
-**3X-UI** — advanced, open-source web-based control panel designed for managing Xray-core server. It offers a user-friendly interface for configuring and monitoring various VPN and proxy protocols.
+<p align="center">
+  A fork of <a href="https://github.com/MHSanaei/3x-ui">MHSanaei/3x-ui</a> that adds <strong>MySQL</strong> as an alternative database backend alongside the default SQLite.
+</p>
+
+---
 
 > [!IMPORTANT]
-> This project is only for personal usage, please do not use it for illegal purposes, and please do not use it in a production environment.
+> This project is only for personal usage. Please do not use it for illegal purposes or in a production environment.
 
-As an enhanced fork of the original X-UI project, 3X-UI provides improved stability, broader protocol support, and additional features.
+## What's Different
+
+This fork adds **MySQL 8.0** support to the 3X-UI panel. You can choose between:
+
+| Feature | SQLite (default) | MySQL |
+|---------|:-:|:-:|
+| Zero-config setup | Yes | - |
+| Multi-instance shared DB | - | Yes |
+| Scalable for large datasets | - | Yes |
+| Panel DB backup/restore | Yes | Use `mysqldump` |
+| Telegram DB backup | Yes | Use `mysqldump` |
+
+The database backend is selected entirely through **environment variables** — no code changes or config files needed.
 
 ## Quick Start
 
+### Option 1: Install Script (SQLite — same as upstream)
+
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/begininvoke/3x-ui-mysql/main/install.sh)
 ```
 
-For full documentation, please visit the [project Wiki](https://github.com/MHSanaei/3x-ui/wiki).
+This installs the panel with SQLite by default. To switch to MySQL later, set the environment variables described below and restart.
 
-## A Special Thanks to
+### Option 2: Docker Compose (MySQL)
 
+This is the recommended way to run with MySQL.
+
+```bash
+git clone https://github.com/begininvoke/3x-ui-mysql.git
+cd 3x-ui-mysql
+```
+
+Edit the `.env` file (copy from `.env.example`):
+
+```bash
+cp .env.example .env
+```
+
+Configure your MySQL credentials in `.env`, then start:
+
+```bash
+docker compose up -d
+```
+
+The panel will be available at `http://<your-ip>:2053` with default credentials `admin` / `admin`.
+
+### Option 3: Manual MySQL Setup (without Docker)
+
+1. Install MySQL 8.0 on your server
+2. Create a database:
+
+```sql
+CREATE DATABASE `x-ui` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+```
+
+3. Set environment variables before starting the panel:
+
+```bash
+export XUI_DB_TYPE=mysql
+export XUI_MYSQL_HOST=127.0.0.1
+export XUI_MYSQL_PORT=3306
+export XUI_MYSQL_USER=root
+export XUI_MYSQL_PASSWORD=your_password
+export XUI_MYSQL_DBNAME=x-ui
+```
+
+4. Run the install script or start the binary. GORM will auto-migrate all tables.
+
+## Environment Variables
+
+### Database Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `XUI_DB_TYPE` | `sqlite` | Database backend: `sqlite` or `mysql` |
+| `XUI_MYSQL_HOST` | `localhost` | MySQL server hostname or IP |
+| `XUI_MYSQL_PORT` | `3306` | MySQL server port |
+| `XUI_MYSQL_USER` | `root` | MySQL username |
+| `XUI_MYSQL_PASSWORD` | *(empty)* | MySQL password |
+| `XUI_MYSQL_DBNAME` | `x-ui` | MySQL database name |
+
+### General Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `XUI_DEBUG` | `false` | Enable debug logging |
+| `XUI_DB_FOLDER` | `/etc/x-ui` | SQLite database folder path |
+| `XUI_LOG_FOLDER` | `/var/log/x-ui` | Log file folder path |
+| `XUI_BIN_FOLDER` | `bin` | Xray binary folder path |
+| `XUI_ENABLE_FAIL2BAN` | `false` | Enable fail2ban (Docker only) |
+
+## Docker Compose Details
+
+The included `docker-compose.yml` starts two services:
+
+- **mysql** — MySQL 8.0 with a named volume for persistent data
+- **3xui** — The panel, built from the Dockerfile, connected to MySQL
+
+```yaml
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: changeme    # <-- change this
+      MYSQL_DATABASE: x-ui
+
+  3xui:
+    build: .
+    network_mode: host
+    environment:
+      XUI_DB_TYPE: "mysql"
+      XUI_MYSQL_HOST: "127.0.0.1"     # host networking: reach MySQL via localhost
+      XUI_MYSQL_PORT: "3306"
+      XUI_MYSQL_USER: "root"
+      XUI_MYSQL_PASSWORD: "changeme"   # <-- must match above
+      XUI_MYSQL_DBNAME: "x-ui"
+```
+
+> [!NOTE]
+> The `3xui` service uses `network_mode: host` so Xray can bind directly to host ports. MySQL is reached through its published port on `127.0.0.1:3306`.
+
+## MySQL Backup & Restore
+
+Since the panel's built-in DB export/import is SQLite-only, use standard MySQL tools:
+
+```bash
+# Backup
+mysqldump -u root -p x-ui > x-ui-backup.sql
+
+# Restore
+mysql -u root -p x-ui < x-ui-backup.sql
+
+# Docker backup
+docker exec 3xui_mysql mysqldump -u root -pchangeme x-ui > x-ui-backup.sql
+
+# Docker restore
+docker exec -i 3xui_mysql mysql -u root -pchangeme x-ui < x-ui-backup.sql
+```
+
+## Migrating from SQLite to MySQL
+
+1. Export data from SQLite (while panel is stopped):
+
+```bash
+sqlite3 /etc/x-ui/x-ui.db .dump > sqlite-dump.sql
+```
+
+2. Create your MySQL database and set the environment variables
+3. Start the panel once (to auto-create tables via GORM)
+4. Import your data, adjusting SQL syntax as needed for MySQL
+
+## Panel Management
+
+```
+x-ui              - Admin Management Script
+x-ui start        - Start
+x-ui stop         - Stop
+x-ui restart      - Restart
+x-ui status       - Current Status
+x-ui settings     - Current Settings
+x-ui enable       - Enable Autostart on OS Startup
+x-ui disable      - Disable Autostart on OS Startup
+x-ui log          - Check logs
+x-ui update       - Update
+x-ui install      - Install
+x-ui uninstall    - Uninstall
+```
+
+## Building from Source
+
+```bash
+# Prerequisites: Go 1.26+, GCC (for CGO/SQLite)
+git clone https://github.com/begininvoke/3x-ui-mysql.git
+cd 3x-ui-mysql
+go build -o x-ui main.go
+```
+
+## Acknowledgments
+
+- [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) — Original upstream project
 - [alireza0](https://github.com/alireza0/)
+- [Iran v2ray rules](https://github.com/chocolate4u/Iran-v2ray-rules) (License: **GPL-3.0**)
+- [Russia v2ray rules](https://github.com/runetfreedom/russia-v2ray-rules-dat) (License: **GPL-3.0**)
 
-## Acknowledgment
+## License
 
-- [Iran v2ray rules](https://github.com/chocolate4u/Iran-v2ray-rules) (License: **GPL-3.0**): _Enhanced v2ray/xray and v2ray/xray-clients routing rules with built-in Iranian domains and a focus on security and adblocking._
-- [Russia v2ray rules](https://github.com/runetfreedom/russia-v2ray-rules-dat) (License: **GPL-3.0**): _This repository contains automatically updated V2Ray routing rules based on data on blocked domains and addresses in Russia._
-
-## Support project
-
-**If this project is helpful to you, you may wish to give it a**:star2:
-
-<a href="https://www.buymeacoffee.com/MHSanaei" target="_blank">
-<img src="./media/default-yellow.png" alt="Buy Me A Coffee" style="height: 70px !important;width: 277px !important;" >
-</a>
-
-</br>
-<a href="https://nowpayments.io/donation/hsanaei" target="_blank" rel="noreferrer noopener">
-   <img src="./media/donation-button-black.svg" alt="Crypto donation button by NOWPayments">
-</a>
-
-## Stargazers over Time
-
-[![Stargazers over time](https://starchart.cc/MHSanaei/3x-ui.svg?variant=adaptive)](https://starchart.cc/MHSanaei/3x-ui)
+[GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html)
