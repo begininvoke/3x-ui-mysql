@@ -144,11 +144,19 @@ func (s *InboundService) GetClients(inbound *model.Inbound) ([]model.Client, err
 func (s *InboundService) getAllEmails() ([]string, error) {
 	db := database.GetDB()
 	var emails []string
-	err := db.Raw(`
-		SELECT JSON_EXTRACT(client.value, '$.email')
-		FROM inbounds,
-			JSON_EACH(JSON_EXTRACT(inbounds.settings, '$.clients')) AS client
-		`).Scan(&emails).Error
+	var query string
+	if database.IsMySQL() {
+		query = `
+			SELECT client.email
+			FROM inbounds,
+				JSON_TABLE(inbounds.settings, '$.clients[*]' COLUMNS (email VARCHAR(255) PATH '$.email')) AS client`
+	} else {
+		query = `
+			SELECT JSON_EXTRACT(client.value, '$.email')
+			FROM inbounds,
+				JSON_EACH(JSON_EXTRACT(inbounds.settings, '$.clients')) AS client`
+	}
+	err := db.Raw(query).Scan(&emails).Error
 	if err != nil {
 		return nil, err
 	}
@@ -1312,14 +1320,25 @@ func (s *InboundService) GetInboundTags() (string, error) {
 
 func (s *InboundService) MigrationRemoveOrphanedTraffics() {
 	db := database.GetDB()
-	db.Exec(`
-		DELETE FROM client_traffics
-		WHERE email NOT IN (
-			SELECT JSON_EXTRACT(client.value, '$.email')
-			FROM inbounds,
-				JSON_EACH(JSON_EXTRACT(inbounds.settings, '$.clients')) AS client
-		)
-	`)
+	var query string
+	if database.IsMySQL() {
+		query = `
+			DELETE FROM client_traffics
+			WHERE email NOT IN (
+				SELECT client.email
+				FROM inbounds,
+					JSON_TABLE(inbounds.settings, '$.clients[*]' COLUMNS (email VARCHAR(255) PATH '$.email')) AS client
+			)`
+	} else {
+		query = `
+			DELETE FROM client_traffics
+			WHERE email NOT IN (
+				SELECT JSON_EXTRACT(client.value, '$.email')
+				FROM inbounds,
+					JSON_EACH(JSON_EXTRACT(inbounds.settings, '$.clients')) AS client
+			)`
+	}
+	db.Exec(query)
 }
 
 func (s *InboundService) AddClientStat(tx *gorm.DB, inboundId int, client *model.Client) error {
@@ -2058,13 +2077,27 @@ func (s *InboundService) GetClientTrafficByID(id string) ([]xray.ClientTraffic, 
 	db := database.GetDB()
 	var traffics []xray.ClientTraffic
 
-	err := db.Model(xray.ClientTraffic{}).Where(`email IN(
-		SELECT JSON_EXTRACT(client.value, '$.email') as email
-		FROM inbounds,
-	  	JSON_EACH(JSON_EXTRACT(inbounds.settings, '$.clients')) AS client
-		WHERE
-	  	JSON_EXTRACT(client.value, '$.id') in (?)
-		)`, id).Find(&traffics).Error
+	var whereClause string
+	if database.IsMySQL() {
+		whereClause = `email IN(
+			SELECT client.email
+			FROM inbounds,
+				JSON_TABLE(inbounds.settings, '$.clients[*]' COLUMNS (
+					email VARCHAR(255) PATH '$.email',
+					id VARCHAR(255) PATH '$.id'
+				)) AS client
+			WHERE client.id IN (?)
+		)`
+	} else {
+		whereClause = `email IN(
+			SELECT JSON_EXTRACT(client.value, '$.email') as email
+			FROM inbounds,
+				JSON_EACH(JSON_EXTRACT(inbounds.settings, '$.clients')) AS client
+			WHERE
+				JSON_EXTRACT(client.value, '$.id') in (?)
+		)`
+	}
+	err := db.Model(xray.ClientTraffic{}).Where(whereClause, id).Find(&traffics).Error
 
 	if err != nil {
 		logger.Debug(err)
@@ -2317,11 +2350,21 @@ func (s *InboundService) MigrationRequirements() {
 		Port           int
 		StreamSettings []byte
 	}
-	err = tx.Raw(`select id, port, stream_settings
-	from inbounds
-	WHERE protocol in ('vmess','vless','trojan')
-	  AND json_extract(stream_settings, '$.security') = 'tls'
-	  AND json_extract(stream_settings, '$.tlsSettings.settings.domains') IS NOT NULL`).Scan(&externalProxy).Error
+	var migrationQuery string
+	if database.IsMySQL() {
+		migrationQuery = `select id, port, stream_settings
+			from inbounds
+			WHERE protocol in ('vmess','vless','trojan')
+			  AND JSON_UNQUOTE(JSON_EXTRACT(stream_settings, '$.security')) = 'tls'
+			  AND JSON_EXTRACT(stream_settings, '$.tlsSettings.settings.domains') IS NOT NULL`
+	} else {
+		migrationQuery = `select id, port, stream_settings
+			from inbounds
+			WHERE protocol in ('vmess','vless','trojan')
+			  AND json_extract(stream_settings, '$.security') = 'tls'
+			  AND json_extract(stream_settings, '$.tlsSettings.settings.domains') IS NOT NULL`
+	}
+	err = tx.Raw(migrationQuery).Scan(&externalProxy).Error
 	if err != nil || len(externalProxy) == 0 {
 		return
 	}
