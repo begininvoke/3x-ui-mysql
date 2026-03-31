@@ -146,7 +146,7 @@ type ServerService struct {
 	hasNativeCPUSample bool
 	emaCPU             float64
 	cpuHistory         []CPUSample
-	trafficHistory []TrafficSample
+	trafficHistory     []TrafficSample
 	cachedCpuSpeedMhz  float64
 	lastCpuInfoAttempt time.Time
 }
