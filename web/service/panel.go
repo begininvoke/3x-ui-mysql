@@ -24,22 +24,23 @@ func (s *PanelService) RestartPanel(delay time.Duration) error {
 
 	if database.IsMySQL() {
 		err := db.Exec(
-			"INSERT INTO panel_restarts (id, requested_at) VALUES (1, ?) ON DUPLICATE KEY UPDATE requested_at = VALUES(requested_at)",
-			now,
+			"INSERT INTO panel_restarts (id, requested_at) VALUES (1, ?) ON DUPLICATE KEY UPDATE requested_at = ?",
+			now, now,
 		).Error
 		if err != nil {
-			logger.Warning("Failed to write restart signal to MySQL:", err)
+			logger.Warning("RestartPanel: failed to write restart signal to MySQL:", err)
 		} else {
-			logger.Infof("Restart signal written to DB (requested_at=%d)", now)
+			logger.Infof("RestartPanel: signal written to MySQL (requested_at=%d). All nodes will pick this up.", now)
 		}
 	} else {
 		result := db.Model(&model.PanelRestart{}).Where("id = 1").Update("requested_at", now)
 		if result.RowsAffected == 0 {
 			db.Create(&model.PanelRestart{Id: 1, RequestedAt: now})
 		}
-		logger.Infof("Restart signal written to DB (requested_at=%d)", now)
+		logger.Infof("RestartPanel: signal written to SQLite (requested_at=%d)", now)
 	}
 
+	s.lastRestartCheck = now
 	return s.restartLocal(delay)
 }
 
@@ -61,26 +62,31 @@ func (s *PanelService) restartLocal(delay time.Duration) error {
 // Returns true if a restart was triggered.
 func (s *PanelService) CheckRemoteRestart() bool {
 	db := database.GetDB()
+	if db == nil {
+		return false
+	}
+
 	var row model.PanelRestart
 	result := db.First(&row, 1)
 	if result.Error != nil {
 		if result.Error != gorm.ErrRecordNotFound {
-			logger.Debug("CheckRemoteRestart DB error:", result.Error)
+			logger.Warning("CheckRemoteRestart DB query failed:", result.Error)
 		}
 		if s.lastRestartCheck == 0 {
 			s.lastRestartCheck = time.Now().UnixMilli()
+			logger.Debugf("CheckRemoteRestart: no DB row, baseline set to now (%d)", s.lastRestartCheck)
 		}
 		return false
 	}
 
 	if s.lastRestartCheck == 0 {
 		s.lastRestartCheck = row.RequestedAt
-		logger.Debugf("CheckRemoteRestart initialized baseline to %d", s.lastRestartCheck)
+		logger.Infof("CheckRemoteRestart: initialized baseline from DB (requested_at=%d)", s.lastRestartCheck)
 		return false
 	}
 
 	if row.RequestedAt > s.lastRestartCheck {
-		logger.Infof("Remote restart signal detected (requested_at=%d > last_check=%d), restarting...", row.RequestedAt, s.lastRestartCheck)
+		logger.Infof("Remote restart detected! DB requested_at=%d > local baseline=%d. Restarting in 2s...", row.RequestedAt, s.lastRestartCheck)
 		s.lastRestartCheck = row.RequestedAt
 		s.restartLocal(time.Second * 2)
 		return true

@@ -127,13 +127,13 @@ func (a *ServerController) getTrafficHistoryBucket(c *gin.Context) {
 		jsonMsg(c, "invalid timeframe", fmt.Errorf("bad value"))
 		return
 	}
-	allowed := map[int]bool{10: true, 30: true, 60: true, 180: true, 300: true}
+	allowed := map[int]bool{10: true, 30: true, 60: true, 180: true, 360: true, 720: true, 1440: true}
 	if !allowed[minutes] {
 		jsonMsg(c, "invalid timeframe", fmt.Errorf("unsupported value"))
 		return
 	}
 	totalSeconds := minutes * 60
-	bucketSize := totalSeconds / 300
+	bucketSize := totalSeconds / 360
 	if bucketSize < 2 {
 		bucketSize = 2
 	}

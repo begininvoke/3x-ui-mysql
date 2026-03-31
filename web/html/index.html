@@ -19,7 +19,7 @@
                 <a-spin tip='{{ i18n "loading" }}'></a-spin>
               </a-card>
             </a-row>
-            <a-row :gutter="[isMobile ? 8 : 16, isMobile ? 0 : 12]" v-else>
+            <a-row :gutter="[isMobile ? 8 : 16, isMobile ? 8 : 8]" v-else>
               <a-col>
                 <a-card hoverable>
                   <a-row :gutter="[0, isMobile ? 16 : 0]">
@@ -290,29 +290,36 @@
                     </a-radio-group>
                   </template>
                   <div v-if="dailyTrafficData.length > 0">
-                    <div style="display:flex;align-items:flex-end;gap:2px;height:140px;padding:0 4px">
+                    <div style="display:flex;align-items:flex-end;gap:3px;height:160px;padding:0 4px">
                       <div v-for="(day, idx) in dailyTrafficData" :key="day.date"
                         style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0">
                         <a-tooltip :overlay-class-name="themeSwitcher.currentTheme">
                           <template slot="title">
-                            [[ day.date ]]<br/>
-                            <a-icon type="arrow-up" /> [[ SizeFormatter.sizeFormat(day.up) ]]<br/>
-                            <a-icon type="arrow-down" /> [[ SizeFormatter.sizeFormat(day.down) ]]
+                            <div style="text-align:center;font-weight:600;margin-bottom:4px">[[ day.date ]]</div>
+                            <div>&#9650; Upload: [[ SizeFormatter.sizeFormat(day.up) ]]</div>
+                            <div>&#9660; Download: [[ SizeFormatter.sizeFormat(day.down) ]]</div>
+                            <div style="border-top:1px solid rgba(255,255,255,0.2);margin-top:4px;padding-top:4px">Total: [[ SizeFormatter.sizeFormat(day.up + day.down) ]]</div>
                           </template>
-                          <div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:1px">
-                            <div :style="{width:'70%',background:'#52c41a',borderRadius:'2px 2px 0 0',minHeight:'2px',height: dailyBarHeight(day.up) + 'px'}"></div>
-                            <div :style="{width:'70%',background:'#1890ff',borderRadius:'0 0 2px 2px',minHeight:'2px',height: dailyBarHeight(day.down) + 'px'}"></div>
+                          <div style="width:100%;display:flex;gap:1px;align-items:flex-end;justify-content:center;height:100%">
+                            <div :style="{width:'45%',background:'#52c41a',borderRadius:'2px 2px 0 0',minHeight:'2px',height: dailyBarHeight(day.up) + 'px',transition:'height 0.3s'}"></div>
+                            <div :style="{width:'45%',background:'#1890ff',borderRadius:'2px 2px 0 0',minHeight:'2px',height: dailyBarHeight(day.down) + 'px',transition:'height 0.3s'}"></div>
                           </div>
                         </a-tooltip>
-                        <div style="font-size:9px;opacity:0.5;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%"
-                          v-if="dailyTrafficData.length <= 14 || idx % 3 === 0">[[ day.date.slice(5) ]]</div>
+                        <div style="font-size:9px;opacity:0.5;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%"
+                          v-if="dailyTrafficData.length <= 14 || idx % Math.ceil(dailyTrafficData.length / 10) === 0">[[ day.date.slice(5) ]]</div>
                       </div>
                     </div>
-                    <div style="margin-top:8px;font-size:11px;text-align:center">
-                      <span style="color:#52c41a;font-weight:600">&#9650; Upload</span>
-                      <span style="margin-left:12px;color:#1890ff;font-weight:600">&#9660; Download</span>
-                      <span style="margin-left:12px;opacity:0.5">Total: [[ SizeFormatter.sizeFormat(dailyTrafficTotalUp + dailyTrafficTotalDown) ]]</span>
-                    </div>
+                    <a-row style="margin-top:10px;font-size:12px;text-align:center" :gutter="[8,4]">
+                      <a-col :span="8">
+                        <a-tag color="green">&#9650; Upload: [[ SizeFormatter.sizeFormat(dailyTrafficTotalUp) ]]</a-tag>
+                      </a-col>
+                      <a-col :span="8">
+                        <a-tag color="blue">&#9660; Download: [[ SizeFormatter.sizeFormat(dailyTrafficTotalDown) ]]</a-tag>
+                      </a-col>
+                      <a-col :span="8">
+                        <a-tag color="purple">Total: [[ SizeFormatter.sizeFormat(dailyTrafficTotalUp + dailyTrafficTotalDown) ]]</a-tag>
+                      </a-col>
+                    </a-row>
                   </div>
                   <div v-else style="text-align:center;color:#999;padding:20px 0">No daily traffic data</div>
                 </a-card>
@@ -555,7 +562,9 @@
         <a-select-option :value="30">30m</a-select-option>
         <a-select-option :value="60">1h</a-select-option>
         <a-select-option :value="180">3h</a-select-option>
-        <a-select-option :value="300">5h</a-select-option>
+        <a-select-option :value="360">6h</a-select-option>
+        <a-select-option :value="720">12h</a-select-option>
+        <a-select-option :value="1440">24h</a-select-option>
         <a-select-option :value="300">5h</a-select-option>
       </a-select>
     </template>

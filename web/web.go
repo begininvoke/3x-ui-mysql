@@ -344,8 +344,8 @@ func (s *Server) startTask() {
 		s.cron.AddJob(runtime, j)
 	}
 
-	// Poll for multi-instance restart signals every 20 seconds
-	s.cron.AddFunc("@every 20s", func() {
+	// Poll for multi-instance restart signals every 10 seconds
+	s.cron.AddFunc("@every 10s", func() {
 		s.panelService.CheckRemoteRestart()
 	})
 

@@ -472,7 +472,7 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 }
 
 func (s *ServerService) AppendCpuSample(t time.Time, v float64) {
-	const capacity = 9000 // ~5 hours @ 2s interval
+	const capacity = 43200 // ~24 hours @ 2s interval
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	p := CPUSample{T: t.Unix(), Cpu: v}
@@ -488,7 +488,7 @@ func (s *ServerService) AppendCpuSample(t time.Time, v float64) {
 
 // AppendTrafficSample records the current net I/O rate (bytes/sec) as a traffic history point.
 func (s *ServerService) AppendTrafficSample(t time.Time, upBps, downBps uint64) {
-	const capacity = 9000
+	const capacity = 43200 // ~24 hours @ 2s interval
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

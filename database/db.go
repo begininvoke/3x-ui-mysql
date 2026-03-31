@@ -223,16 +223,26 @@ func IsSQLiteDB(file io.ReaderAt) (bool, error) {
 	return bytes.Equal(buf, signature), nil
 }
 
-// IsDeadlock returns true if the error is a MySQL deadlock (Error 1213).
-func IsDeadlock(err error) bool {
+// IsRetryableDBError returns true if the error is a MySQL deadlock (1213)
+// or lock wait timeout (1205) that can be retried.
+func IsRetryableDBError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), "Error 1213") || strings.Contains(err.Error(), "Deadlock found")
+	s := err.Error()
+	return strings.Contains(s, "Error 1213") ||
+		strings.Contains(s, "Deadlock found") ||
+		strings.Contains(s, "Error 1205") ||
+		strings.Contains(s, "Lock wait timeout")
 }
 
-// RetryOnDeadlock wraps a GORM transaction with automatic retry on MySQL deadlocks.
-// On SQLite (which doesn't produce deadlocks), it runs the function once.
+// IsDeadlock is an alias kept for backward compatibility.
+func IsDeadlock(err error) bool {
+	return IsRetryableDBError(err)
+}
+
+// RetryOnDeadlock wraps a GORM transaction with automatic retry on MySQL
+// deadlocks (1213) and lock wait timeouts (1205).
 func RetryOnDeadlock(fn func(tx *gorm.DB) error) error {
 	maxRetries := 1
 	if IsMySQL() {
@@ -243,8 +253,8 @@ func RetryOnDeadlock(fn func(tx *gorm.DB) error) error {
 		if err == nil {
 			return nil
 		}
-		if IsMySQL() && IsDeadlock(err) && attempt < maxRetries-1 {
-			time.Sleep(time.Duration(attempt+1) * 100 * time.Millisecond)
+		if IsMySQL() && IsRetryableDBError(err) && attempt < maxRetries-1 {
+			time.Sleep(time.Duration(attempt+1) * 200 * time.Millisecond)
 			continue
 		}
 		return err
