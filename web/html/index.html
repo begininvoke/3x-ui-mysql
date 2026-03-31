@@ -78,46 +78,66 @@
                   </a-row>
                 </a-card>
               </a-col>
-              <!-- System Info: Connections + Uptime + Load + Usage (merged) -->
+              <!-- Connection Stats -->
               <a-col :sm="24" :lg="12">
-                <a-card hoverable>
-                  <template #title>
-                    <a-icon type="dashboard" /> System Info
-                  </template>
+                <a-card title='{{ i18n "pages.index.connectionCount" }}' hoverable>
+                  <a-row :gutter="isMobile ? [8,8] : 0">
+                    <a-col :span="12">
+                      <a-custom-statistic title="TCP" :value="status.tcpCount">
+                        <template #prefix>
+                          <a-icon type="swap" style="color:#1890ff" />
+                        </template>
+                      </a-custom-statistic>
+                    </a-col>
+                    <a-col :span="12">
+                      <a-custom-statistic title="UDP" :value="status.udpCount">
+                        <template #prefix>
+                          <a-icon type="swap" style="color:#722ed1" />
+                        </template>
+                      </a-custom-statistic>
+                    </a-col>
+                  </a-row>
+                </a-card>
+              </a-col>
+              <!-- System Info: Uptime + Load + Usage (merged) -->
+              <a-col :sm="24" :lg="12">
+                <a-card title="System Info" hoverable>
                   <template #extra>
                     <a-tag color="blue" v-if="status.hostname">
                       <a-icon type="desktop" /> [[ status.hostname ]]
                     </a-tag>
                   </template>
-                  <a-row :gutter="[16, 8]">
-                    <a-col :span="6" :xs="12" class="text-center">
-                      <div style="font-size:22px;font-weight:600;color:#1890ff">[[ status.tcpCount ]]</div>
-                      <div style="font-size:11px;opacity:0.65">TCP</div>
+                  <a-row :gutter="isMobile ? [8,8] : [16,8]">
+                    <a-col :span="12">
+                      <a-tag color="green">
+                        <a-icon type="clock-circle" /> OS: [[ TimeFormatter.formatSecond(status.uptime) ]]
+                      </a-tag>
                     </a-col>
-                    <a-col :span="6" :xs="12" class="text-center">
-                      <div style="font-size:22px;font-weight:600;color:#722ed1">[[ status.udpCount ]]</div>
-                      <div style="font-size:11px;opacity:0.65">UDP</div>
-                    </a-col>
-                    <a-col :span="12" :xs="24">
-                      <div style="margin-bottom:4px">
-                        <a-tag color="green"><a-icon type="clock-circle" /> OS: [[ TimeFormatter.formatSecond(status.uptime) ]]</a-tag>
-                      </div>
-                      <div>
-                        <a-tag :color="status.xray.color"><a-icon type="thunderbolt" /> Xray: [[ TimeFormatter.formatSecond(status.appStats.uptime) ]]</a-tag>
-                      </div>
+                    <a-col :span="12">
+                      <a-tag :color="status.xray.color">
+                        <a-icon type="thunderbolt" /> Xray: [[ TimeFormatter.formatSecond(status.appStats.uptime) ]]
+                      </a-tag>
                     </a-col>
                   </a-row>
                   <a-divider style="margin:8px 0" />
-                  <a-row :gutter="[16, 4]">
-                    <a-col :span="12" :xs="24">
+                  <a-row :gutter="isMobile ? [8,8] : [16,4]">
+                    <a-col :span="24" style="margin-bottom:4px">
                       <a-tooltip>
                         <template slot="title">{{ i18n "pages.index.systemLoadDesc" }}</template>
-                        <a-tag color="green"><a-icon type="bar-chart" /> Load: [[ status.loads[0] ]] | [[ status.loads[1] ]] | [[ status.loads[2] ]]</a-tag>
+                        <a-tag color="green">
+                          <a-icon type="bar-chart" /> Load: [[ status.loads[0] ]] | [[ status.loads[1] ]] | [[ status.loads[2] ]]
+                        </a-tag>
                       </a-tooltip>
                     </a-col>
-                    <a-col :span="12" :xs="24">
-                      <a-tag color="green"><a-icon type="database" /> Mem: [[ SizeFormatter.sizeFormat(status.appStats.mem) ]]</a-tag>
-                      <a-tag color="green"><a-icon type="apartment" /> [[ status.appStats.threads ]] threads</a-tag>
+                    <a-col :span="12">
+                      <a-tag color="green">
+                        <a-icon type="database" /> {{ i18n "pages.index.memory" }}: [[ SizeFormatter.sizeFormat(status.appStats.mem) ]]
+                      </a-tag>
+                    </a-col>
+                    <a-col :span="12">
+                      <a-tag color="green">
+                        <a-icon type="apartment" /> {{ i18n "pages.index.threads" }}: [[ status.appStats.threads ]]
+                      </a-tag>
                     </a-col>
                   </a-row>
                 </a-card>
@@ -227,31 +247,48 @@
                   </div>
                 </a-card>
               </a-col>
-              <!-- Network Totals: System + Xray combined -->
+              <!-- Network Total Data -->
               <a-col :sm="24" :lg="12">
-                <a-card hoverable>
-                  <template #title>
-                    <a-icon type="cloud" /> {{ i18n "pages.index.totalData" }} / {{ i18n "pages.index.xrayTraffic" }}
-                  </template>
-                  <a-row :gutter="[8, 8]">
+                <a-card title='{{ i18n "pages.index.totalData" }}' hoverable>
+                  <a-row :gutter="isMobile ? [8,8] : 0">
                     <a-col :span="12">
-                      <div style="font-size:11px;opacity:0.5;margin-bottom:2px">{{ i18n "pages.index.sent" }}</div>
-                      <div><a-icon type="cloud-upload" style="color:#52c41a" /> [[ SizeFormatter.sizeFormat(status.netTraffic.sent) ]]</div>
+                      <a-custom-statistic title='{{ i18n "pages.index.sent" }}'
+                        :value="SizeFormatter.sizeFormat(status.netTraffic.sent)">
+                        <template #prefix>
+                          <a-icon type="cloud-upload" />
+                        </template>
+                      </a-custom-statistic>
                     </a-col>
                     <a-col :span="12">
-                      <div style="font-size:11px;opacity:0.5;margin-bottom:2px">{{ i18n "pages.index.received" }}</div>
-                      <div><a-icon type="cloud-download" style="color:#1890ff" /> [[ SizeFormatter.sizeFormat(status.netTraffic.recv) ]]</div>
+                      <a-custom-statistic title='{{ i18n "pages.index.received" }}'
+                        :value="SizeFormatter.sizeFormat(status.netTraffic.recv)">
+                        <template #prefix>
+                          <a-icon type="cloud-download" />
+                        </template>
+                      </a-custom-statistic>
                     </a-col>
                   </a-row>
-                  <a-divider style="margin:8px 0" />
-                  <a-row :gutter="[8, 8]">
+                </a-card>
+              </a-col>
+              <!-- Xray Traffic -->
+              <a-col :sm="24" :lg="12">
+                <a-card title='{{ i18n "pages.index.xrayTraffic" }}' hoverable>
+                  <a-row :gutter="isMobile ? [8,8] : 0">
                     <a-col :span="12">
-                      <div style="font-size:11px;opacity:0.5;margin-bottom:2px">Xray {{ i18n "pages.index.upload" }}</div>
-                      <div><a-icon type="arrow-up" style="color:#52c41a" /> [[ SizeFormatter.sizeFormat(status.xrayTraffic.up) ]]</div>
+                      <a-custom-statistic title='{{ i18n "pages.index.upload" }}'
+                        :value="SizeFormatter.sizeFormat(status.xrayTraffic.up)">
+                        <template #prefix>
+                          <a-icon type="arrow-up" style="color: #52c41a" />
+                        </template>
+                      </a-custom-statistic>
                     </a-col>
                     <a-col :span="12">
-                      <div style="font-size:11px;opacity:0.5;margin-bottom:2px">Xray {{ i18n "pages.index.download" }}</div>
-                      <div><a-icon type="arrow-down" style="color:#1890ff" /> [[ SizeFormatter.sizeFormat(status.xrayTraffic.down) ]]</div>
+                      <a-custom-statistic title='{{ i18n "pages.index.download" }}'
+                        :value="SizeFormatter.sizeFormat(status.xrayTraffic.down)">
+                        <template #prefix>
+                          <a-icon type="arrow-down" style="color: #1890ff" />
+                        </template>
+                      </a-custom-statistic>
                     </a-col>
                   </a-row>
                 </a-card>
