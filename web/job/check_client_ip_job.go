@@ -318,14 +318,23 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 		}
 	}
 
-	// Convert back to slice and sort by timestamp (oldest first)
-	// This ensures we always protect the original/current connections and ban new excess ones.
+	// Expire IPs not seen in the last 60 seconds
+	now := time.Now().Unix()
+	expiryWindow := int64(60)
+	for ip, ts := range ipMap {
+		if now-ts > expiryWindow {
+			delete(ipMap, ip)
+		}
+	}
+
+	// Convert back to slice and sort by timestamp (newest first)
+	// This keeps the most recently active IPs and bans the least-recently-seen excess ones.
 	allIps := make([]IPWithTimestamp, 0, len(ipMap))
 	for ip, timestamp := range ipMap {
 		allIps = append(allIps, IPWithTimestamp{IP: ip, Timestamp: timestamp})
 	}
 	sort.Slice(allIps, func(i, j int) bool {
-		return allIps[i].Timestamp < allIps[j].Timestamp // Ascending order (oldest first)
+		return allIps[i].Timestamp > allIps[j].Timestamp // Descending order (newest first)
 	})
 
 	shouldCleanLog := false
@@ -345,11 +354,11 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 	if len(allIps) > limitIp {
 		shouldCleanLog = true
 
-		// Keep the oldest IPs (currently active connections) and ban the new excess ones.
+		// Keep the most recently active IPs and ban the least-recently-seen excess ones.
 		keptIps := allIps[:limitIp]
 		bannedIps := allIps[limitIp:]
 
-		// Log banned IPs in the format fail2ban filters expect: [LIMIT_IP] Email = X || Disconnecting OLD IP = Y || Timestamp = Z
+		// Log banned IPs in the format fail2ban filters expect
 		for _, ipTime := range bannedIps {
 			j.disAllowedIps = append(j.disAllowedIps, ipTime.IP)
 			log.Printf("[LIMIT_IP] Email = %s || Disconnecting OLD IP = %s || Timestamp = %d", clientEmail, ipTime.IP, ipTime.Timestamp)
