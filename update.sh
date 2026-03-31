@@ -760,7 +760,7 @@ update_x-ui() {
         _fail "ERROR: Current x-ui version: unknown"
     fi
     
-    echo -e "${green}Downloading new x-ui version...${plain}"
+    echo -e "${green}Checking for updates...${plain}"
     
     tag_version=$(_curl -Ls "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
     if [[ ! -n "$tag_version" ]]; then
@@ -770,7 +770,13 @@ update_x-ui() {
             _fail "ERROR: Failed to fetch x-ui version, it may be due to GitHub API restrictions, please try it later"
         fi
     fi
-    echo -e "Got x-ui latest version: ${tag_version}, beginning the installation..."
+    latest_numeric=${tag_version#v}
+    if [[ "${current_xui_version}" == "${latest_numeric}" ]]; then
+        echo -e "${green}x-ui is already up to date (v${current_xui_version}). No update needed.${plain}"
+        exit 0
+    fi
+    
+    echo -e "Got x-ui latest version: ${tag_version} (current: ${current_xui_version}), beginning the update..."
     _curl -fLRo ${xui_folder}-linux-$(arch).tar.gz https://github.com/${GITHUB_REPO}/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz 2>/dev/null
     if [[ $? -ne 0 ]]; then
         echo -e "${yellow}Trying to fetch version with IPv4...${plain}"
