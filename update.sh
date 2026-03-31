@@ -785,9 +785,6 @@ update_x-ui() {
         if [[ $release == "alpine" ]]; then
             if [ -f "/etc/init.d/x-ui" ]; then
                 rc-service x-ui stop >/dev/null 2>&1
-                rc-update del x-ui >/dev/null 2>&1
-                echo -e "${green}Removing old service unit version...${plain}"
-                rm -f /etc/init.d/x-ui >/dev/null 2>&1
             else
                 rm x-ui-linux-$(arch).tar.gz -f >/dev/null 2>&1
                 _fail "ERROR: x-ui service unit not installed."
@@ -795,10 +792,6 @@ update_x-ui() {
         else
             if [ -f "${xui_service}/x-ui.service" ]; then
                 systemctl stop x-ui >/dev/null 2>&1
-                systemctl disable x-ui >/dev/null 2>&1
-                echo -e "${green}Removing old systemd unit version...${plain}"
-                rm ${xui_service}/x-ui.service -f >/dev/null 2>&1
-                systemctl daemon-reload >/dev/null 2>&1
             else
                 rm x-ui-linux-$(arch).tar.gz -f >/dev/null 2>&1
                 _fail "ERROR: x-ui systemd unit not installed."
@@ -859,81 +852,57 @@ update_x-ui() {
     fi
     
     if [[ $release == "alpine" ]]; then
-        echo -e "${green}Downloading and installing startup unit x-ui.rc...${plain}"
-        _curl -fLRo /etc/init.d/x-ui https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.rc >/dev/null 2>&1
-        if [[ $? -ne 0 ]]; then
-            _curl -4fLRo /etc/init.d/x-ui https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.rc >/dev/null 2>&1
+        if [ ! -f "/etc/init.d/x-ui" ]; then
+            echo -e "${green}Downloading and installing startup unit x-ui.rc...${plain}"
+            _curl -fLRo /etc/init.d/x-ui https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.rc >/dev/null 2>&1
             if [[ $? -ne 0 ]]; then
-                _fail "ERROR: Failed to download startup unit x-ui.rc, please be sure that your server can access GitHub"
+                _curl -4fLRo /etc/init.d/x-ui https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.rc >/dev/null 2>&1
+                if [[ $? -ne 0 ]]; then
+                    _fail "ERROR: Failed to download startup unit x-ui.rc, please be sure that your server can access GitHub"
+                fi
             fi
+            chmod +x /etc/init.d/x-ui >/dev/null 2>&1
+            chown root:root /etc/init.d/x-ui >/dev/null 2>&1
+        else
+            echo -e "${green}Keeping existing service unit (preserving MySQL/env config)${plain}"
         fi
-        chmod +x /etc/init.d/x-ui >/dev/null 2>&1
-        chown root:root /etc/init.d/x-ui >/dev/null 2>&1
         rc-update add x-ui >/dev/null 2>&1
         rc-service x-ui start >/dev/null 2>&1
     else
-        if [ -f "x-ui.service" ]; then
-            echo -e "${green}Installing systemd unit...${plain}"
-            cp -f x-ui.service ${xui_service}/ >/dev/null 2>&1
-            if [[ $? -ne 0 ]]; then
-                echo -e "${red}Failed to copy x-ui.service${plain}"
-                exit 1
-            fi
-        else
-            service_installed=false
-            case "${release}" in
-                ubuntu | debian | armbian)
-                    if [ -f "x-ui.service.debian" ]; then
-                        echo -e "${green}Installing debian-like systemd unit...${plain}"
-                        cp -f x-ui.service.debian ${xui_service}/x-ui.service >/dev/null 2>&1
-                        if [[ $? -eq 0 ]]; then
-                            service_installed=true
-                        fi
-                    fi
-                ;;
-                arch | manjaro | parch)
-                    if [ -f "x-ui.service.arch" ]; then
-                        echo -e "${green}Installing arch-like systemd unit...${plain}"
-                        cp -f x-ui.service.arch ${xui_service}/x-ui.service >/dev/null 2>&1
-                        if [[ $? -eq 0 ]]; then
-                            service_installed=true
-                        fi
-                    fi
-                ;;
-                *)
-                    if [ -f "x-ui.service.rhel" ]; then
-                        echo -e "${green}Installing rhel-like systemd unit...${plain}"
-                        cp -f x-ui.service.rhel ${xui_service}/x-ui.service >/dev/null 2>&1
-                        if [[ $? -eq 0 ]]; then
-                            service_installed=true
-                        fi
-                    fi
-                ;;
-            esac
-            
-            # If service file not found in tar.gz, download from GitHub
-            if [ "$service_installed" = false ]; then
-                echo -e "${yellow}Service files not found in tar.gz, downloading from GitHub...${plain}"
+        if [ ! -f "${xui_service}/x-ui.service" ]; then
+            echo -e "${green}Service file not found, installing new one...${plain}"
+            if [ -f "x-ui.service" ]; then
+                cp -f x-ui.service ${xui_service}/ >/dev/null 2>&1
+            else
                 case "${release}" in
                     ubuntu | debian | armbian)
-                        _curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.service.debian >/dev/null 2>&1
+                        if [ -f "x-ui.service.debian" ]; then
+                            cp -f x-ui.service.debian ${xui_service}/x-ui.service >/dev/null 2>&1
+                        else
+                            _curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.service.debian >/dev/null 2>&1
+                        fi
                     ;;
                     arch | manjaro | parch)
-                        _curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.service.arch >/dev/null 2>&1
+                        if [ -f "x-ui.service.arch" ]; then
+                            cp -f x-ui.service.arch ${xui_service}/x-ui.service >/dev/null 2>&1
+                        else
+                            _curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.service.arch >/dev/null 2>&1
+                        fi
                     ;;
                     *)
-                        _curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.service.rhel >/dev/null 2>&1
+                        if [ -f "x-ui.service.rhel" ]; then
+                            cp -f x-ui.service.rhel ${xui_service}/x-ui.service >/dev/null 2>&1
+                        else
+                            _curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.service.rhel >/dev/null 2>&1
+                        fi
                     ;;
                 esac
-                
-                if [[ $? -ne 0 ]]; then
-                    echo -e "${red}Failed to install x-ui.service from GitHub${plain}"
-                    exit 1
-                fi
             fi
+            chown root:root ${xui_service}/x-ui.service >/dev/null 2>&1
+            chmod 644 ${xui_service}/x-ui.service >/dev/null 2>&1
+        else
+            echo -e "${green}Keeping existing x-ui.service (preserving MySQL/env config)${plain}"
         fi
-        chown root:root ${xui_service}/x-ui.service >/dev/null 2>&1
-        chmod 644 ${xui_service}/x-ui.service >/dev/null 2>&1
         systemctl daemon-reload >/dev/null 2>&1
         systemctl enable x-ui >/dev/null 2>&1
         systemctl start x-ui >/dev/null 2>&1
