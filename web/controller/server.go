@@ -3,8 +3,10 @@ package controller
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/mhsanaei/3x-ui/v2/web/global"
@@ -42,6 +44,7 @@ func (a *ServerController) initRouter(g *gin.RouterGroup) {
 
 	g.GET("/status", a.status)
 	g.GET("/cpuHistory/:bucket", a.getCpuHistoryBucket)
+	g.GET("/trafficHistory/:bucket", a.getTrafficHistoryBucket)
 	g.GET("/getXrayVersion", a.getXrayVersion)
 	g.GET("/getConfigJson", a.getConfigJson)
 	g.GET("/getDb", a.getDb)
@@ -51,6 +54,8 @@ func (a *ServerController) initRouter(g *gin.RouterGroup) {
 	g.GET("/getNewmlkem768", a.getNewmlkem768)
 	g.GET("/getNewVlessEnc", a.getNewVlessEnc)
 
+	g.GET("/checkPanelUpdate", a.checkPanelUpdate)
+	g.POST("/updatePanel", a.updatePanel)
 	g.POST("/stopXrayService", a.stopXrayService)
 	g.POST("/restartXrayService", a.restartXrayService)
 	g.POST("/installXray/:version", a.installXray)
@@ -65,10 +70,10 @@ func (a *ServerController) initRouter(g *gin.RouterGroup) {
 // refreshStatus updates the cached server status and collects CPU history.
 func (a *ServerController) refreshStatus() {
 	a.lastStatus = a.serverService.GetStatus(a.lastStatus)
-	// collect cpu history when status is fresh
 	if a.lastStatus != nil {
-		a.serverService.AppendCpuSample(time.Now(), a.lastStatus.Cpu)
-		// Broadcast status update via WebSocket
+		now := time.Now()
+		a.serverService.AppendCpuSample(now, a.lastStatus.Cpu)
+		a.serverService.AppendTrafficSample(now, a.lastStatus.NetIO.Up, a.lastStatus.NetIO.Down)
 		websocket.BroadcastStatus(a.lastStatus)
 	}
 }
@@ -109,6 +114,48 @@ func (a *ServerController) getCpuHistoryBucket(c *gin.Context) {
 	}
 	points := a.serverService.AggregateCpuHistory(bucket, 60)
 	jsonObj(c, points, nil)
+}
+
+// getTrafficHistoryBucket retrieves aggregated traffic rate history based on the specified time bucket.
+func (a *ServerController) getTrafficHistoryBucket(c *gin.Context) {
+	bucketStr := c.Param("bucket")
+	bucket, err := strconv.Atoi(bucketStr)
+	if err != nil || bucket <= 0 {
+		jsonMsg(c, "invalid bucket", fmt.Errorf("bad bucket"))
+		return
+	}
+	allowed := map[int]bool{
+		2: true, 30: true, 60: true, 120: true, 180: true, 300: true,
+	}
+	if !allowed[bucket] {
+		jsonMsg(c, "invalid bucket", fmt.Errorf("unsupported bucket"))
+		return
+	}
+	points := a.serverService.AggregateTrafficHistory(bucket, 60)
+	jsonObj(c, points, nil)
+}
+
+func (a *ServerController) checkPanelUpdate(c *gin.Context) {
+	info, err := a.serverService.GetLatestPanelVersion()
+	if err != nil {
+		jsonMsg(c, "Failed to check for updates", err)
+		return
+	}
+	jsonObj(c, info, nil)
+}
+
+func (a *ServerController) updatePanel(c *gin.Context) {
+	err := a.serverService.UpdatePanel()
+	if err != nil {
+		jsonMsg(c, "Update failed", err)
+		return
+	}
+	jsonMsg(c, "Panel updated successfully. Restarting...", nil)
+	go func() {
+		time.Sleep(time.Second)
+		p, _ := os.FindProcess(os.Getpid())
+		p.Signal(syscall.SIGHUP)
+	}()
 }
 
 // getXrayVersion retrieves available Xray versions, with caching for 1 minute.

@@ -1,9 +1,11 @@
 package service
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -111,7 +113,23 @@ type TrafficDailySummary struct {
 
 // Release represents information about a software release from GitHub.
 type Release struct {
-	TagName string `json:"tag_name"` // The tag name of the release
+	TagName string `json:"tag_name"`
+}
+
+// PanelVersionInfo contains the current and latest version of the panel.
+type PanelVersionInfo struct {
+	CurrentVersion string `json:"currentVersion"`
+	LatestVersion  string `json:"latestVersion"`
+	HasUpdate      bool   `json:"hasUpdate"`
+}
+
+const panelGitHubRepo = "begininvoke/3x-ui-mysql"
+
+// TrafficSample stores a single traffic rate measurement.
+type TrafficSample struct {
+	T    int64 `json:"t"`
+	Up   int64 `json:"up"`
+	Down int64 `json:"down"`
 }
 
 // ServerService provides business logic for server monitoring and management.
@@ -128,6 +146,7 @@ type ServerService struct {
 	hasNativeCPUSample bool
 	emaCPU             float64
 	cpuHistory         []CPUSample
+	trafficHistory []TrafficSample
 	cachedCpuSpeedMhz  float64
 	lastCpuInfoAttempt time.Time
 }
@@ -467,6 +486,84 @@ func (s *ServerService) AppendCpuSample(t time.Time, v float64) {
 	}
 }
 
+// AppendTrafficSample records the current net I/O rate (bytes/sec) as a traffic history point.
+func (s *ServerService) AppendTrafficSample(t time.Time, upBps, downBps uint64) {
+	const capacity = 9000
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	sample := TrafficSample{T: t.Unix(), Up: int64(upBps), Down: int64(downBps)}
+	if n := len(s.trafficHistory); n > 0 && s.trafficHistory[n-1].T == sample.T {
+		s.trafficHistory[n-1] = sample
+	} else {
+		s.trafficHistory = append(s.trafficHistory, sample)
+	}
+	if len(s.trafficHistory) > capacity {
+		s.trafficHistory = s.trafficHistory[len(s.trafficHistory)-capacity:]
+	}
+}
+
+// AggregateTrafficHistory returns bucketed traffic rate history, similar to AggregateCpuHistory.
+func (s *ServerService) AggregateTrafficHistory(bucketSeconds int, maxPoints int) []map[string]any {
+	if bucketSeconds <= 0 || maxPoints <= 0 {
+		return nil
+	}
+	cutoff := time.Now().Add(-time.Duration(bucketSeconds*maxPoints) * time.Second).Unix()
+	s.mu.Lock()
+	hist := s.trafficHistory
+	startIdx := 0
+	for i := len(hist) - 1; i >= 0; i-- {
+		if hist[i].T < cutoff {
+			startIdx = i + 1
+			break
+		}
+	}
+	if startIdx >= len(hist) {
+		s.mu.Unlock()
+		return []map[string]any{}
+	}
+	slice := hist[startIdx:]
+	tmp := make([]TrafficSample, len(slice))
+	copy(tmp, slice)
+	s.mu.Unlock()
+	if len(tmp) == 0 {
+		return []map[string]any{}
+	}
+	var out []map[string]any
+	var accUp, accDown []int64
+	bSize := int64(bucketSeconds)
+	curBucket := (tmp[0].T / bSize) * bSize
+	flush := func(ts int64) {
+		if len(accUp) == 0 {
+			return
+		}
+		var sumUp, sumDown int64
+		for i := range accUp {
+			sumUp += accUp[i]
+			sumDown += accDown[i]
+		}
+		avgUp := sumUp / int64(len(accUp))
+		avgDown := sumDown / int64(len(accDown))
+		out = append(out, map[string]any{"t": ts, "up": avgUp, "down": avgDown})
+		accUp = accUp[:0]
+		accDown = accDown[:0]
+	}
+	for _, p := range tmp {
+		b := (p.T / bSize) * bSize
+		if b != curBucket {
+			flush(curBucket)
+			curBucket = b
+		}
+		accUp = append(accUp, p.Up)
+		accDown = append(accDown, p.Down)
+	}
+	flush(curBucket)
+	if len(out) > maxPoints {
+		out = out[len(out)-maxPoints:]
+	}
+	return out
+}
+
 func (s *ServerService) sampleCPUUtilization() (float64, error) {
 	// Try native platform-specific CPU implementation first (Windows, Linux, macOS)
 	if pct, err := sys.CPUPercentRaw(); err == nil {
@@ -550,6 +647,227 @@ func (s *ServerService) sampleCPUUtilization() (float64, error) {
 	}
 
 	return s.emaCPU, nil
+}
+
+// GetLatestPanelVersion checks the GitHub API for the latest release of the panel.
+func (s *ServerService) GetLatestPanelVersion() (*PanelVersionInfo, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", panelGitHubRepo)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var release Release
+	if err := json.Unmarshal(body, &release); err != nil {
+		return nil, err
+	}
+
+	latestVer := strings.TrimPrefix(release.TagName, "v")
+	currentVer := config.GetVersion()
+
+	return &PanelVersionInfo{
+		CurrentVersion: currentVer,
+		LatestVersion:  latestVer,
+		HasUpdate:      latestVer != currentVer && release.TagName != "",
+	}, nil
+}
+
+// UpdatePanel downloads the latest release from GitHub and replaces the current binary.
+func (s *ServerService) UpdatePanel() error {
+	info, err := s.GetLatestPanelVersion()
+	if err != nil {
+		return fmt.Errorf("failed to check latest version: %w", err)
+	}
+	if !info.HasUpdate {
+		return fmt.Errorf("already running latest version (%s)", info.CurrentVersion)
+	}
+
+	tag := "v" + info.LatestVersion
+
+	arch := runtime.GOARCH
+	switch arch {
+	case "arm":
+		arch = "armv7"
+	}
+
+	var downloadURL string
+	var ext string
+	if runtime.GOOS == "windows" {
+		ext = ".zip"
+		downloadURL = fmt.Sprintf("https://github.com/%s/releases/download/%s/x-ui-windows-%s%s", panelGitHubRepo, tag, arch, ext)
+	} else {
+		ext = ".tar.gz"
+		downloadURL = fmt.Sprintf("https://github.com/%s/releases/download/%s/x-ui-linux-%s%s", panelGitHubRepo, tag, arch, ext)
+	}
+
+	logger.Infof("Downloading panel update from %s", downloadURL)
+
+	resp, err := http.Get(downloadURL)
+	if err != nil {
+		return fmt.Errorf("failed to download update: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("download returned status %d", resp.StatusCode)
+	}
+
+	tmpFile, err := os.CreateTemp("", "x-ui-update-*"+ext)
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
+
+	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
+		tmpFile.Close()
+		return fmt.Errorf("failed to save update: %w", err)
+	}
+	tmpFile.Close()
+
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to find current executable: %w", err)
+	}
+	exePath, err = filepath.EvalSymlinks(exePath)
+	if err != nil {
+		return fmt.Errorf("failed to resolve executable path: %w", err)
+	}
+	exeDir := filepath.Dir(exePath)
+
+	if runtime.GOOS == "windows" {
+		if err := s.extractZipUpdate(tmpPath, exeDir, exePath); err != nil {
+			return err
+		}
+	} else {
+		if err := s.extractTarGzUpdate(tmpPath, exeDir, exePath); err != nil {
+			return err
+		}
+	}
+
+	logger.Infof("Panel updated to %s, restarting...", info.LatestVersion)
+	return nil
+}
+
+func (s *ServerService) extractTarGzUpdate(archivePath, exeDir, exePath string) error {
+	f, err := os.Open(archivePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	gzr, err := gzip.NewReader(f)
+	if err != nil {
+		return err
+	}
+	defer gzr.Close()
+
+	tr := tar.NewReader(gzr)
+	binaryUpdated := false
+
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("tar read error: %w", err)
+		}
+
+		cleanName := filepath.Clean(header.Name)
+		parts := strings.SplitN(cleanName, string(os.PathSeparator), 2)
+		if len(parts) < 2 {
+			continue
+		}
+		relPath := parts[1]
+
+		if header.Typeflag == tar.TypeDir {
+			continue
+		}
+
+		targetPath := filepath.Join(exeDir, relPath)
+		os.MkdirAll(filepath.Dir(targetPath), 0755)
+
+		if targetPath == exePath {
+			os.Remove(exePath + ".old")
+			os.Rename(exePath, exePath+".old")
+		}
+
+		outFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode)|0755)
+		if err != nil {
+			return fmt.Errorf("failed to write %s: %w", targetPath, err)
+		}
+		if _, err := io.Copy(outFile, tr); err != nil {
+			outFile.Close()
+			return fmt.Errorf("failed to extract %s: %w", targetPath, err)
+		}
+		outFile.Close()
+
+		if targetPath == exePath || relPath == "x-ui" {
+			binaryUpdated = true
+		}
+	}
+
+	if !binaryUpdated {
+		return fmt.Errorf("update archive did not contain the expected binary")
+	}
+	return nil
+}
+
+func (s *ServerService) extractZipUpdate(archivePath, exeDir, exePath string) error {
+	r, err := zip.OpenReader(archivePath)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+		cleanName := filepath.Clean(f.Name)
+		parts := strings.SplitN(cleanName, string(os.PathSeparator), 2)
+		if len(parts) < 2 {
+			continue
+		}
+		relPath := parts[1]
+
+		if f.FileInfo().IsDir() {
+			continue
+		}
+
+		targetPath := filepath.Join(exeDir, relPath)
+		os.MkdirAll(filepath.Dir(targetPath), 0755)
+
+		if targetPath == exePath {
+			os.Remove(exePath + ".old")
+			os.Rename(exePath, exePath+".old")
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			return err
+		}
+		outFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, f.Mode()|0755)
+		if err != nil {
+			rc.Close()
+			return err
+		}
+		_, err = io.Copy(outFile, rc)
+		outFile.Close()
+		rc.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *ServerService) GetXrayVersions() ([]string, error) {

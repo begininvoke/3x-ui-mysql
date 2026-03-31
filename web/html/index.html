@@ -156,20 +156,31 @@
                 </a-card>
               </a-col>
               <a-col :sm="24" :lg="12">
-                <a-card title='3X-UI' hoverable>
-                  <a rel="noopener" href="https://github.com/MHSanaei/3x-ui/releases" target="_blank">
+                <a-card title='3X-UI MySQL' hoverable>
+                  <template #extra>
+                    <a-button size="small" type="primary" ghost @click="checkPanelUpdate" :loading="panelUpdate.checking">
+                      <a-icon type="cloud-sync" /> Check Update
+                    </a-button>
+                  </template>
+                  <a rel="noopener" href="https://github.com/begininvoke/3x-ui-mysql/releases" target="_blank">
                     <a-tag color="green">
                       <span>v{{ .cur_ver }}</span>
                     </a-tag>
                   </a>
-                  <a rel="noopener" href="https://t.me/XrayUI" target="_blank">
-                    <a-tag color="green">
-                      <span>@XrayUI</span>
+                  <template v-if="panelUpdate.hasUpdate">
+                    <a-tag color="orange">
+                      <span>New: v[[ panelUpdate.latestVersion ]]</span>
                     </a-tag>
-                  </a>
-                  <a rel="noopener" href="https://github.com/MHSanaei/3x-ui/wiki" target="_blank">
+                    <a-button size="small" type="danger" @click="updatePanel" :loading="panelUpdate.updating" style="margin-left:4px">
+                      <a-icon type="download" /> Update Now
+                    </a-button>
+                  </template>
+                  <a-tag v-else-if="panelUpdate.checked" color="green">
+                    <a-icon type="check-circle" /> Up to date
+                  </a-tag>
+                  <a rel="noopener" href="https://github.com/begininvoke/3x-ui-mysql" target="_blank">
                     <a-tag color="purple">
-                      <span>{{ i18n "pages.index.documentation" }}</span>
+                      <span>GitHub</span>
                     </a-tag>
                   </a>
                 </a-card>
@@ -206,7 +217,15 @@
                 </a-card>
               </a-col>
               <a-col :sm="24" :lg="12">
-                <a-card title='{{ i18n "pages.index.overallSpeed" }}' hoverable>
+                <a-card hoverable>
+                  <template #title>
+                    {{ i18n "pages.index.overallSpeed" }}
+                    <a-tooltip :overlay-class-name="themeSwitcher.currentTheme">
+                      <a-button size="small" shape="circle" class="ml-8" @click="openTrafficHistory()">
+                        <a-icon type="history" />
+                      </a-button>
+                    </a-tooltip>
+                  </template>
                   <a-row :gutter="isMobile ? [8,8] : 0">
                     <a-col :span="12">
                       <a-custom-statistic title='{{ i18n "pages.index.upload" }}'
@@ -501,6 +520,38 @@
       <div style="margin-top:4px;font-size:11px;opacity:0.65">Timeframe: [[ cpuHistoryModal.bucket ]] sec per point (total [[ cpuHistoryLong.length ]] points)</div>
     </div>
   </a-modal>
+  <!-- Traffic History Modal -->
+  <a-modal id="traffic-history-modal" v-model="trafficHistoryModal.visible" :closable="true"
+    @cancel="() => trafficHistoryModal.visible = false" :class="themeSwitcher.currentTheme" width="900px" footer="">
+    <template slot="title">
+      Traffic History
+      <a-select size="small" v-model="trafficHistoryModal.bucket" class="ml-10" style="width: 80px"
+        @change="fetchTrafficHistoryBucket">
+        <a-select-option :value="2">2m</a-select-option>
+        <a-select-option :value="30">30m</a-select-option>
+        <a-select-option :value="60">1h</a-select-option>
+        <a-select-option :value="120">2h</a-select-option>
+        <a-select-option :value="180">3h</a-select-option>
+        <a-select-option :value="300">5h</a-select-option>
+      </a-select>
+    </template>
+    <div style="padding:16px">
+      <div style="margin-bottom:8px;font-size:13px">
+        <span style="color:#52c41a;font-weight:bold">&#9650; Upload</span>
+        <span style="margin-left:16px;color:#1890ff;font-weight:bold">&#9660; Download</span>
+      </div>
+      <sparkline :data="trafficHistoryUp" :labels="trafficHistoryLabels" :vb-width="840" :height="120"
+        stroke="#52c41a" :stroke-width="2" :show-grid="true" :show-axes="true" :tick-count-x="5"
+        :max-points="trafficHistoryUp.length" :fill-opacity="0.15" :marker-radius="2.5" :show-tooltip="true"
+        :auto-scale="true" :tooltip-formatter="trafficTooltipUp" :y-label-formatter="trafficYLabel" :padding-left="52" />
+      <div style="height:8px"></div>
+      <sparkline :data="trafficHistoryDown" :labels="trafficHistoryLabels" :vb-width="840" :height="120"
+        stroke="#1890ff" :stroke-width="2" :show-grid="true" :show-axes="true" :tick-count-x="5"
+        :max-points="trafficHistoryDown.length" :fill-opacity="0.15" :marker-radius="2.5" :show-tooltip="true"
+        :auto-scale="true" :tooltip-formatter="trafficTooltipDown" :y-label-formatter="trafficYLabel" :padding-left="52" />
+      <div style="margin-top:4px;font-size:11px;opacity:0.65">Timeframe: [[ trafficHistoryModal.bucket ]] sec per point (total [[ trafficHistoryUp.length ]] points)</div>
+    </div>
+  </a-modal>
 </a-layout>
 {{template "page/body_scripts" .}}
 {{template "component/aSidebar" .}}
@@ -533,6 +584,9 @@
       paddingTop: { type: Number, default: 6 },
       paddingBottom: { type: Number, default: 20 },
       showTooltip: { type: Boolean, default: false },
+      autoScale: { type: Boolean, default: false },
+      tooltipFormatter: { type: Function, default: null },
+      yLabelFormatter: { type: Function, default: null },
     },
     data() {
       return {
@@ -563,17 +617,26 @@
         const start = Math.max(0, this.labels.length - n)
         return this.labels.slice(start)
       },
+      computedMax() {
+        if (!this.autoScale) return 100
+        const slice = this.dataSlice
+        if (slice.length === 0) return 100
+        let m = 0
+        for (const v of slice) { if (v > m) m = v }
+        return m > 0 ? m * 1.1 : 100
+      },
       pointsArr() {
         const n = this.nPoints
         if (n === 0) return []
         const slice = this.dataSlice
-        const max = 100
+        const max = this.computedMax
         const w = this.drawWidth
         const h = this.drawHeight
         const dx = n > 1 ? w / (n - 1) : 0
         return slice.map((v, i) => {
           const x = Math.round(this.paddingLeft + i * dx)
-          const y = Math.round(this.paddingTop + (h - (Math.max(0, Math.min(100, v)) / max) * h))
+          const clamped = Math.max(0, Math.min(max, v))
+          const y = Math.round(this.paddingTop + (h - (clamped / max) * h))
           return [x, y]
         })
       },
@@ -603,11 +666,20 @@
       },
       yTicks() {
         if (!this.showAxes) return []
-        const step = Math.max(1, this.yTickStep)
+        const max = this.computedMax
         const ticks = []
-        for (let p = 0; p <= 100; p += step) {
-          const y = Math.round(this.paddingTop + (this.drawHeight - (p / 100) * this.drawHeight))
-          ticks.push({ y, label: `${p}%` })
+        const count = 5
+        for (let i = 0; i <= count; i++) {
+          const frac = i / count
+          const val = max * frac
+          const y = Math.round(this.paddingTop + (this.drawHeight - frac * this.drawHeight))
+          let label
+          if (this.yLabelFormatter) {
+            label = this.yLabelFormatter(val)
+          } else {
+            label = `${Math.round(val)}%`
+          }
+          ticks.push({ y, label })
         }
         return ticks
       },
@@ -652,7 +724,10 @@
         const labels = this.labelsSlice
         const idx = this.hoverIdx
         if (idx < 0 || idx >= this.dataSlice.length) return ''
-        const raw = Math.max(0, Math.min(100, Number(this.dataSlice[idx] || 0)))
+        const raw = Number(this.dataSlice[idx] || 0)
+        if (this.tooltipFormatter) {
+          return this.tooltipFormatter(raw, idx)
+        }
         const val = Number.isFinite(raw) ? raw.toFixed(2) : raw
         const lab = labels[idx] != null ? labels[idx] : ''
         return `${val}%${lab ? ' • ' + lab : ''}`
@@ -944,10 +1019,15 @@
         spinning: false
       },
       status: new Status(),
-  cpuHistory: [], // small live widget history
-  cpuHistoryLong: [], // aggregated points from backend
+  cpuHistory: [],
+  cpuHistoryLong: [],
   cpuHistoryLabels: [],
   cpuHistoryModal: { visible: false, bucket: 2 },
+  trafficHistoryUp: [],
+  trafficHistoryDown: [],
+  trafficHistoryLabels: [],
+  trafficHistoryModal: { visible: false, bucket: 2 },
+  panelUpdate: { checking: false, updating: false, checked: false, hasUpdate: false, latestVersion: '' },
       versionModal,
       logModal,
       xraylogModal,
@@ -997,9 +1077,11 @@
         if (this.cpuHistory.length > maxPoints) {
           this.cpuHistory.splice(0, this.cpuHistory.length - maxPoints)
         }
-        // If modal open, refresh current bucketed data
         if (this.cpuHistoryModal.visible) {
           this.fetchCpuHistoryBucket()
+        }
+        if (this.trafficHistoryModal.visible) {
+          this.fetchTrafficHistoryBucket()
         }
       },
       openCpuHistory() {
@@ -1027,6 +1109,87 @@
         } catch(e) {
           console.error('Failed to fetch bucketed cpu history', e)
         }
+      },
+      openTrafficHistory() {
+        this.trafficHistoryModal.visible = true
+        this.fetchTrafficHistoryBucket()
+      },
+      async fetchTrafficHistoryBucket() {
+        const bucket = this.trafficHistoryModal.bucket || 2
+        try {
+          const msg = await HttpUtil.get(`/panel/api/server/trafficHistory/${bucket}`)
+          if (msg.success && Array.isArray(msg.obj)) {
+            const ups = [], downs = [], labels = []
+            for (const p of msg.obj) {
+              const d = new Date(p.t * 1000)
+              const hh = String(d.getHours()).padStart(2,'0')
+              const mm = String(d.getMinutes()).padStart(2,'0')
+              const ss = String(d.getSeconds()).padStart(2,'0')
+              labels.push(bucket>=60 ? `${hh}:${mm}` : `${hh}:${mm}:${ss}`)
+              ups.push(p.up || 0)
+              downs.push(p.down || 0)
+            }
+            this.trafficHistoryLabels = labels
+            this.trafficHistoryUp = ups
+            this.trafficHistoryDown = downs
+          }
+        } catch(e) {
+          console.error('Failed to fetch traffic history', e)
+        }
+      },
+      trafficTooltipUp(val, idx) {
+        const lab = this.trafficHistoryLabels[idx] || ''
+        return `↑ ${SizeFormatter.sizeFormat(val)}/s${lab ? ' • ' + lab : ''}`
+      },
+      trafficTooltipDown(val, idx) {
+        const lab = this.trafficHistoryLabels[idx] || ''
+        return `↓ ${SizeFormatter.sizeFormat(val)}/s${lab ? ' • ' + lab : ''}`
+      },
+      trafficYLabel(val) {
+        return SizeFormatter.sizeFormat(val)
+      },
+      async checkPanelUpdate() {
+        this.panelUpdate.checking = true
+        try {
+          const msg = await HttpUtil.get('/panel/api/server/checkPanelUpdate')
+          if (msg.success && msg.obj) {
+            this.panelUpdate.checked = true
+            this.panelUpdate.hasUpdate = msg.obj.hasUpdate
+            this.panelUpdate.latestVersion = msg.obj.latestVersion
+            if (!msg.obj.hasUpdate) {
+              this.$message.success('Already running the latest version (v' + msg.obj.currentVersion + ')')
+            }
+          }
+        } catch(e) {
+          this.$message.error('Failed to check for updates')
+        }
+        this.panelUpdate.checking = false
+      },
+      updatePanel() {
+        this.$confirm({
+          title: 'Update Panel',
+          content: `Update from v{{ .cur_ver }} to v${this.panelUpdate.latestVersion}? The panel will restart automatically.`,
+          okText: '{{ i18n "confirm"}}',
+          class: themeSwitcher.currentTheme,
+          cancelText: '{{ i18n "cancel"}}',
+          onOk: async () => {
+            this.panelUpdate.updating = true
+            this.loading(true, 'Downloading and installing update...')
+            try {
+              const msg = await HttpUtil.post('/panel/api/server/updatePanel')
+              if (msg.success) {
+                this.$message.success('Update successful! Panel is restarting...')
+                setTimeout(() => { window.location.reload() }, 5000)
+              } else {
+                this.$message.error(msg.msg || 'Update failed')
+              }
+            } catch(e) {
+              this.$message.error('Update failed: ' + e.message)
+            }
+            this.panelUpdate.updating = false
+            this.loading(false)
+          },
+        })
       },
       async openSelectV2rayVersion() {
         this.loading(true);
