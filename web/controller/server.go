@@ -117,22 +117,28 @@ func (a *ServerController) getCpuHistoryBucket(c *gin.Context) {
 	jsonObj(c, points, nil)
 }
 
-// getTrafficHistoryBucket retrieves aggregated traffic rate history based on the specified time bucket.
+// getTrafficHistoryBucket retrieves aggregated traffic rate history.
+// The :bucket param is the desired timeframe in minutes (10, 30, 60, 180, 300).
+// Bucket size is computed to yield ~300 data points for good chart resolution.
 func (a *ServerController) getTrafficHistoryBucket(c *gin.Context) {
 	bucketStr := c.Param("bucket")
-	bucket, err := strconv.Atoi(bucketStr)
-	if err != nil || bucket <= 0 {
-		jsonMsg(c, "invalid bucket", fmt.Errorf("bad bucket"))
+	minutes, err := strconv.Atoi(bucketStr)
+	if err != nil || minutes <= 0 {
+		jsonMsg(c, "invalid timeframe", fmt.Errorf("bad value"))
 		return
 	}
-	allowed := map[int]bool{
-		2: true, 30: true, 60: true, 120: true, 180: true, 300: true,
-	}
-	if !allowed[bucket] {
-		jsonMsg(c, "invalid bucket", fmt.Errorf("unsupported bucket"))
+	allowed := map[int]bool{10: true, 30: true, 60: true, 180: true, 300: true}
+	if !allowed[minutes] {
+		jsonMsg(c, "invalid timeframe", fmt.Errorf("unsupported value"))
 		return
 	}
-	points := a.serverService.AggregateTrafficHistory(bucket, 60)
+	totalSeconds := minutes * 60
+	bucketSize := totalSeconds / 300
+	if bucketSize < 2 {
+		bucketSize = 2
+	}
+	maxPoints := totalSeconds / bucketSize
+	points := a.serverService.AggregateTrafficHistory(bucketSize, maxPoints)
 	jsonObj(c, points, nil)
 }
 

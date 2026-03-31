@@ -530,11 +530,11 @@
       Traffic History
       <a-select size="small" v-model="trafficHistoryModal.bucket" class="ml-10" style="width: 80px"
         @change="fetchTrafficHistoryBucket">
-        <a-select-option :value="2">2m</a-select-option>
+        <a-select-option :value="10">10m</a-select-option>
         <a-select-option :value="30">30m</a-select-option>
         <a-select-option :value="60">1h</a-select-option>
-        <a-select-option :value="120">2h</a-select-option>
         <a-select-option :value="180">3h</a-select-option>
+        <a-select-option :value="300">5h</a-select-option>
         <a-select-option :value="300">5h</a-select-option>
       </a-select>
     </template>
@@ -552,7 +552,7 @@
         stroke="#1890ff" :stroke-width="2" :show-grid="true" :show-axes="true" :tick-count-x="5"
         :max-points="trafficHistoryDown.length" :fill-opacity="0.15" :marker-radius="2.5" :show-tooltip="true"
         :auto-scale="true" :tooltip-formatter="trafficTooltipDown" :y-label-formatter="trafficYLabel" :padding-left="52" />
-      <div style="margin-top:4px;font-size:11px;opacity:0.65">Timeframe: [[ trafficHistoryModal.bucket ]] sec per point (total [[ trafficHistoryUp.length ]] points)</div>
+      <div style="margin-top:4px;font-size:11px;opacity:0.65">Timeframe: [[ trafficHistoryModal.bucket >= 60 ? (trafficHistoryModal.bucket / 60) + 'h' : trafficHistoryModal.bucket + 'm' ]] ([[ trafficHistoryUp.length ]] points)</div>
     </div>
   </a-modal>
 </a-layout>
@@ -1031,7 +1031,7 @@
   trafficHistoryUp: [],
   trafficHistoryDown: [],
   trafficHistoryLabels: [],
-  trafficHistoryModal: { visible: false, bucket: 2 },
+  trafficHistoryModal: { visible: false, bucket: 30 },
   panelUpdate: { checking: false, updating: false, checked: false, hasUpdate: false, latestVersion: '' },
   dailyTrafficDays: 7,
   dailyTrafficData: [],
@@ -1139,9 +1139,9 @@
         this.fetchTrafficHistoryBucket()
       },
       async fetchTrafficHistoryBucket() {
-        const bucket = this.trafficHistoryModal.bucket || 2
+        const minutes = this.trafficHistoryModal.bucket || 30
         try {
-          const msg = await HttpUtil.get(`/panel/api/server/trafficHistory/${bucket}`)
+          const msg = await HttpUtil.get(`/panel/api/server/trafficHistory/${minutes}`)
           if (msg.success && Array.isArray(msg.obj)) {
             const ups = [], downs = [], labels = []
             for (const p of msg.obj) {
@@ -1149,7 +1149,7 @@
               const hh = String(d.getHours()).padStart(2,'0')
               const mm = String(d.getMinutes()).padStart(2,'0')
               const ss = String(d.getSeconds()).padStart(2,'0')
-              labels.push(bucket>=60 ? `${hh}:${mm}` : `${hh}:${mm}:${ss}`)
+              labels.push(minutes >= 60 ? `${hh}:${mm}` : `${hh}:${mm}:${ss}`)
               ups.push(p.up || 0)
               downs.push(p.down || 0)
             }
