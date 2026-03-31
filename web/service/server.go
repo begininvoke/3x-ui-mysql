@@ -22,6 +22,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v2/config"
 	"github.com/mhsanaei/3x-ui/v2/database"
+	"github.com/mhsanaei/3x-ui/v2/database/model"
 	"github.com/mhsanaei/3x-ui/v2/logger"
 	"github.com/mhsanaei/3x-ui/v2/util/common"
 	"github.com/mhsanaei/3x-ui/v2/util/sys"
@@ -50,6 +51,7 @@ const (
 // It includes CPU, memory, disk, network statistics, and Xray process status.
 type Status struct {
 	T           time.Time `json:"-"`
+	Hostname    string    `json:"hostname"`
 	Cpu         float64   `json:"cpu"`
 	CpuCores    int       `json:"cpuCores"`
 	LogicalPro  int       `json:"logicalPro"`
@@ -92,6 +94,19 @@ type Status struct {
 		Mem     uint64 `json:"mem"`
 		Uptime  uint64 `json:"uptime"`
 	} `json:"appStats"`
+	XrayTraffic struct {
+		Up   int64 `json:"up"`
+		Down int64 `json:"down"`
+	} `json:"xrayTraffic"`
+	TodayTraffic []TrafficDailySummary `json:"todayTraffic"`
+}
+
+// TrafficDailySummary represents one day's traffic for a single hostname.
+type TrafficDailySummary struct {
+	Date     string `json:"date"`
+	Hostname string `json:"hostname"`
+	Up       int64  `json:"up"`
+	Down     int64  `json:"down"`
 }
 
 // Release represents information about a software release from GitHub.
@@ -229,6 +244,10 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 	now := time.Now()
 	status := &Status{
 		T: now,
+	}
+
+	if h, err := os.Hostname(); err == nil {
+		status.Hostname = h
 	}
 
 	// CPU stats
@@ -413,6 +432,22 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 	} else {
 		status.AppStats.Uptime = 0
 	}
+
+	db := database.GetDB()
+	var inboundUp, inboundDown int64
+	db.Model(&model.Inbound{}).Select("COALESCE(SUM(up),0)").Row().Scan(&inboundUp)
+	db.Model(&model.Inbound{}).Select("COALESCE(SUM(down),0)").Row().Scan(&inboundDown)
+	status.XrayTraffic.Up = inboundUp
+	status.XrayTraffic.Down = inboundDown
+
+	today := time.Now().Format("2006-01-02")
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	var dailyTraffic []TrafficDailySummary
+	db.Model(&model.TrafficDaily{}).
+		Where("date IN (?, ?)", today, yesterday).
+		Order("date DESC, hostname").
+		Find(&dailyTraffic)
+	status.TodayTraffic = dailyTraffic
 
 	return status
 }

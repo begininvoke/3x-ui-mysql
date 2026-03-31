@@ -103,6 +103,7 @@ type Server struct {
 
 	xrayService    service.XrayService
 	settingService service.SettingService
+	panelService   service.PanelService
 	tgbotService   service.Tgbot
 
 	wsHub *websocket.Hub
@@ -342,6 +343,11 @@ func (s *Server) startTask() {
 		// job has zero-value services with method receivers that read settings on demand
 		s.cron.AddJob(runtime, j)
 	}
+
+	// Poll for multi-instance restart signals every 5 seconds
+	s.cron.AddFunc("@every 5s", func() {
+		s.panelService.CheckRemoteRestart()
+	})
 
 	// Make a traffic condition every day, 8:30
 	var entry cron.EntryID

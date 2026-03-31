@@ -30,24 +30,10 @@ type OutboundService struct{}
 var testSemaphore sync.Mutex
 
 func (s *OutboundService) AddTraffic(traffics []*xray.Traffic, clientTraffics []*xray.ClientTraffic) (error, bool) {
-	var err error
-	db := database.GetDB()
-	tx := db.Begin()
-
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		} else {
-			tx.Commit()
-		}
-	}()
-
-	err = s.addOutboundTraffic(tx, traffics)
-	if err != nil {
-		return err, false
-	}
-
-	return nil, false
+	err := database.RetryOnDeadlock(func(tx *gorm.DB) error {
+		return s.addOutboundTraffic(tx, traffics)
+	})
+	return err, false
 }
 
 func (s *OutboundService) addOutboundTraffic(tx *gorm.DB, traffics []*xray.Traffic) error {
@@ -55,27 +41,37 @@ func (s *OutboundService) addOutboundTraffic(tx *gorm.DB, traffics []*xray.Traff
 		return nil
 	}
 
-	var err error
-
 	for _, traffic := range traffics {
-		if traffic.IsOutbound {
-
-			var outbound model.OutboundTraffics
-
-			err = tx.Model(&model.OutboundTraffics{}).Where("tag = ?", traffic.Tag).
-				FirstOrCreate(&outbound).Error
+		if !traffic.IsOutbound {
+			continue
+		}
+		if database.IsMySQL() {
+			err := tx.Exec(
+				`INSERT INTO outbound_traffics (tag, up, down, total) VALUES (?, ?, ?, ?)
+				 ON DUPLICATE KEY UPDATE up = up + ?, down = down + ?, total = up + ? + down + ?`,
+				traffic.Tag, traffic.Up, traffic.Down, traffic.Up+traffic.Down,
+				traffic.Up, traffic.Down, traffic.Up, traffic.Down,
+			).Error
 			if err != nil {
 				return err
 			}
-
-			outbound.Tag = traffic.Tag
-			outbound.Up = outbound.Up + traffic.Up
-			outbound.Down = outbound.Down + traffic.Down
-			outbound.Total = outbound.Up + outbound.Down
-
-			err = tx.Save(&outbound).Error
-			if err != nil {
-				return err
+		} else {
+			result := tx.Model(&model.OutboundTraffics{}).Where("tag = ?", traffic.Tag).
+				Updates(map[string]any{
+					"up":    gorm.Expr("up + ?", traffic.Up),
+					"down":  gorm.Expr("down + ?", traffic.Down),
+					"total": gorm.Expr("up + ? + down + ?", traffic.Up, traffic.Down),
+				})
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 0 {
+				err := tx.Create(&model.OutboundTraffics{
+					Tag: traffic.Tag, Up: traffic.Up, Down: traffic.Down, Total: traffic.Up + traffic.Down,
+				}).Error
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}

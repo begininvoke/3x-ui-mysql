@@ -5,6 +5,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -948,47 +949,46 @@ func (s *InboundService) UpdateInboundClient(data *model.Inbound, clientId strin
 }
 
 func (s *InboundService) AddTraffic(inboundTraffics []*xray.Traffic, clientTraffics []*xray.ClientTraffic) (error, bool) {
-	var err error
-	db := database.GetDB()
-	tx := db.Begin()
+	var needRestart0, needRestart1, needRestart2 bool
 
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		} else {
-			tx.Commit()
+	err := database.RetryOnDeadlock(func(tx *gorm.DB) error {
+		needRestart0, needRestart1, needRestart2 = false, false, false
+
+		if err := s.addInboundTraffic(tx, inboundTraffics); err != nil {
+			return err
 		}
-	}()
-	err = s.addInboundTraffic(tx, inboundTraffics)
-	if err != nil {
-		return err, false
-	}
-	err = s.addClientTraffic(tx, clientTraffics)
-	if err != nil {
-		return err, false
-	}
+		if err := s.addClientTraffic(tx, clientTraffics); err != nil {
+			return err
+		}
 
-	needRestart0, count, err := s.autoRenewClients(tx)
-	if err != nil {
-		logger.Warning("Error in renew clients:", err)
-	} else if count > 0 {
-		logger.Debugf("%v clients renewed", count)
-	}
+		var count int64
+		var err error
 
-	needRestart1, count, err := s.disableInvalidClients(tx)
-	if err != nil {
-		logger.Warning("Error in disabling invalid clients:", err)
-	} else if count > 0 {
-		logger.Debugf("%v clients disabled", count)
-	}
+		needRestart0, count, err = s.autoRenewClients(tx)
+		if err != nil {
+			logger.Warning("Error in renew clients:", err)
+		} else if count > 0 {
+			logger.Debugf("%v clients renewed", count)
+		}
 
-	needRestart2, count, err := s.disableInvalidInbounds(tx)
-	if err != nil {
-		logger.Warning("Error in disabling invalid inbounds:", err)
-	} else if count > 0 {
-		logger.Debugf("%v inbounds disabled", count)
-	}
-	return nil, (needRestart0 || needRestart1 || needRestart2)
+		needRestart1, count, err = s.disableInvalidClients(tx)
+		if err != nil {
+			logger.Warning("Error in disabling invalid clients:", err)
+		} else if count > 0 {
+			logger.Debugf("%v clients disabled", count)
+		}
+
+		needRestart2, count, err = s.disableInvalidInbounds(tx)
+		if err != nil {
+			logger.Warning("Error in disabling invalid inbounds:", err)
+		} else if count > 0 {
+			logger.Debugf("%v inbounds disabled", count)
+		}
+
+		return nil
+	})
+
+	return err, (needRestart0 || needRestart1 || needRestart2)
 }
 
 func (s *InboundService) addInboundTraffic(tx *gorm.DB, traffics []*xray.Traffic) error {
@@ -1071,6 +1071,46 @@ func (s *InboundService) addClientTraffic(tx *gorm.DB, traffics []*xray.ClientTr
 	}
 
 	return nil
+}
+
+// AccumulateDailyTraffic adds inbound traffic deltas to today's TrafficDaily row for this hostname.
+func (s *InboundService) AccumulateDailyTraffic(traffics []*xray.Traffic) {
+	if len(traffics) == 0 {
+		return
+	}
+	var totalUp, totalDown int64
+	for _, t := range traffics {
+		if t.IsInbound {
+			totalUp += t.Up
+			totalDown += t.Down
+		}
+	}
+	if totalUp == 0 && totalDown == 0 {
+		return
+	}
+
+	hostname, _ := os.Hostname()
+	today := time.Now().Format("2006-01-02")
+	db := database.GetDB()
+
+	if database.IsMySQL() {
+		db.Exec(
+			`INSERT INTO traffic_dailies (date, hostname, up, down) VALUES (?, ?, ?, ?)
+			 ON DUPLICATE KEY UPDATE up = up + ?, down = down + ?`,
+			today, hostname, totalUp, totalDown, totalUp, totalDown,
+		)
+	} else {
+		var row model.TrafficDaily
+		result := db.Where("date = ? AND hostname = ?", today, hostname).First(&row)
+		if result.Error != nil {
+			db.Create(&model.TrafficDaily{Date: today, Hostname: hostname, Up: totalUp, Down: totalDown})
+		} else {
+			db.Model(&row).Updates(map[string]any{
+				"up":   gorm.Expr("up + ?", totalUp),
+				"down": gorm.Expr("down + ?", totalDown),
+			})
+		}
+	}
 }
 
 func (s *InboundService) adjustTraffics(tx *gorm.DB, dbClientTraffics []*xray.ClientTraffic) ([]*xray.ClientTraffic, error) {

@@ -139,6 +139,7 @@
 "upload" = "Upload"
 "download" = "Download"
 "totalData" = "Total Data"
+"xrayTraffic" = "Xray Traffic (All Inbounds)"
 "sent" = "Sent"
 "received" = "Received"
 "documentation" = "Documentation"

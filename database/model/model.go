@@ -104,6 +104,21 @@ type Setting struct {
 	Value string `json:"value" form:"value"`
 }
 
+// TrafficDaily stores per-day, per-hostname traffic deltas for dashboard display.
+type TrafficDaily struct {
+	Id       int    `json:"id" gorm:"primaryKey;autoIncrement"`
+	Date     string `json:"date" gorm:"size:10;uniqueIndex:idx_traffic_daily"`
+	Hostname string `json:"hostname" gorm:"size:255;uniqueIndex:idx_traffic_daily"`
+	Up       int64  `json:"up" gorm:"default:0"`
+	Down     int64  `json:"down" gorm:"default:0"`
+}
+
+// PanelRestart coordinates panel restarts across multiple instances via the shared database.
+type PanelRestart struct {
+	Id          int   `json:"id" gorm:"primaryKey"`
+	RequestedAt int64 `json:"requestedAt" gorm:"default:0"`
+}
+
 // Client represents a client configuration for Xray inbounds with traffic limits and settings.
 type Client struct {
 	ID         string `json:"id"`                           // Unique client identifier

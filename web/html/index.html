@@ -176,6 +176,11 @@
               </a-col>
               <a-col :sm="24" :lg="12">
                 <a-card title='{{ i18n "pages.index.operationHours" }}' hoverable>
+                  <template #extra>
+                    <a-tag color="blue" v-if="status.hostname">
+                      <a-icon type="desktop" /> [[ status.hostname ]]
+                    </a-tag>
+                  </template>
                   <a-tag :color="status.xray.color">Xray: [[ TimeFormatter.formatSecond(status.appStats.uptime)
                     ]]</a-tag>
                   <a-tag color="green">OS: [[ TimeFormatter.formatSecond(status.uptime) ]]</a-tag>
@@ -248,6 +253,56 @@
                       </a-custom-statistic>
                     </a-col>
                   </a-row>
+                </a-card>
+              </a-col>
+              <a-col :sm="24" :lg="12">
+                <a-card title='{{ i18n "pages.index.xrayTraffic" }}' hoverable>
+                  <a-row :gutter="isMobile ? [8,8] : 0">
+                    <a-col :span="12">
+                      <a-custom-statistic title='{{ i18n "pages.index.upload" }}'
+                        :value="SizeFormatter.sizeFormat(status.xrayTraffic.up)">
+                        <template #prefix>
+                          <a-icon type="arrow-up" style="color: #52c41a" />
+                        </template>
+                      </a-custom-statistic>
+                    </a-col>
+                    <a-col :span="12">
+                      <a-custom-statistic title='{{ i18n "pages.index.download" }}'
+                        :value="SizeFormatter.sizeFormat(status.xrayTraffic.down)">
+                        <template #prefix>
+                          <a-icon type="arrow-down" style="color: #1890ff" />
+                        </template>
+                      </a-custom-statistic>
+                    </a-col>
+                  </a-row>
+                </a-card>
+              </a-col>
+              <a-col :sm="24" :lg="12">
+                <a-card hoverable>
+                  <template #title>
+                    <a-icon type="bar-chart" /> Today's Traffic
+                  </template>
+                  <template #extra>
+                    <a-tag color="blue" v-if="status.hostname">[[ status.hostname ]]</a-tag>
+                  </template>
+                  <div v-if="todayTrafficByHost.length > 0">
+                    <div v-for="item in todayTrafficByHost" :key="item.hostname" style="margin-bottom: 4px;">
+                      <a-tag color="cyan">[[ item.hostname ]]</a-tag>
+                      <a-icon type="arrow-up" style="color: #52c41a" />
+                      [[ SizeFormatter.sizeFormat(item.up) ]]
+                      <a-icon type="arrow-down" style="color: #1890ff; margin-left: 8px" />
+                      [[ SizeFormatter.sizeFormat(item.down) ]]
+                    </div>
+                    <a-divider style="margin: 8px 0" v-if="todayTrafficByHost.length > 1" />
+                    <div v-if="todayTrafficByHost.length > 1">
+                      <a-tag color="green">Total</a-tag>
+                      <a-icon type="arrow-up" style="color: #52c41a" />
+                      [[ SizeFormatter.sizeFormat(todayTotalUp) ]]
+                      <a-icon type="arrow-down" style="color: #1890ff; margin-left: 8px" />
+                      [[ SizeFormatter.sizeFormat(todayTotalDown) ]]
+                    </div>
+                  </div>
+                  <span v-else style="color: #999">No traffic recorded today</span>
                 </a-card>
               </a-col>
               <a-col :sm="24" :lg="12">
@@ -672,6 +727,7 @@
       this.logicalPro = 0;
       this.cpuSpeedMhz = 0;
       this.disk = new CurTotal(0, 0);
+      this.hostname = "";
       this.loads = [0, 0, 0];
       this.mem = new CurTotal(0, 0);
       this.netIO = { up: 0, down: 0 };
@@ -683,6 +739,8 @@
       this.uptime = 0;
       this.appUptime = 0;
       this.appStats = { threads: 0, mem: 0, uptime: 0 };
+      this.xrayTraffic = { up: 0, down: 0 };
+      this.todayTraffic = [];
 
       this.xray = { state: 'stop', stateMsg: "", errorMsg: "", version: "", color: "" };
 
@@ -690,6 +748,7 @@
         return;
       }
 
+      this.hostname = data.hostname || "";
       this.cpu = new CurTotal(data.cpu, 100);
       this.cpuCores = data.cpuCores;
       this.logicalPro = data.logicalPro;
@@ -706,6 +765,8 @@
       this.uptime = data.uptime;
       this.appUptime = data.appUptime;
       this.appStats = data.appStats;
+      this.xrayTraffic = data.xrayTraffic || { up: 0, down: 0 };
+      this.todayTraffic = data.todayTraffic || [];
       this.xray = data.xray;
       switch (this.xray.state) {
         case 'running':
@@ -895,6 +956,18 @@
       showAlert: false,
       showIp: false,
       ipLimitEnable: false,
+    },
+    computed: {
+      todayTrafficByHost() {
+        const today = new Date().toISOString().slice(0, 10);
+        return (this.status.todayTraffic || []).filter(t => t.date === today);
+      },
+      todayTotalUp() {
+        return this.todayTrafficByHost.reduce((sum, t) => sum + t.up, 0);
+      },
+      todayTotalDown() {
+        return this.todayTrafficByHost.reduce((sum, t) => sum + t.down, 0);
+      },
     },
     methods: {
       loading(spinning, tip = '{{ i18n "loading"}}') {

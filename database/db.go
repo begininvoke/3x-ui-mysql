@@ -12,6 +12,8 @@ import (
 	"os"
 	"path"
 	"slices"
+	"strings"
+	"time"
 
 	"github.com/mhsanaei/3x-ui/v2/config"
 	"github.com/mhsanaei/3x-ui/v2/database/model"
@@ -41,6 +43,8 @@ func initModels() error {
 		&model.InboundClientIps{},
 		&xray.ClientTraffic{},
 		&model.HistoryOfSeeders{},
+		&model.TrafficDaily{},
+		&model.PanelRestart{},
 	}
 	for _, model := range models {
 		if err := db.AutoMigrate(model); err != nil {
@@ -217,6 +221,35 @@ func IsSQLiteDB(file io.ReaderAt) (bool, error) {
 		return false, err
 	}
 	return bytes.Equal(buf, signature), nil
+}
+
+// IsDeadlock returns true if the error is a MySQL deadlock (Error 1213).
+func IsDeadlock(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "Error 1213") || strings.Contains(err.Error(), "Deadlock found")
+}
+
+// RetryOnDeadlock wraps a GORM transaction with automatic retry on MySQL deadlocks.
+// On SQLite (which doesn't produce deadlocks), it runs the function once.
+func RetryOnDeadlock(fn func(tx *gorm.DB) error) error {
+	maxRetries := 1
+	if IsMySQL() {
+		maxRetries = 5
+	}
+	for attempt := range maxRetries {
+		err := db.Transaction(fn)
+		if err == nil {
+			return nil
+		}
+		if IsMySQL() && IsDeadlock(err) && attempt < maxRetries-1 {
+			time.Sleep(time.Duration(attempt+1) * 100 * time.Millisecond)
+			continue
+		}
+		return err
+	}
+	return nil
 }
 
 // Checkpoint performs a WAL checkpoint on the SQLite database.
