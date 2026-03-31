@@ -99,47 +99,31 @@
                   </a-row>
                 </a-card>
               </a-col>
-              <!-- System Info: Uptime + Load + Usage (merged) -->
               <a-col :sm="24" :lg="12">
-                <a-card title="System Info" hoverable>
+                <a-card title='{{ i18n "pages.index.operationHours" }}' hoverable>
                   <template #extra>
-                    <a-tag color="blue" v-if="status.hostname">
-                      <a-icon type="desktop" /> [[ status.hostname ]]
-                    </a-tag>
+                    <a-tag color="blue" v-if="status.hostname">[[ status.hostname ]]</a-tag>
                   </template>
-                  <a-row :gutter="isMobile ? [8,8] : [16,8]">
-                    <a-col :span="12">
-                      <a-tag color="green">
-                        <a-icon type="clock-circle" /> OS: [[ TimeFormatter.formatSecond(status.uptime) ]]
-                      </a-tag>
-                    </a-col>
-                    <a-col :span="12">
-                      <a-tag :color="status.xray.color">
-                        <a-icon type="thunderbolt" /> Xray: [[ TimeFormatter.formatSecond(status.appStats.uptime) ]]
-                      </a-tag>
-                    </a-col>
-                  </a-row>
-                  <a-divider style="margin:8px 0" />
-                  <a-row :gutter="isMobile ? [8,8] : [16,4]">
-                    <a-col :span="24" style="margin-bottom:4px">
-                      <a-tooltip>
-                        <template slot="title">{{ i18n "pages.index.systemLoadDesc" }}</template>
-                        <a-tag color="green">
-                          <a-icon type="bar-chart" /> Load: [[ status.loads[0] ]] | [[ status.loads[1] ]] | [[ status.loads[2] ]]
-                        </a-tag>
-                      </a-tooltip>
-                    </a-col>
-                    <a-col :span="12">
-                      <a-tag color="green">
-                        <a-icon type="database" /> {{ i18n "pages.index.memory" }}: [[ SizeFormatter.sizeFormat(status.appStats.mem) ]]
-                      </a-tag>
-                    </a-col>
-                    <a-col :span="12">
-                      <a-tag color="green">
-                        <a-icon type="apartment" /> {{ i18n "pages.index.threads" }}: [[ status.appStats.threads ]]
-                      </a-tag>
-                    </a-col>
-                  </a-row>
+                  <a-tag :color="status.xray.color">Xray: [[ TimeFormatter.formatSecond(status.appStats.uptime) ]]</a-tag>
+                  <a-tag color="green">OS: [[ TimeFormatter.formatSecond(status.uptime) ]]</a-tag>
+                </a-card>
+              </a-col>
+              <a-col :sm="24" :lg="12">
+                <a-card title='{{ i18n "pages.index.systemLoad" }}' hoverable>
+                  <a-tag color="green">
+                    <a-tooltip>
+                      [[ status.loads[0] ]] | [[ status.loads[1] ]] | [[ status.loads[2] ]]
+                      <template slot="title">
+                        {{ i18n "pages.index.systemLoadDesc" }}
+                      </template>
+                    </a-tooltip>
+                  </a-tag>
+                </a-card>
+              </a-col>
+              <a-col :sm="24" :lg="12">
+                <a-card title='{{ i18n "usage"}}' hoverable>
+                  <a-tag color="green"> {{ i18n "pages.index.memory" }}: [[ SizeFormatter.sizeFormat(status.appStats.mem) ]] </a-tag>
+                  <a-tag color="green"> {{ i18n "pages.index.threads" }}: [[ status.appStats.threads ]] </a-tag>
                 </a-card>
               </a-col>
               <!-- Xray Status -->
