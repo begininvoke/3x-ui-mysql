@@ -78,6 +78,51 @@
                   </a-row>
                 </a-card>
               </a-col>
+              <!-- System Info: Connections + Uptime + Load + Usage (merged) -->
+              <a-col :sm="24" :lg="12">
+                <a-card hoverable>
+                  <template #title>
+                    <a-icon type="dashboard" /> System Info
+                  </template>
+                  <template #extra>
+                    <a-tag color="blue" v-if="status.hostname">
+                      <a-icon type="desktop" /> [[ status.hostname ]]
+                    </a-tag>
+                  </template>
+                  <a-row :gutter="[16, 8]">
+                    <a-col :span="6" :xs="12" class="text-center">
+                      <div style="font-size:22px;font-weight:600;color:#1890ff">[[ status.tcpCount ]]</div>
+                      <div style="font-size:11px;opacity:0.65">TCP</div>
+                    </a-col>
+                    <a-col :span="6" :xs="12" class="text-center">
+                      <div style="font-size:22px;font-weight:600;color:#722ed1">[[ status.udpCount ]]</div>
+                      <div style="font-size:11px;opacity:0.65">UDP</div>
+                    </a-col>
+                    <a-col :span="12" :xs="24">
+                      <div style="margin-bottom:4px">
+                        <a-tag color="green"><a-icon type="clock-circle" /> OS: [[ TimeFormatter.formatSecond(status.uptime) ]]</a-tag>
+                      </div>
+                      <div>
+                        <a-tag :color="status.xray.color"><a-icon type="thunderbolt" /> Xray: [[ TimeFormatter.formatSecond(status.appStats.uptime) ]]</a-tag>
+                      </div>
+                    </a-col>
+                  </a-row>
+                  <a-divider style="margin:8px 0" />
+                  <a-row :gutter="[16, 4]">
+                    <a-col :span="12" :xs="24">
+                      <a-tooltip>
+                        <template slot="title">{{ i18n "pages.index.systemLoadDesc" }}</template>
+                        <a-tag color="green"><a-icon type="bar-chart" /> Load: [[ status.loads[0] ]] | [[ status.loads[1] ]] | [[ status.loads[2] ]]</a-tag>
+                      </a-tooltip>
+                    </a-col>
+                    <a-col :span="12" :xs="24">
+                      <a-tag color="green"><a-icon type="database" /> Mem: [[ SizeFormatter.sizeFormat(status.appStats.mem) ]]</a-tag>
+                      <a-tag color="green"><a-icon type="apartment" /> [[ status.appStats.threads ]] threads</a-tag>
+                    </a-col>
+                  </a-row>
+                </a-card>
+              </a-col>
+              <!-- Xray Status -->
               <a-col :sm="24" :lg="12">
                 <a-card hoverable>
                   <template #title>
@@ -137,85 +182,7 @@
                   </template>
                 </a-card>
               </a-col>
-              <a-col :sm="24" :lg="12">
-                <a-card title='{{ i18n "menu.link" }}' hoverable>
-                  <template #actions>
-                    <a-space direction="horizontal" @click="openLogs()" class="jc-center">
-                      <a-icon type="bars"></a-icon>
-                      <span v-if="!isMobile">{{ i18n "pages.index.logs" }}</span>
-                    </a-space>
-                    <a-space direction="horizontal" @click="openConfig" class="jc-center">
-                      <a-icon type="control"></a-icon>
-                      <span v-if="!isMobile">{{ i18n "pages.index.config" }}</span>
-                    </a-space>
-                    <a-space direction="horizontal" @click="openBackup" class="jc-center">
-                      <a-icon type="cloud-server"></a-icon>
-                      <span v-if="!isMobile">{{ i18n "pages.index.backup" }}</span>
-                    </a-space>
-                  </template>
-                </a-card>
-              </a-col>
-              <a-col :sm="24" :lg="12">
-                <a-card title='3X-UI MySQL' hoverable>
-                  <template #extra>
-                    <a-button size="small" type="primary" ghost @click="checkPanelUpdate" :loading="panelUpdate.checking">
-                      <a-icon type="cloud-sync" /> Check Update
-                    </a-button>
-                  </template>
-                  <a rel="noopener" href="https://github.com/begininvoke/3x-ui-mysql/releases" target="_blank">
-                    <a-tag color="green">
-                      <span>v{{ .cur_ver }}</span>
-                    </a-tag>
-                  </a>
-                  <template v-if="panelUpdate.hasUpdate">
-                    <a-tag color="orange">
-                      <span>New: v[[ panelUpdate.latestVersion ]]</span>
-                    </a-tag>
-                    <a-button size="small" type="danger" @click="updatePanel" :loading="panelUpdate.updating" style="margin-left:4px">
-                      <a-icon type="download" /> Update Now
-                    </a-button>
-                  </template>
-                  <a-tag v-else-if="panelUpdate.checked" color="green">
-                    <a-icon type="check-circle" /> Up to date
-                  </a-tag>
-                  <a rel="noopener" href="https://github.com/begininvoke/3x-ui-mysql" target="_blank">
-                    <a-tag color="purple">
-                      <span>GitHub</span>
-                    </a-tag>
-                  </a>
-                </a-card>
-              </a-col>
-              <a-col :sm="24" :lg="12">
-                <a-card title='{{ i18n "pages.index.operationHours" }}' hoverable>
-                  <template #extra>
-                    <a-tag color="blue" v-if="status.hostname">
-                      <a-icon type="desktop" /> [[ status.hostname ]]
-                    </a-tag>
-                  </template>
-                  <a-tag :color="status.xray.color">Xray: [[ TimeFormatter.formatSecond(status.appStats.uptime)
-                    ]]</a-tag>
-                  <a-tag color="green">OS: [[ TimeFormatter.formatSecond(status.uptime) ]]</a-tag>
-                </a-card>
-              </a-col>
-              <a-col :sm="24" :lg="12">
-                <a-card title='{{ i18n "pages.index.systemLoad" }}' hoverable>
-                  <a-tag color="green">
-                    <a-tooltip>
-                      [[ status.loads[0] ]] | [[ status.loads[1] ]] | [[ status.loads[2] ]]
-                      <template slot="title">
-                        {{ i18n "pages.index.systemLoadDesc" }}
-                      </template>
-                    </a-tooltip>
-                  </a-tag>
-                </a-card>
-              </a-col>
-              <a-col :sm="24" :lg="12">
-                <a-card title='{{ i18n "usage"}}' hoverable>
-                  <a-tag color="green"> {{ i18n "pages.index.memory" }}: [[
-                    SizeFormatter.sizeFormat(status.appStats.mem) ]] </a-tag>
-                  <a-tag color="green"> {{ i18n "pages.index.threads" }}: [[ status.appStats.threads ]] </a-tag>
-                </a-card>
-              </a-col>
+              <!-- Overall Speed + Live sparkline -->
               <a-col :sm="24" :lg="12">
                 <a-card hoverable>
                   <template #title>
@@ -260,78 +227,126 @@
                   </div>
                 </a-card>
               </a-col>
-              <a-col :sm="24" :lg="12">
-                <a-card title='{{ i18n "pages.index.totalData" }}' hoverable>
-                  <a-row :gutter="isMobile ? [8,8] : 0">
-                    <a-col :span="12">
-                      <a-custom-statistic title='{{ i18n "pages.index.sent" }}'
-                        :value="SizeFormatter.sizeFormat(status.netTraffic.sent)">
-                        <template #prefix>
-                          <a-icon type="cloud-upload" />
-                        </template>
-                      </a-custom-statistic>
-                    </a-col>
-                    <a-col :span="12">
-                      <a-custom-statistic title='{{ i18n "pages.index.received" }}'
-                        :value="SizeFormatter.sizeFormat(status.netTraffic.recv)">
-                        <template #prefix>
-                          <a-icon type="cloud-download" />
-                        </template>
-                      </a-custom-statistic>
-                    </a-col>
-                  </a-row>
-                </a-card>
-              </a-col>
-              <a-col :sm="24" :lg="12">
-                <a-card title='{{ i18n "pages.index.xrayTraffic" }}' hoverable>
-                  <a-row :gutter="isMobile ? [8,8] : 0">
-                    <a-col :span="12">
-                      <a-custom-statistic title='{{ i18n "pages.index.upload" }}'
-                        :value="SizeFormatter.sizeFormat(status.xrayTraffic.up)">
-                        <template #prefix>
-                          <a-icon type="arrow-up" style="color: #52c41a" />
-                        </template>
-                      </a-custom-statistic>
-                    </a-col>
-                    <a-col :span="12">
-                      <a-custom-statistic title='{{ i18n "pages.index.download" }}'
-                        :value="SizeFormatter.sizeFormat(status.xrayTraffic.down)">
-                        <template #prefix>
-                          <a-icon type="arrow-down" style="color: #1890ff" />
-                        </template>
-                      </a-custom-statistic>
-                    </a-col>
-                  </a-row>
-                </a-card>
-              </a-col>
+              <!-- Network Totals: System + Xray combined -->
               <a-col :sm="24" :lg="12">
                 <a-card hoverable>
                   <template #title>
-                    <a-icon type="bar-chart" /> Today's Traffic
+                    <a-icon type="cloud" /> {{ i18n "pages.index.totalData" }} / {{ i18n "pages.index.xrayTraffic" }}
                   </template>
-                  <template #extra>
-                    <a-tag color="blue" v-if="status.hostname">[[ status.hostname ]]</a-tag>
-                  </template>
-                  <div v-if="todayTrafficByHost.length > 0">
-                    <div v-for="item in todayTrafficByHost" :key="item.hostname" style="margin-bottom: 4px;">
-                      <a-tag color="cyan">[[ item.hostname ]]</a-tag>
-                      <a-icon type="arrow-up" style="color: #52c41a" />
-                      [[ SizeFormatter.sizeFormat(item.up) ]]
-                      <a-icon type="arrow-down" style="color: #1890ff; margin-left: 8px" />
-                      [[ SizeFormatter.sizeFormat(item.down) ]]
-                    </div>
-                    <a-divider style="margin: 8px 0" v-if="todayTrafficByHost.length > 1" />
-                    <div v-if="todayTrafficByHost.length > 1">
-                      <a-tag color="green">Total</a-tag>
-                      <a-icon type="arrow-up" style="color: #52c41a" />
-                      [[ SizeFormatter.sizeFormat(todayTotalUp) ]]
-                      <a-icon type="arrow-down" style="color: #1890ff; margin-left: 8px" />
-                      [[ SizeFormatter.sizeFormat(todayTotalDown) ]]
-                    </div>
-                  </div>
-                  <span v-else style="color: #999">No traffic recorded today</span>
+                  <a-row :gutter="[8, 8]">
+                    <a-col :span="12">
+                      <div style="font-size:11px;opacity:0.5;margin-bottom:2px">{{ i18n "pages.index.sent" }}</div>
+                      <div><a-icon type="cloud-upload" style="color:#52c41a" /> [[ SizeFormatter.sizeFormat(status.netTraffic.sent) ]]</div>
+                    </a-col>
+                    <a-col :span="12">
+                      <div style="font-size:11px;opacity:0.5;margin-bottom:2px">{{ i18n "pages.index.received" }}</div>
+                      <div><a-icon type="cloud-download" style="color:#1890ff" /> [[ SizeFormatter.sizeFormat(status.netTraffic.recv) ]]</div>
+                    </a-col>
+                  </a-row>
+                  <a-divider style="margin:8px 0" />
+                  <a-row :gutter="[8, 8]">
+                    <a-col :span="12">
+                      <div style="font-size:11px;opacity:0.5;margin-bottom:2px">Xray {{ i18n "pages.index.upload" }}</div>
+                      <div><a-icon type="arrow-up" style="color:#52c41a" /> [[ SizeFormatter.sizeFormat(status.xrayTraffic.up) ]]</div>
+                    </a-col>
+                    <a-col :span="12">
+                      <div style="font-size:11px;opacity:0.5;margin-bottom:2px">Xray {{ i18n "pages.index.download" }}</div>
+                      <div><a-icon type="arrow-down" style="color:#1890ff" /> [[ SizeFormatter.sizeFormat(status.xrayTraffic.down) ]]</div>
+                    </a-col>
+                  </a-row>
                 </a-card>
               </a-col>
+              <!-- Daily Traffic History (this server) -->
+              <a-col :sm="24">
+                <a-card hoverable>
+                  <template #title>
+                    <a-icon type="bar-chart" /> Daily Traffic
+                  </template>
+                  <template #extra>
+                    <a-radio-group size="small" v-model="dailyTrafficDays" @change="fetchDailyTraffic">
+                      <a-radio-button :value="7">7d</a-radio-button>
+                      <a-radio-button :value="30">30d</a-radio-button>
+                    </a-radio-group>
+                  </template>
+                  <div v-if="dailyTrafficData.length > 0">
+                    <div style="display:flex;align-items:flex-end;gap:2px;height:140px;padding:0 4px">
+                      <div v-for="(day, idx) in dailyTrafficData" :key="day.date"
+                        style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0">
+                        <a-tooltip :overlay-class-name="themeSwitcher.currentTheme">
+                          <template slot="title">
+                            [[ day.date ]]<br/>
+                            <a-icon type="arrow-up" /> [[ SizeFormatter.sizeFormat(day.up) ]]<br/>
+                            <a-icon type="arrow-down" /> [[ SizeFormatter.sizeFormat(day.down) ]]
+                          </template>
+                          <div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:1px">
+                            <div :style="{width:'70%',background:'#52c41a',borderRadius:'2px 2px 0 0',minHeight:'2px',height: dailyBarHeight(day.up) + 'px'}"></div>
+                            <div :style="{width:'70%',background:'#1890ff',borderRadius:'0 0 2px 2px',minHeight:'2px',height: dailyBarHeight(day.down) + 'px'}"></div>
+                          </div>
+                        </a-tooltip>
+                        <div style="font-size:9px;opacity:0.5;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%"
+                          v-if="dailyTrafficData.length <= 14 || idx % 3 === 0">[[ day.date.slice(5) ]]</div>
+                      </div>
+                    </div>
+                    <div style="margin-top:8px;font-size:11px;text-align:center">
+                      <span style="color:#52c41a;font-weight:600">&#9650; Upload</span>
+                      <span style="margin-left:12px;color:#1890ff;font-weight:600">&#9660; Download</span>
+                      <span style="margin-left:12px;opacity:0.5">Total: [[ SizeFormatter.sizeFormat(dailyTrafficTotalUp + dailyTrafficTotalDown) ]]</span>
+                    </div>
+                  </div>
+                  <div v-else style="text-align:center;color:#999;padding:20px 0">No daily traffic data</div>
+                </a-card>
+              </a-col>
+              <!-- 3X-UI MySQL + Quick Links -->
+              <a-col :sm="24" :lg="12">
+                <a-card title='3X-UI MySQL' hoverable>
+                  <template #extra>
+                    <a-button size="small" type="primary" ghost @click="checkPanelUpdate" :loading="panelUpdate.checking">
+                      <a-icon type="cloud-sync" /> Check Update
+                    </a-button>
+                  </template>
+                  <a rel="noopener" href="https://github.com/begininvoke/3x-ui-mysql/releases" target="_blank">
+                    <a-tag color="green">
+                      <span>v{{ .cur_ver }}</span>
+                    </a-tag>
+                  </a>
+                  <template v-if="panelUpdate.hasUpdate">
+                    <a-tag color="orange">
+                      <span>New: v[[ panelUpdate.latestVersion ]]</span>
+                    </a-tag>
+                    <a-button size="small" type="danger" @click="updatePanel" :loading="panelUpdate.updating" style="margin-left:4px">
+                      <a-icon type="download" /> Update Now
+                    </a-button>
+                  </template>
+                  <a-tag v-else-if="panelUpdate.checked" color="green">
+                    <a-icon type="check-circle" /> Up to date
+                  </a-tag>
+                  <a rel="noopener" href="https://github.com/begininvoke/3x-ui-mysql" target="_blank">
+                    <a-tag color="purple">
+                      <span>GitHub</span>
+                    </a-tag>
+                  </a>
+                </a-card>
+              </a-col>
+              <!-- Quick Links -->
+              <a-col :sm="24" :lg="12">
+                <a-card title='{{ i18n "menu.link" }}' hoverable>
+                  <template #actions>
+                    <a-space direction="horizontal" @click="openLogs()" class="jc-center">
+                      <a-icon type="bars"></a-icon>
+                      <span v-if="!isMobile">{{ i18n "pages.index.logs" }}</span>
+                    </a-space>
+                    <a-space direction="horizontal" @click="openConfig" class="jc-center">
+                      <a-icon type="control"></a-icon>
+                      <span v-if="!isMobile">{{ i18n "pages.index.config" }}</span>
+                    </a-space>
+                    <a-space direction="horizontal" @click="openBackup" class="jc-center">
+                      <a-icon type="cloud-server"></a-icon>
+                      <span v-if="!isMobile">{{ i18n "pages.index.backup" }}</span>
+                    </a-space>
+                  </template>
+                </a-card>
+              </a-col>
+              <!-- IP Addresses -->
               <a-col :sm="24" :lg="12">
                 <a-card title='{{ i18n "pages.index.ipAddresses" }}' hoverable>
                   <template #extra>
@@ -355,26 +370,6 @@
                       <a-custom-statistic title="IPv6" :value="status.publicIP.ipv6">
                         <template #prefix>
                           <a-icon type="global" />
-                        </template>
-                      </a-custom-statistic>
-                    </a-col>
-                  </a-row>
-                </a-card>
-              </a-col>
-              <a-col :sm="24" :lg="12">
-                <a-card title='{{ i18n "pages.index.connectionCount" }}' hoverable>
-                  <a-row :gutter="isMobile ? [8,8] : 0">
-                    <a-col :span="12">
-                      <a-custom-statistic title="TCP" :value="status.tcpCount">
-                        <template #prefix>
-                          <a-icon type="swap" />
-                        </template>
-                      </a-custom-statistic>
-                    </a-col>
-                    <a-col :span="12">
-                      <a-custom-statistic title="UDP" :value="status.udpCount">
-                        <template #prefix>
-                          <a-icon type="swap" />
                         </template>
                       </a-custom-statistic>
                     </a-col>
@@ -1038,6 +1033,8 @@
   trafficHistoryLabels: [],
   trafficHistoryModal: { visible: false, bucket: 2 },
   panelUpdate: { checking: false, updating: false, checked: false, hasUpdate: false, latestVersion: '' },
+  dailyTrafficDays: 7,
+  dailyTrafficData: [],
       versionModal,
       logModal,
       xraylogModal,
@@ -1057,6 +1054,12 @@
       },
       todayTotalDown() {
         return this.todayTrafficByHost.reduce((sum, t) => sum + t.down, 0);
+      },
+      dailyTrafficTotalUp() {
+        return this.dailyTrafficData.reduce((s, d) => s + d.up, 0);
+      },
+      dailyTrafficTotalDown() {
+        return this.dailyTrafficData.reduce((s, d) => s + d.down, 0);
       },
     },
     methods: {
@@ -1168,6 +1171,23 @@
       },
       trafficYLabel(val) {
         return SizeFormatter.sizeFormat(val)
+      },
+      async fetchDailyTraffic() {
+        try {
+          const msg = await HttpUtil.get('/panel/api/server/dailyTraffic/' + this.dailyTrafficDays);
+          if (msg.success) {
+            this.dailyTrafficData = msg.obj || [];
+          }
+        } catch (e) {
+          console.error("Failed to fetch daily traffic:", e);
+        }
+      },
+      dailyBarHeight(bytes) {
+        const all = this.dailyTrafficData;
+        if (!all.length) return 2;
+        const maxVal = Math.max(...all.map(d => Math.max(d.up, d.down)), 1);
+        const maxH = 60;
+        return Math.max(2, Math.round((bytes / maxVal) * maxH));
       },
       async checkPanelUpdate() {
         this.panelUpdate.checking = true
@@ -1386,6 +1406,7 @@
 
       // Initial status fetch
       await this.getStatus();
+      this.fetchDailyTraffic();
 
       // Setup WebSocket for real-time updates
       if (window.wsClient) {

@@ -564,6 +564,23 @@ func (s *ServerService) AggregateTrafficHistory(bucketSeconds int, maxPoints int
 	return out
 }
 
+// GetDailyTrafficHistory returns daily traffic for this host over the last N days.
+func (s *ServerService) GetDailyTrafficHistory(days int) ([]TrafficDailySummary, error) {
+	db := database.GetDB()
+	hostname, _ := os.Hostname()
+	startDate := time.Now().AddDate(0, 0, -days).Format("2006-01-02")
+
+	var results []TrafficDailySummary
+	err := db.Model(&model.TrafficDaily{}).
+		Where("hostname = ? AND date >= ?", hostname, startDate).
+		Order("date ASC").
+		Find(&results).Error
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
 func (s *ServerService) sampleCPUUtilization() (float64, error) {
 	// Try native platform-specific CPU implementation first (Windows, Linux, macOS)
 	if pct, err := sys.CPUPercentRaw(); err == nil {

@@ -45,6 +45,7 @@ func (a *ServerController) initRouter(g *gin.RouterGroup) {
 	g.GET("/status", a.status)
 	g.GET("/cpuHistory/:bucket", a.getCpuHistoryBucket)
 	g.GET("/trafficHistory/:bucket", a.getTrafficHistoryBucket)
+	g.GET("/dailyTraffic/:days", a.getDailyTraffic)
 	g.GET("/getXrayVersion", a.getXrayVersion)
 	g.GET("/getConfigJson", a.getConfigJson)
 	g.GET("/getDb", a.getDb)
@@ -133,6 +134,21 @@ func (a *ServerController) getTrafficHistoryBucket(c *gin.Context) {
 	}
 	points := a.serverService.AggregateTrafficHistory(bucket, 60)
 	jsonObj(c, points, nil)
+}
+
+func (a *ServerController) getDailyTraffic(c *gin.Context) {
+	daysStr := c.Param("days")
+	days, err := strconv.Atoi(daysStr)
+	if err != nil || days <= 0 || days > 90 {
+		jsonMsg(c, "invalid days", fmt.Errorf("days must be 1-90"))
+		return
+	}
+	data, err := a.serverService.GetDailyTrafficHistory(days)
+	if err != nil {
+		jsonMsg(c, "failed to get daily traffic", err)
+		return
+	}
+	jsonObj(c, data, nil)
 }
 
 func (a *ServerController) checkPanelUpdate(c *gin.Context) {
