@@ -19,11 +19,13 @@
                 <a-spin tip='{{ i18n "loading" }}'></a-spin>
               </a-card>
             </a-row>
-            <a-row :gutter="[isMobile ? 8 : 16, isMobile ? 8 : 8]" v-else>
-              <a-col>
+            <a-row :gutter="[isMobile ? 8 : 16, isMobile ? 8 : 12]" v-else>
+
+              <!-- ===== Row 1: CPU / Memory / Swap / Disk Gauges (always full width) ===== -->
+              <a-col :xs="24">
                 <a-card hoverable>
                   <a-row :gutter="[0, isMobile ? 16 : 0]">
-                    <a-col :sm="24" :md="12">
+                    <a-col :xs="24" :md="12">
                       <a-row>
                         <a-col :span="12" class="text-center">
                           <a-progress type="dashboard" status="normal" :stroke-color="status.cpu.color"
@@ -55,7 +57,7 @@
                         </a-col>
                       </a-row>
                     </a-col>
-                    <a-col :sm="24" :md="12">
+                    <a-col :xs="24" :md="12">
                       <a-row>
                         <a-col :span="12" class="text-center">
                           <a-progress type="dashboard" status="normal" :stroke-color="status.swap.color"
@@ -78,10 +80,40 @@
                   </a-row>
                 </a-card>
               </a-col>
-              <!-- Connection Stats -->
-              <a-col :sm="24" :lg="12">
-                <a-card title='{{ i18n "pages.index.connectionCount" }}' hoverable>
-                  <a-row :gutter="isMobile ? [8,8] : 0">
+
+              <!-- ===== Row 2: Small info cards — 3 across on lg+, 2 on md, 1 on xs/sm ===== -->
+              <a-col :xs="24" :md="12" :lg="8">
+                <a-card title='{{ i18n "pages.index.operationHours" }}' hoverable style="height:100%">
+                  <template #extra>
+                    <a-tag color="blue" v-if="status.hostname">[[ status.hostname ]]</a-tag>
+                  </template>
+                  <a-tag :color="status.xray.color">Xray: [[ TimeFormatter.formatSecond(status.appStats.uptime) ]]</a-tag>
+                  <a-tag color="green">OS: [[ TimeFormatter.formatSecond(status.uptime) ]]</a-tag>
+                </a-card>
+              </a-col>
+              <a-col :xs="12" :md="6" :lg="8">
+                <a-card title='{{ i18n "pages.index.systemLoad" }}' hoverable style="height:100%">
+                  <a-tag color="green">
+                    <a-tooltip>
+                      [[ status.loads[0] ]] | [[ status.loads[1] ]] | [[ status.loads[2] ]]
+                      <template slot="title">
+                        {{ i18n "pages.index.systemLoadDesc" }}
+                      </template>
+                    </a-tooltip>
+                  </a-tag>
+                </a-card>
+              </a-col>
+              <a-col :xs="12" :md="6" :lg="8">
+                <a-card title='{{ i18n "usage"}}' hoverable style="height:100%">
+                  <a-tag color="green"> {{ i18n "pages.index.memory" }}: [[ SizeFormatter.sizeFormat(status.appStats.mem) ]] </a-tag>
+                  <a-tag color="green"> {{ i18n "pages.index.threads" }}: [[ status.appStats.threads ]] </a-tag>
+                </a-card>
+              </a-col>
+
+              <!-- ===== Row 3: Connection Stats + Xray Status ===== -->
+              <a-col :xs="24" :md="12">
+                <a-card title='{{ i18n "pages.index.connectionCount" }}' hoverable style="height:100%">
+                  <a-row>
                     <a-col :span="12">
                       <a-custom-statistic title="TCP" :value="status.tcpCount">
                         <template #prefix>
@@ -99,36 +131,8 @@
                   </a-row>
                 </a-card>
               </a-col>
-              <a-col :sm="24" :lg="12">
-                <a-card title='{{ i18n "pages.index.operationHours" }}' hoverable>
-                  <template #extra>
-                    <a-tag color="blue" v-if="status.hostname">[[ status.hostname ]]</a-tag>
-                  </template>
-                  <a-tag :color="status.xray.color">Xray: [[ TimeFormatter.formatSecond(status.appStats.uptime) ]]</a-tag>
-                  <a-tag color="green">OS: [[ TimeFormatter.formatSecond(status.uptime) ]]</a-tag>
-                </a-card>
-              </a-col>
-              <a-col :sm="24" :lg="12">
-                <a-card title='{{ i18n "pages.index.systemLoad" }}' hoverable>
-                  <a-tag color="green">
-                    <a-tooltip>
-                      [[ status.loads[0] ]] | [[ status.loads[1] ]] | [[ status.loads[2] ]]
-                      <template slot="title">
-                        {{ i18n "pages.index.systemLoadDesc" }}
-                      </template>
-                    </a-tooltip>
-                  </a-tag>
-                </a-card>
-              </a-col>
-              <a-col :sm="24" :lg="12">
-                <a-card title='{{ i18n "usage"}}' hoverable>
-                  <a-tag color="green"> {{ i18n "pages.index.memory" }}: [[ SizeFormatter.sizeFormat(status.appStats.mem) ]] </a-tag>
-                  <a-tag color="green"> {{ i18n "pages.index.threads" }}: [[ status.appStats.threads ]] </a-tag>
-                </a-card>
-              </a-col>
-              <!-- Xray Status -->
-              <a-col :sm="24" :lg="12">
-                <a-card hoverable>
+              <a-col :xs="24" :md="12">
+                <a-card hoverable style="height:100%">
                   <template #title>
                     <a-space direction="horizontal">
                       <span>{{ i18n "pages.index.xrayStatus" }}</span>
@@ -186,9 +190,10 @@
                   </template>
                 </a-card>
               </a-col>
-              <!-- Overall Speed + Live sparkline -->
-              <a-col :sm="24" :lg="12">
-                <a-card hoverable>
+
+              <!-- ===== Row 4: Overall Speed + Network Total ===== -->
+              <a-col :xs="24" :md="12">
+                <a-card hoverable style="height:100%">
                   <template #title>
                     {{ i18n "pages.index.overallSpeed" }}
                     <a-tooltip :overlay-class-name="themeSwitcher.currentTheme">
@@ -197,7 +202,7 @@
                       </a-button>
                     </a-tooltip>
                   </template>
-                  <a-row :gutter="isMobile ? [8,8] : 0">
+                  <a-row>
                     <a-col :span="12">
                       <a-custom-statistic title='{{ i18n "pages.index.upload" }}'
                         :value="SizeFormatter.sizeFormat(status.netIO.up)">
@@ -231,10 +236,9 @@
                   </div>
                 </a-card>
               </a-col>
-              <!-- Network Total Data -->
-              <a-col :sm="24" :lg="12">
-                <a-card title='{{ i18n "pages.index.totalData" }}' hoverable>
-                  <a-row :gutter="isMobile ? [8,8] : 0">
+              <a-col :xs="24" :md="12">
+                <a-card title='{{ i18n "pages.index.totalData" }}' hoverable style="height:100%">
+                  <a-row>
                     <a-col :span="12">
                       <a-custom-statistic title='{{ i18n "pages.index.sent" }}'
                         :value="SizeFormatter.sizeFormat(status.netTraffic.sent)">
@@ -254,10 +258,11 @@
                   </a-row>
                 </a-card>
               </a-col>
-              <!-- Xray Traffic -->
-              <a-col :sm="24" :lg="12">
-                <a-card title='{{ i18n "pages.index.xrayTraffic" }}' hoverable>
-                  <a-row :gutter="isMobile ? [8,8] : 0">
+
+              <!-- ===== Row 5: Xray Traffic + IP Addresses ===== -->
+              <a-col :xs="24" :md="12">
+                <a-card title='{{ i18n "pages.index.xrayTraffic" }}' hoverable style="height:100%">
+                  <a-row>
                     <a-col :span="12">
                       <a-custom-statistic title='{{ i18n "pages.index.upload" }}'
                         :value="SizeFormatter.sizeFormat(status.xrayTraffic.up)">
@@ -277,8 +282,38 @@
                   </a-row>
                 </a-card>
               </a-col>
-              <!-- Daily Traffic History (this server) -->
-              <a-col :sm="24">
+              <a-col :xs="24" :md="12">
+                <a-card title='{{ i18n "pages.index.ipAddresses" }}' hoverable style="height:100%">
+                  <template #extra>
+                    <a-tooltip :placement="isMobile ? 'topRight' : 'top'">
+                      <template #title>
+                        {{ i18n "pages.index.toggleIpVisibility" }}
+                      </template>
+                      <a-icon :type="showIp ? 'eye' : 'eye-invisible'" class="fs-1rem"
+                        @click="showIp = !showIp"></a-icon>
+                    </a-tooltip>
+                  </template>
+                  <a-row :class="showIp ? 'ip-visible' : 'ip-hidden'">
+                    <a-col :xs="24" :sm="12">
+                      <a-custom-statistic title="IPv4" :value="status.publicIP.ipv4">
+                        <template #prefix>
+                          <a-icon type="global" />
+                        </template>
+                      </a-custom-statistic>
+                    </a-col>
+                    <a-col :xs="24" :sm="12">
+                      <a-custom-statistic title="IPv6" :value="status.publicIP.ipv6">
+                        <template #prefix>
+                          <a-icon type="global" />
+                        </template>
+                      </a-custom-statistic>
+                    </a-col>
+                  </a-row>
+                </a-card>
+              </a-col>
+
+              <!-- ===== Row 6: Daily Traffic (always full width) ===== -->
+              <a-col :xs="24">
                 <a-card hoverable>
                   <template #title>
                     <a-icon type="bar-chart" /> Daily Traffic
@@ -311,22 +346,23 @@
                     </div>
                     <a-row style="margin-top:10px;font-size:12px;text-align:center" :gutter="[8,4]">
                       <a-col :span="8">
-                        <a-tag color="green">&#9650; Upload: [[ SizeFormatter.sizeFormat(dailyTrafficTotalUp) ]]</a-tag>
+                        <a-tag color="green">&#9650; [[ SizeFormatter.sizeFormat(dailyTrafficTotalUp) ]]</a-tag>
                       </a-col>
                       <a-col :span="8">
-                        <a-tag color="blue">&#9660; Download: [[ SizeFormatter.sizeFormat(dailyTrafficTotalDown) ]]</a-tag>
+                        <a-tag color="blue">&#9660; [[ SizeFormatter.sizeFormat(dailyTrafficTotalDown) ]]</a-tag>
                       </a-col>
                       <a-col :span="8">
-                        <a-tag color="purple">Total: [[ SizeFormatter.sizeFormat(dailyTrafficTotalUp + dailyTrafficTotalDown) ]]</a-tag>
+                        <a-tag color="purple">&#8721; [[ SizeFormatter.sizeFormat(dailyTrafficTotalUp + dailyTrafficTotalDown) ]]</a-tag>
                       </a-col>
                     </a-row>
                   </div>
                   <div v-else style="text-align:center;color:#999;padding:20px 0">No daily traffic data</div>
                 </a-card>
               </a-col>
-              <!-- 3X-UI MySQL + Quick Links -->
-              <a-col :sm="24" :lg="12">
-                <a-card title='3X-UI MySQL' hoverable>
+
+              <!-- ===== Row 7: Panel Info + Quick Links ===== -->
+              <a-col :xs="24" :md="12">
+                <a-card title='3X-UI MySQL' hoverable style="height:100%">
                   <template #extra>
                     <a-button size="small" type="primary" ghost @click="checkPanelUpdate" :loading="panelUpdate.checking">
                       <a-icon type="cloud-sync" /> Check Update
@@ -355,9 +391,8 @@
                   </a>
                 </a-card>
               </a-col>
-              <!-- Quick Links -->
-              <a-col :sm="24" :lg="12">
-                <a-card title='{{ i18n "menu.link" }}' hoverable>
+              <a-col :xs="24" :md="12">
+                <a-card title='{{ i18n "menu.link" }}' hoverable style="height:100%">
                   <template #actions>
                     <a-space direction="horizontal" @click="openLogs()" class="jc-center">
                       <a-icon type="bars"></a-icon>
@@ -374,36 +409,7 @@
                   </template>
                 </a-card>
               </a-col>
-              <!-- IP Addresses -->
-              <a-col :sm="24" :lg="12">
-                <a-card title='{{ i18n "pages.index.ipAddresses" }}' hoverable>
-                  <template #extra>
-                    <a-tooltip :placement="isMobile ? 'topRight' : 'top'">
-                      <template #title>
-                        {{ i18n "pages.index.toggleIpVisibility" }}
-                      </template>
-                      <a-icon :type="showIp ? 'eye' : 'eye-invisible'" class="fs-1rem"
-                        @click="showIp = !showIp"></a-icon>
-                    </a-tooltip>
-                  </template>
-                  <a-row :class="showIp ? 'ip-visible' : 'ip-hidden'" :gutter="isMobile ? [8,8] : 0">
-                    <a-col :span="isMobile ? 24 : 12">
-                      <a-custom-statistic title="IPv4" :value="status.publicIP.ipv4">
-                        <template #prefix>
-                          <a-icon type="global" />
-                        </template>
-                      </a-custom-statistic>
-                    </a-col>
-                    <a-col :span="isMobile ? 24 : 12">
-                      <a-custom-statistic title="IPv6" :value="status.publicIP.ipv6">
-                        <template #prefix>
-                          <a-icon type="global" />
-                        </template>
-                      </a-custom-statistic>
-                    </a-col>
-                  </a-row>
-                </a-card>
-              </a-col>
+
             </a-row>
           </template>
         </transition>

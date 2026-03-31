@@ -803,19 +803,16 @@ update_x-ui() {
                 _fail "ERROR: x-ui systemd unit not installed."
             fi
         fi
-        echo -e "${green}Removing old x-ui version...${plain}"
-        rm ${xui_folder} -f >/dev/null 2>&1
-        rm ${xui_folder}/x-ui.service -f >/dev/null 2>&1
-        rm ${xui_folder}/x-ui.service.debian -f >/dev/null 2>&1
-        rm ${xui_folder}/x-ui.service.arch -f >/dev/null 2>&1
-        rm ${xui_folder}/x-ui.service.rhel -f >/dev/null 2>&1
-        rm ${xui_folder}/x-ui -f >/dev/null 2>&1
-        rm ${xui_folder}/x-ui.sh -f >/dev/null 2>&1
-        echo -e "${green}Removing old xray version...${plain}"
-        rm ${xui_folder}/bin/xray-linux-amd64 -f >/dev/null 2>&1
-        echo -e "${green}Removing old README and LICENSE file...${plain}"
-        rm ${xui_folder}/bin/README.md -f >/dev/null 2>&1
-        rm ${xui_folder}/bin/LICENSE -f >/dev/null 2>&1
+        echo -e "${green}Removing old x-ui binary and scripts...${plain}"
+        rm -f ${xui_folder}/x-ui >/dev/null 2>&1
+        rm -f ${xui_folder}/x-ui.sh >/dev/null 2>&1
+        rm -f ${xui_folder}/x-ui.service >/dev/null 2>&1
+        rm -f ${xui_folder}/x-ui.service.debian >/dev/null 2>&1
+        rm -f ${xui_folder}/x-ui.service.arch >/dev/null 2>&1
+        rm -f ${xui_folder}/x-ui.service.rhel >/dev/null 2>&1
+        rm -f ${xui_folder}/bin/xray-linux-* >/dev/null 2>&1
+        rm -f ${xui_folder}/bin/README.md >/dev/null 2>&1
+        rm -f ${xui_folder}/bin/LICENSE >/dev/null 2>&1
     else
         rm x-ui-linux-$(arch).tar.gz -f >/dev/null 2>&1
         _fail "ERROR: x-ui not installed."
