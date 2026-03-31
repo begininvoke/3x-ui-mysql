@@ -105,7 +105,6 @@ jobs:
           mkdir x-ui/bin
           cd x-ui/bin
           
-          # Download dependencies
           Xray_URL="https://github.com/XTLS/Xray-core/releases/download/v26.2.6/"
           if [ "${{ matrix.platform }}" == "amd64" ]; then
             wget -q ${Xray_URL}Xray-linux-64.zip
@@ -146,16 +145,25 @@ jobs:
           mv xray xray-linux-${{ matrix.platform }}
           cd ../..
           
-      - name: Package
+      - name: Package tar.gz
         run: tar -zcvf x-ui-linux-${{ matrix.platform }}.tar.gz x-ui
 
-      - name: Upload files to Artifacts
+      - name: Package zip
+        run: zip -r x-ui-linux-${{ matrix.platform }}.zip x-ui
+
+      - name: Upload tar.gz to Artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: x-ui-linux-${{ matrix.platform }}
+          name: x-ui-linux-${{ matrix.platform }}-tar
           path: ./x-ui-linux-${{ matrix.platform }}.tar.gz
 
-      - name: Upload files to GH release
+      - name: Upload zip to Artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: x-ui-linux-${{ matrix.platform }}-zip
+          path: ./x-ui-linux-${{ matrix.platform }}.zip
+
+      - name: Upload tar.gz to GH release
         uses: svenstaro/upload-release-action@v2
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         with:
@@ -163,6 +171,17 @@ jobs:
           tag: ${{ github.ref_name }}
           file: x-ui-linux-${{ matrix.platform }}.tar.gz
           asset_name: x-ui-linux-${{ matrix.platform }}.tar.gz
+          overwrite: true
+          prerelease: true
+
+      - name: Upload zip to GH release
+        uses: svenstaro/upload-release-action@v2
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref_name }}
+          file: x-ui-linux-${{ matrix.platform }}.zip
+          asset_name: x-ui-linux-${{ matrix.platform }}.zip
           overwrite: true
           prerelease: true
 
@@ -204,7 +223,6 @@ jobs:
           mkdir x-ui\bin
           cd x-ui\bin
           
-          # Download Xray for Windows
           $Xray_URL = "https://github.com/XTLS/Xray-core/releases/download/v26.2.6/"
           Invoke-WebRequest -Uri "${Xray_URL}Xray-windows-64.zip" -OutFile "Xray-windows-64.zip"
           Expand-Archive -Path "Xray-windows-64.zip" -DestinationPath .

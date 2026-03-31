@@ -8,6 +8,14 @@ plain='\033[0m'
 
 xui_folder="${XUI_MAIN_FOLDER:=/usr/local/x-ui}"
 xui_service="${XUI_SERVICE:=/etc/systemd/system}"
+GITHUB_REPO="begininvoke/3x-ui-mysql"
+
+# Proxy support: set PROXY_CMD to wrap curl (e.g. PROXY_CMD=proxychains)
+PROXY_CMD="${PROXY_CMD:-}"
+
+_curl() {
+    ${PROXY_CMD} curl "$@"
+}
 
 # Don't edit this config
 b_source="${BASH_SOURCE[0]}"
@@ -34,9 +42,7 @@ _fail() {
 # check root
 [[ $EUID -ne 0 ]] && _fail "FATAL ERROR: Please run this script with root privilege."
 
-if _command_exists curl; then
-    curl_bin=$(which curl)
-else
+if ! _command_exists curl; then
     _fail "ERROR: Command 'curl' not found."
 fi
 
@@ -756,19 +762,19 @@ update_x-ui() {
     
     echo -e "${green}Downloading new x-ui version...${plain}"
     
-    tag_version=$(${curl_bin} -Ls "https://api.github.com/repos/begininvoke/3x-ui-mysql/releases/latest" 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    tag_version=$(_curl -Ls "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
     if [[ ! -n "$tag_version" ]]; then
         echo -e "${yellow}Trying to fetch version with IPv4...${plain}"
-        tag_version=$(${curl_bin} -4 -Ls "https://api.github.com/repos/begininvoke/3x-ui-mysql/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+        tag_version=$(_curl -4 -Ls "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
         if [[ ! -n "$tag_version" ]]; then
             _fail "ERROR: Failed to fetch x-ui version, it may be due to GitHub API restrictions, please try it later"
         fi
     fi
     echo -e "Got x-ui latest version: ${tag_version}, beginning the installation..."
-    ${curl_bin} -fLRo ${xui_folder}-linux-$(arch).tar.gz https://github.com/begininvoke/3x-ui-mysql/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz 2>/dev/null
+    _curl -fLRo ${xui_folder}-linux-$(arch).tar.gz https://github.com/${GITHUB_REPO}/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz 2>/dev/null
     if [[ $? -ne 0 ]]; then
         echo -e "${yellow}Trying to fetch version with IPv4...${plain}"
-        ${curl_bin} -4fLRo ${xui_folder}-linux-$(arch).tar.gz https://github.com/begininvoke/3x-ui-mysql/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz 2>/dev/null
+        _curl -4fLRo ${xui_folder}-linux-$(arch).tar.gz https://github.com/${GITHUB_REPO}/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz 2>/dev/null
         if [[ $? -ne 0 ]]; then
             _fail "ERROR: Failed to download x-ui, please be sure that your server can access GitHub"
         fi
@@ -831,10 +837,10 @@ update_x-ui() {
     chmod +x x-ui bin/xray-linux-$(arch) >/dev/null 2>&1
     
     echo -e "${green}Downloading and installing x-ui.sh script...${plain}"
-    ${curl_bin} -fLRo /usr/bin/x-ui https://raw.githubusercontent.com/begininvoke/3x-ui-mysql/main/x-ui.sh >/dev/null 2>&1
+    _curl -fLRo /usr/bin/x-ui https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.sh >/dev/null 2>&1
     if [[ $? -ne 0 ]]; then
         echo -e "${yellow}Trying to fetch x-ui with IPv4...${plain}"
-        ${curl_bin} -4fLRo /usr/bin/x-ui https://raw.githubusercontent.com/begininvoke/3x-ui-mysql/main/x-ui.sh >/dev/null 2>&1
+        _curl -4fLRo /usr/bin/x-ui https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.sh >/dev/null 2>&1
         if [[ $? -ne 0 ]]; then
             _fail "ERROR: Failed to download x-ui.sh script, please be sure that your server can access GitHub"
         fi
@@ -854,9 +860,9 @@ update_x-ui() {
     
     if [[ $release == "alpine" ]]; then
         echo -e "${green}Downloading and installing startup unit x-ui.rc...${plain}"
-        ${curl_bin} -fLRo /etc/init.d/x-ui https://raw.githubusercontent.com/begininvoke/3x-ui-mysql/main/x-ui.rc >/dev/null 2>&1
+        _curl -fLRo /etc/init.d/x-ui https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.rc >/dev/null 2>&1
         if [[ $? -ne 0 ]]; then
-            ${curl_bin} -4fLRo /etc/init.d/x-ui https://raw.githubusercontent.com/begininvoke/3x-ui-mysql/main/x-ui.rc >/dev/null 2>&1
+            _curl -4fLRo /etc/init.d/x-ui https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.rc >/dev/null 2>&1
             if [[ $? -ne 0 ]]; then
                 _fail "ERROR: Failed to download startup unit x-ui.rc, please be sure that your server can access GitHub"
             fi
@@ -910,13 +916,13 @@ update_x-ui() {
                 echo -e "${yellow}Service files not found in tar.gz, downloading from GitHub...${plain}"
                 case "${release}" in
                     ubuntu | debian | armbian)
-                        ${curl_bin} -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/begininvoke/3x-ui-mysql/main/x-ui.service.debian >/dev/null 2>&1
+                        _curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.service.debian >/dev/null 2>&1
                     ;;
                     arch | manjaro | parch)
-                        ${curl_bin} -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/begininvoke/3x-ui-mysql/main/x-ui.service.arch >/dev/null 2>&1
+                        _curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.service.arch >/dev/null 2>&1
                     ;;
                     *)
-                        ${curl_bin} -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/begininvoke/3x-ui-mysql/main/x-ui.service.rhel >/dev/null 2>&1
+                        _curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.service.rhel >/dev/null 2>&1
                     ;;
                 esac
                 

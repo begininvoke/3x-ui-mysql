@@ -6,6 +6,15 @@ blue='\033[0;34m'
 yellow='\033[0;33m'
 plain='\033[0m'
 
+GITHUB_REPO="begininvoke/3x-ui-mysql"
+
+# Proxy support: set PROXY_CMD to wrap curl (e.g. PROXY_CMD=proxychains x-ui update)
+PROXY_CMD="${PROXY_CMD:-}"
+
+_curl() {
+    ${PROXY_CMD} curl "$@"
+}
+
 #Add some basic function here
 function LOGD() {
     echo -e "${yellow}[DEG] $* ${plain}"
@@ -108,7 +117,7 @@ before_show_menu() {
 }
 
 install() {
-    bash <(curl -Ls https://raw.githubusercontent.com/begininvoke/3x-ui-mysql/main/install.sh)
+    bash <(_curl -Ls https://raw.githubusercontent.com/${GITHUB_REPO}/main/install.sh)
     if [[ $? == 0 ]]; then
         if [[ $# == 0 ]]; then
             start
@@ -127,7 +136,7 @@ update() {
         fi
         return 0
     fi
-    bash <(curl -Ls https://raw.githubusercontent.com/begininvoke/3x-ui-mysql/main/update.sh)
+    bash <(_curl -Ls https://raw.githubusercontent.com/${GITHUB_REPO}/main/update.sh)
     if [[ $? == 0 ]]; then
         LOGI "Update is complete, Panel has automatically restarted "
         before_show_menu
@@ -145,7 +154,7 @@ update_menu() {
         return 0
     fi
 
-    curl -fLRo /usr/bin/x-ui https://raw.githubusercontent.com/begininvoke/3x-ui-mysql/main/x-ui.sh
+    _curl -fLRo /usr/bin/x-ui https://raw.githubusercontent.com/${GITHUB_REPO}/main/x-ui.sh
     chmod +x ${xui_folder}/x-ui.sh
     chmod +x /usr/bin/x-ui
 
@@ -603,7 +612,7 @@ enable_bbr() {
 }
 
 update_shell() {
-    curl -fLRo /usr/bin/x-ui -z /usr/bin/x-ui https://github.com/begininvoke/3x-ui-mysql/raw/main/x-ui.sh
+    _curl -fLRo /usr/bin/x-ui -z /usr/bin/x-ui https://github.com/${GITHUB_REPO}/raw/main/x-ui.sh
     if [[ $? != 0 ]]; then
         echo ""
         LOGE "Failed to download script, Please check whether the machine can connect Github"

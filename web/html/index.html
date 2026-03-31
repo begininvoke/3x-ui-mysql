@@ -231,7 +231,7 @@
                       <a-custom-statistic title='{{ i18n "pages.index.upload" }}'
                         :value="SizeFormatter.sizeFormat(status.netIO.up)">
                         <template #prefix>
-                          <a-icon type="arrow-up" />
+                          <a-icon type="arrow-up" style="color:#52c41a" />
                         </template>
                         <template #suffix>
                           /s
@@ -242,7 +242,7 @@
                       <a-custom-statistic title='{{ i18n "pages.index.download" }}'
                         :value="SizeFormatter.sizeFormat(status.netIO.down)">
                         <template #prefix>
-                          <a-icon type="arrow-down" />
+                          <a-icon type="arrow-down" style="color:#1890ff" />
                         </template>
                         <template #suffix>
                           /s
@@ -250,6 +250,14 @@
                       </a-custom-statistic>
                     </a-col>
                   </a-row>
+                  <div v-if="trafficUpLive.length > 2" style="margin-top:8px;position:relative">
+                    <sparkline :data="trafficUpLive" :vb-width="400" :height="30" stroke="#52c41a" :stroke-width="1.5"
+                      :auto-scale="true" :fill-opacity="0.1" :show-marker="true" :marker-radius="2"
+                      :padding-left="0" :padding-right="0" :padding-top="2" :padding-bottom="2" />
+                    <sparkline :data="trafficDownLive" :vb-width="400" :height="30" stroke="#1890ff" :stroke-width="1.5"
+                      :auto-scale="true" :fill-opacity="0.1" :show-marker="true" :marker-radius="2"
+                      :padding-left="0" :padding-right="0" :padding-top="2" :padding-bottom="2" />
+                  </div>
                 </a-card>
               </a-col>
               <a-col :sm="24" :lg="12">
@@ -1023,6 +1031,8 @@
   cpuHistoryLong: [],
   cpuHistoryLabels: [],
   cpuHistoryModal: { visible: false, bucket: 2 },
+  trafficUpLive: [],
+  trafficDownLive: [],
   trafficHistoryUp: [],
   trafficHistoryDown: [],
   trafficHistoryLabels: [],
@@ -1076,6 +1086,17 @@
         const maxPoints = this.isMobile ? 60 : 120
         if (this.cpuHistory.length > maxPoints) {
           this.cpuHistory.splice(0, this.cpuHistory.length - maxPoints)
+        }
+        const up = Number(data?.netIO?.up ?? 0)
+        const down = Number(data?.netIO?.down ?? 0)
+        this.trafficUpLive.push(up)
+        this.trafficDownLive.push(down)
+        const trafMax = this.isMobile ? 60 : 120
+        if (this.trafficUpLive.length > trafMax) {
+          this.trafficUpLive.splice(0, this.trafficUpLive.length - trafMax)
+        }
+        if (this.trafficDownLive.length > trafMax) {
+          this.trafficDownLive.splice(0, this.trafficDownLive.length - trafMax)
         }
         if (this.cpuHistoryModal.visible) {
           this.fetchCpuHistoryBucket()
