@@ -124,6 +124,7 @@ type BlockedIP struct {
 	Id            int    `json:"id" gorm:"primaryKey;autoIncrement"`
 	IP            string `json:"ip" gorm:"size:45;index"`
 	ClientEmail   string `json:"clientEmail" gorm:"size:255;index"`
+	Reason        string `json:"reason" gorm:"size:255"`
 	BlockedAt     int64  `json:"blockedAt"`
 	BlockDuration int64  `json:"blockDuration" gorm:"default:300"`
 	ExpiresAt     int64  `json:"expiresAt" gorm:"index"`

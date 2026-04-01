@@ -3,6 +3,7 @@ package job
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -358,9 +359,10 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 
 		var inboundService service.InboundService
 		blockDuration := int64(300)
+		reason := fmt.Sprintf("IP limit exceeded: %d/%d active IPs (window: 60s)", len(allIps), limitIp)
 		for _, ipTime := range bannedIps {
 			j.disAllowedIps = append(j.disAllowedIps, ipTime.IP)
-			if err := inboundService.SaveBlockedIP(ipTime.IP, clientEmail, time.Now().Unix(), blockDuration); err != nil {
+			if err := inboundService.SaveBlockedIP(ipTime.IP, clientEmail, time.Now().Unix(), blockDuration, reason); err != nil {
 				logger.Warning("failed to save blocked IP to database:", err)
 			}
 		}

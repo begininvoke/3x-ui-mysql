@@ -47,28 +47,49 @@
   }
 
   .blocked-ips-page .client-cell {
-    display: flex; flex-direction: column; gap: 2px;
+    display: flex; flex-direction: column; gap: 1px;
   }
   .blocked-ips-page .client-cell-ip {
     font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
-    font-size: 13px; font-weight: 600; color: rgba(0,0,0,0.8);
+    font-size: 13px; font-weight: 600; color: rgba(0,0,0,0.85);
+    display: inline-flex; align-items: center; gap: 5px;
   }
-  .blocked-ips-page.dark .client-cell-ip { color: rgba(255,255,255,0.85); }
-  .blocked-ips-page .client-cell-email {
+  .blocked-ips-page.dark .client-cell-ip { color: rgba(255,255,255,0.88); }
+  .blocked-ips-page .client-cell-name {
     font-size: 11px; color: rgba(0,0,0,0.4);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     max-width: 220px;
   }
-  .blocked-ips-page.dark .client-cell-email { color: rgba(255,255,255,0.35); }
+  .blocked-ips-page.dark .client-cell-name { color: rgba(255,255,255,0.35); }
+
+  .blocked-ips-page .reason-cell {
+    font-size: 11px; color: rgba(0,0,0,0.55);
+    line-height: 1.4;
+  }
+  .blocked-ips-page.dark .reason-cell { color: rgba(255,255,255,0.4); }
+  .blocked-ips-page .reason-tag {
+    font-size: 10px; padding: 1px 6px; border-radius: 4px;
+    display: inline-block; margin-top: 2px;
+  }
+  .blocked-ips-page .reason-tag.limit {
+    background: rgba(250,173,20,0.1); color: #d48806; border: 1px solid rgba(250,173,20,0.2);
+  }
+  .blocked-ips-page.dark .reason-tag.limit {
+    background: rgba(250,173,20,0.1); color: #faad14; border-color: rgba(250,173,20,0.15);
+  }
+  .blocked-ips-page .reason-tag.disabled {
+    background: rgba(224,65,65,0.08); color: #cf1322; border: 1px solid rgba(224,65,65,0.15);
+  }
+  .blocked-ips-page.dark .reason-tag.disabled {
+    background: rgba(224,65,65,0.1); color: #ff6b6b; border-color: rgba(224,65,65,0.15);
+  }
 
   .blocked-ips-page .time-cell {
     font-size: 12px; color: rgba(0,0,0,0.55);
   }
   .blocked-ips-page.dark .time-cell { color: rgba(255,255,255,0.45); }
 
-  .blocked-ips-page .expires-cell {
-    font-size: 12px;
-  }
+  .blocked-ips-page .expires-cell { font-size: 12px; }
   .blocked-ips-page .expires-active { color: #e04141; font-weight: 500; }
   .blocked-ips-page.dark .expires-active { color: #ff6b6b; }
   .blocked-ips-page .expires-done { color: #52c41a; }
@@ -97,6 +118,19 @@
   .blocked-ips-page.dark .ant-table:not(.ant-table-expanded-row .ant-table) {
     outline-color: var(--dark-color-table-ring);
   }
+  .blocked-ips-page.dark .ant-table-fixed-right,
+  .blocked-ips-page.dark .ant-table-fixed-right table,
+  .blocked-ips-page.dark .ant-table-fixed-right .ant-table-thead > tr > th,
+  .blocked-ips-page.dark .ant-table-fixed-right .ant-table-tbody > tr > td,
+  .blocked-ips-page.dark .ant-table-fixed-right .ant-table-header,
+  .blocked-ips-page.dark .ant-table-fixed-right .ant-table-body-outer,
+  .blocked-ips-page.dark .ant-table-fixed-right .ant-table-body-inner {
+    background: transparent !important;
+    background-color: inherit !important;
+  }
+  .blocked-ips-page.dark .ant-table-fixed-columns-in-body {
+    background: inherit !important;
+  }
 
   .blocked-ips-page .ant-btn-primary.ant-btn-background-ghost {
     background: transparent !important;
@@ -116,7 +150,13 @@
     color: #69c0ff !important; border-color: #69c0ff !important;
     background: rgba(24,144,255,0.1) !important;
   }
-
+  .blocked-ips-page .ant-btn-danger.ant-btn-background-ghost {
+    background: transparent !important;
+  }
+  .blocked-ips-page.dark .ant-btn-danger.ant-btn-background-ghost {
+    background: transparent !important;
+    color: #ff6b6b !important; border-color: #ff6b6b !important;
+  }
   .blocked-ips-page .ant-btn-danger,
   .blocked-ips-page.dark .ant-btn-danger {
     background: transparent !important;
@@ -245,17 +285,43 @@
                     :data-source="filteredIPs"
                     :row-key="record => record.id"
                     :pagination="filteredIPs.length > 10 ? { pageSize: 15, size: 'small', showSizeChanger: true, pageSizeOptions: ['10','15','30','50'], showTotal: (total) => total + ' records' } : false"
-                    :scroll="isMobile ? { x: 600 } : {}"
+                    :scroll="isMobile ? { x: 750 } : {}"
                     size="small"
                   >
-                    <template slot="client" slot-scope="text, record">
+                    <template slot="client" slot-scope="ip, record">
                       <div class="client-cell">
                         <span class="client-cell-ip">
                           <a-icon :type="record.active ? 'lock' : 'unlock'"
-                            :style="{ color: record.active ? '#e04141' : '#52c41a', marginRight: '5px', fontSize: '11px' }" />
+                            :style="{ color: record.active ? '#e04141' : '#52c41a', fontSize: '11px' }" />
                           [[ record.ip ]]
                         </span>
-                        <span class="client-cell-email">[[ record.clientEmail || '—' ]]</span>
+                        <span class="client-cell-name">
+                          <a-icon type="user" style="font-size:10px;margin-right:3px" />
+                          [[ record.clientEmail || '—' ]]
+                        </span>
+                      </div>
+                    </template>
+
+                    <template slot="reason" slot-scope="text, record">
+                      <div class="reason-cell">
+                        <template v-if="record.reason && record.reason.includes('limit')">
+                          <span class="reason-tag limit">
+                            <a-icon type="warning" style="margin-right:3px" />
+                            [[ record.reason ]]
+                          </span>
+                        </template>
+                        <template v-else-if="record.reason && record.reason.includes('disabled')">
+                          <span class="reason-tag disabled">
+                            <a-icon type="close-circle" style="margin-right:3px" />
+                            [[ record.reason ]]
+                          </span>
+                        </template>
+                        <template v-else-if="record.reason">
+                          <span>[[ record.reason ]]</span>
+                        </template>
+                        <template v-else>
+                          <span style="opacity:0.4">—</span>
+                        </template>
                       </div>
                     </template>
 
@@ -278,26 +344,25 @@
                       </template>
                     </template>
 
-                    <template slot="status" slot-scope="text, record">
-                      <a-badge v-if="record.active" status="error" text="Blocked" />
-                      <a-badge v-else status="success" text="Released" />
-                    </template>
-
                     <template slot="action" slot-scope="text, record">
                       <a-space :size="4">
                         <a-popconfirm v-if="record.active" title="Unblock and unban from firewall?"
                           ok-text="Yes" cancel-text="No" @confirm="unblockIP(record.id)"
                           :overlay-class-name="themeSwitcher.currentTheme">
-                          <a-button size="small" type="primary" ghost style="border-radius:6px">
-                            <a-icon type="unlock" />
-                          </a-button>
+                          <a-tooltip title="Unblock">
+                            <a-button size="small" type="primary" ghost style="border-radius:6px">
+                              <a-icon type="unlock" />
+                            </a-button>
+                          </a-tooltip>
                         </a-popconfirm>
                         <a-popconfirm title="Delete this record?"
                           ok-text="Yes" cancel-text="No" @confirm="deleteIP(record.id)"
                           :overlay-class-name="themeSwitcher.currentTheme">
-                          <a-button size="small" type="danger" ghost style="border-radius:6px">
-                            <a-icon type="delete" />
-                          </a-button>
+                          <a-tooltip title="Delete">
+                            <a-button size="small" type="danger" ghost style="border-radius:6px">
+                              <a-icon type="delete" />
+                            </a-button>
+                          </a-tooltip>
                         </a-popconfirm>
                       </a-space>
                     </template>
@@ -333,10 +398,10 @@
         sortBy: 'newest',
       },
       columns: [
-        { title: 'Client / IP', key: 'client', scopedSlots: { customRender: 'client' }, width: 250 },
-        { title: 'Blocked At', dataIndex: 'blockedAt', key: 'blockedAt', scopedSlots: { customRender: 'blockedAt' }, width: 160 },
-        { title: 'Expires', key: 'expires', scopedSlots: { customRender: 'expires' }, width: 130 },
-        { title: 'Status', key: 'status', scopedSlots: { customRender: 'status' }, width: 100 },
+        { title: 'Client / IP', dataIndex: 'ip', key: 'client', scopedSlots: { customRender: 'client' }, width: 220 },
+        { title: 'Reason', dataIndex: 'reason', key: 'reason', scopedSlots: { customRender: 'reason' }, ellipsis: true },
+        { title: 'Blocked At', dataIndex: 'blockedAt', key: 'blockedAt', scopedSlots: { customRender: 'blockedAt' }, width: 140 },
+        { title: 'Expires', key: 'expires', scopedSlots: { customRender: 'expires' }, width: 120 },
         { title: '', key: 'action', scopedSlots: { customRender: 'action' }, width: 90, fixed: 'right' },
       ],
     },
@@ -378,7 +443,8 @@
           const q = this.filters.search.toLowerCase();
           result = result.filter(ip =>
             (ip.ip && ip.ip.toLowerCase().includes(q)) ||
-            (ip.clientEmail && ip.clientEmail.toLowerCase().includes(q))
+            (ip.clientEmail && ip.clientEmail.toLowerCase().includes(q)) ||
+            (ip.reason && ip.reason.toLowerCase().includes(q))
           );
         }
         if (this.filters.sortBy === 'newest') {
@@ -395,23 +461,11 @@
         try {
           const msg = await HttpUtil.post('/panel/api/inbounds/unblockIp/' + id);
           if (msg.success) {
-            this.$message.success('IP unblocked successfully');
+            this.$message.success('IP unblocked & unbanned');
             await this.fetchBlockedIPs();
           }
         } catch (e) {
           this.$message.error('Failed to unblock IP');
-        }
-      },
-
-      async clearAll() {
-        try {
-          const msg = await HttpUtil.post('/panel/api/inbounds/clearBlockedIps');
-          if (msg.success) {
-            this.$message.success('All IPs unblocked & unbanned');
-            await this.fetchBlockedIPs();
-          }
-        } catch (e) {
-          this.$message.error('Failed to clear blocked IPs');
         }
       },
 
@@ -424,6 +478,18 @@
           }
         } catch (e) {
           this.$message.error('Failed to delete record');
+        }
+      },
+
+      async clearAll() {
+        try {
+          const msg = await HttpUtil.post('/panel/api/inbounds/clearBlockedIps');
+          if (msg.success) {
+            this.$message.success('All IPs unblocked & unbanned');
+            await this.fetchBlockedIPs();
+          }
+        } catch (e) {
+          this.$message.error('Failed to clear blocked IPs');
         }
       },
 

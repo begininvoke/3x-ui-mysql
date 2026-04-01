@@ -2631,7 +2631,7 @@ func (s *InboundService) UnblockIP(id int) error {
 	return nil
 }
 
-func (s *InboundService) SaveBlockedIP(ip string, clientEmail string, blockedAt int64, durationSeconds int64) error {
+func (s *InboundService) SaveBlockedIP(ip string, clientEmail string, blockedAt int64, durationSeconds int64, reason string) error {
 	db := database.GetDB()
 	var existing model.BlockedIP
 	err := db.Where("ip = ? AND client_email = ? AND active = ?", ip, clientEmail, true).First(&existing).Error
@@ -2644,6 +2644,7 @@ func (s *InboundService) SaveBlockedIP(ip string, clientEmail string, blockedAt 
 	blocked := &model.BlockedIP{
 		IP:            ip,
 		ClientEmail:   clientEmail,
+		Reason:        reason,
 		BlockedAt:     blockedAt,
 		BlockDuration: durationSeconds,
 		ExpiresAt:     blockedAt + durationSeconds,
@@ -2759,11 +2760,12 @@ func (s *InboundService) BlockIPsForDisabledClients(emails []string, durationSec
 			continue
 		}
 
+		reason := fmt.Sprintf("Account disabled (traffic limit or expired)")
 		for _, entry := range ips {
 			if entry.IP == "" || entry.IP == "127.0.0.1" || entry.IP == "::1" {
 				continue
 			}
-			_ = s.SaveBlockedIP(entry.IP, email, now, durationSeconds)
+			_ = s.SaveBlockedIP(entry.IP, email, now, durationSeconds, reason)
 		}
 
 		if len(ips) > 0 {
