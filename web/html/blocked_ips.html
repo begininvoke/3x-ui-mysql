@@ -103,6 +103,35 @@
   .blocked-ips-page.dark .ant-table:not(.ant-table-expanded-row .ant-table) {
     outline-color: var(--dark-color-table-ring);
   }
+
+  .blocked-ips-page .ant-btn-primary.ant-btn-background-ghost {
+    background: transparent !important;
+    color: #1890ff !important;
+    border-color: #1890ff !important;
+  }
+  .blocked-ips-page .ant-btn-primary.ant-btn-background-ghost:hover,
+  .blocked-ips-page .ant-btn-primary.ant-btn-background-ghost:focus {
+    color: #40a9ff !important;
+    border-color: #40a9ff !important;
+    background: rgba(24,144,255,0.06) !important;
+  }
+  .blocked-ips-page.dark .ant-btn-primary.ant-btn-background-ghost {
+    background: transparent !important;
+    color: #40a9ff !important;
+    border-color: #40a9ff !important;
+  }
+  .blocked-ips-page.dark .ant-btn-primary.ant-btn-background-ghost:hover,
+  .blocked-ips-page.dark .ant-btn-primary.ant-btn-background-ghost:focus {
+    color: #69c0ff !important;
+    border-color: #69c0ff !important;
+    background: rgba(24,144,255,0.1) !important;
+  }
+  .blocked-ips-page .ant-btn-danger {
+    background: transparent !important;
+  }
+  .blocked-ips-page.dark .ant-btn-danger {
+    background: transparent !important;
+  }
 </style>
 
 {{ template "page/body_start" .}}
