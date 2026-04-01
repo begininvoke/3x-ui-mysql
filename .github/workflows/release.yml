@@ -2,6 +2,11 @@ name: Release 3X-UI
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0)'
+        required: true
+        type: string
 
 jobs:
   analyze:
@@ -41,8 +46,37 @@ jobs:
       - name: Run tests
         run: go test -race -shuffle=on ./...
 
-  build:
+  cleanup-release:
+    name: Delete old release assets
     needs: analyze
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete all assets from existing release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ inputs.tag }}"
+          echo "Cleaning up assets for release: $TAG"
+          RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/$TAG --jq '.id' 2>/dev/null || true)
+          if [ -n "$RELEASE_ID" ]; then
+            ASSET_IDS=$(gh api repos/${{ github.repository }}/releases/$RELEASE_ID/assets --jq '.[].id' 2>/dev/null || true)
+            if [ -n "$ASSET_IDS" ]; then
+              echo "$ASSET_IDS" | while read ASSET_ID; do
+                echo "Deleting asset: $ASSET_ID"
+                gh api -X DELETE repos/${{ github.repository }}/releases/$RELEASE_ID/assets/$ASSET_ID
+              done
+              echo "All old assets deleted."
+            else
+              echo "No assets found to delete."
+            fi
+          else
+            echo "No existing release found for tag $TAG. Will create a new one."
+          fi
+
+  build:
+    needs: [analyze, cleanup-release]
     permissions:
       contents: write
     strategy:
@@ -67,8 +101,7 @@ jobs:
           check-latest: true
 
       - name: Set version from tag
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: echo "${GITHUB_REF_NAME#v}" > config/version
+        run: echo "${{ inputs.tag }}" | sed 's/^v//' > config/version
 
       - name: Build 3X-UI
         run: |
@@ -152,10 +185,9 @@ jobs:
 
       - name: Upload tar.gz to GH release
         uses: svenstaro/upload-release-action@v2
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref_name }}
+          tag: ${{ inputs.tag }}
           file: x-ui-linux-${{ matrix.platform }}.tar.gz
           asset_name: x-ui-linux-${{ matrix.platform }}.tar.gz
           overwrite: true
@@ -163,10 +195,9 @@ jobs:
 
       - name: Upload zip to GH release
         uses: svenstaro/upload-release-action@v2
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref_name }}
+          tag: ${{ inputs.tag }}
           file: x-ui-linux-${{ matrix.platform }}.zip
           asset_name: x-ui-linux-${{ matrix.platform }}.zip
           overwrite: true
@@ -177,7 +208,7 @@ jobs:
   # =================================
   build-windows:
     name: Build for Windows
-    needs: analyze
+    needs: [analyze, cleanup-release]
     permissions:
       contents: write
     strategy:
@@ -239,10 +270,9 @@ jobs:
 
       - name: Upload files to GH release
         uses: svenstaro/upload-release-action@v2
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref_name }}
+          tag: ${{ inputs.tag }}
           file: x-ui-windows-amd64.zip
           asset_name: x-ui-windows-amd64.zip
           overwrite: true
