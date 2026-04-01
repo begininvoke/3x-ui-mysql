@@ -382,13 +382,11 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 
 	if len(j.disAllowedIps) > 0 {
 		keptIps := allIps[:limitIp]
-		var keptList, bannedList []string
+		keptList := make([]string, 0, len(keptIps))
 		for _, ip := range keptIps {
 			keptList = append(keptList, ip.IP)
 		}
-		for _, ip := range j.disAllowedIps {
-			bannedList = append(bannedList, ip)
-		}
+		bannedList := append([]string{}, j.disAllowedIps...)
 		logger.Infof("[LIMIT_IP] Client %s (limit=%d): Active=[%s] Blocked=[%s]",
 			clientEmail, limitIp,
 			joinStrings(keptList, ", "),
