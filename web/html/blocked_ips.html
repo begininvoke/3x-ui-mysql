@@ -2,14 +2,106 @@
 {{ template "page/head_end" .}}
 <style>
   .blocked-ips-page .ant-card { margin-bottom: 0 !important; }
-  .blocked-ips-page .stat-card { text-align: center; }
-  .blocked-ips-page .stat-card .stat-number { font-size: 28px; font-weight: 700; line-height: 1.2; }
-  .blocked-ips-page .stat-card .stat-label { font-size: 13px; opacity: 0.65; margin-top: 4px; }
-  .blocked-ips-page .ip-tag-active { }
-  .blocked-ips-page .ip-tag-inactive { opacity: 0.5; }
-  .blocked-ips-page .filter-bar { margin-bottom: 12px; }
+  .blocked-ips-page .ant-col { display: flex; }
+  .blocked-ips-page .ant-col > .ant-card { width: 100%; flex: 1; }
+  .blocked-ips-page .ant-card-body { padding: 16px; }
+
+  @media (min-width: 769px) {
+    .blocked-ips-page .ant-layout-content { margin: 24px 16px; }
+  }
   @media (max-width: 768px) {
     .blocked-ips-page .ant-card-body { padding: 12px; }
+  }
+
+  .blocked-ips-page .stat-box {
+    display: flex; align-items: center; gap: 14px; padding: 4px 0;
+  }
+  .blocked-ips-page .stat-icon-wrap {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 20px;
+  }
+  .blocked-ips-page .stat-icon-wrap.red {
+    background: rgba(224,65,65,0.1); color: #e04141;
+  }
+  .blocked-ips-page .stat-icon-wrap.green {
+    background: rgba(82,196,26,0.1); color: #52c41a;
+  }
+  .blocked-ips-page .stat-icon-wrap.blue {
+    background: rgba(24,144,255,0.1); color: #1890ff;
+  }
+  .dark .blocked-ips-page .stat-icon-wrap.red {
+    background: rgba(224,65,65,0.12); color: #ff6b6b;
+  }
+  .dark .blocked-ips-page .stat-icon-wrap.green {
+    background: rgba(82,196,26,0.12); color: #73d13d;
+  }
+  .dark .blocked-ips-page .stat-icon-wrap.blue {
+    background: rgba(24,144,255,0.12); color: #40a9ff;
+  }
+  .blocked-ips-page .stat-info {}
+  .blocked-ips-page .stat-val {
+    font-size: 22px; font-weight: 700; line-height: 1.2;
+    color: rgba(0,0,0,0.85);
+  }
+  .dark .blocked-ips-page .stat-val {
+    color: rgba(255,255,255,0.85);
+  }
+  .blocked-ips-page .stat-lbl {
+    font-size: 12px; color: rgba(0,0,0,0.45); margin-top: 2px;
+  }
+  .dark .blocked-ips-page .stat-lbl {
+    color: rgba(255,255,255,0.4);
+  }
+
+  .blocked-ips-page .filter-row {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;
+  }
+  .blocked-ips-page .filter-row > * { flex: 1; min-width: 140px; }
+  @media (max-width: 576px) {
+    .blocked-ips-page .filter-row > * { min-width: 100px; }
+  }
+
+  .blocked-ips-page .ip-cell {
+    font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+    font-size: 13px; font-weight: 500;
+  }
+  .blocked-ips-page .email-cell {
+    font-size: 12px; max-width: 200px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .blocked-ips-page .time-cell {
+    font-size: 12px; color: rgba(0,0,0,0.55);
+  }
+  .dark .blocked-ips-page .time-cell {
+    color: rgba(255,255,255,0.45);
+  }
+  .blocked-ips-page .dur-cell {
+    font-size: 12px; font-weight: 500;
+  }
+
+  .blocked-ips-page .empty-box {
+    text-align: center; padding: 48px 20px;
+  }
+  .blocked-ips-page .empty-box-icon {
+    font-size: 48px; color: rgba(0,135,113,0.2); margin-bottom: 12px;
+  }
+  .dark .blocked-ips-page .empty-box-icon { color: rgba(0,135,113,0.15); }
+  .blocked-ips-page .empty-box-title {
+    font-size: 15px; font-weight: 600; color: rgba(0,0,0,0.65); margin-bottom: 4px;
+  }
+  .dark .blocked-ips-page .empty-box-title { color: rgba(255,255,255,0.6); }
+  .blocked-ips-page .empty-box-desc {
+    font-size: 13px; color: rgba(0,0,0,0.35);
+  }
+  .dark .blocked-ips-page .empty-box-desc { color: rgba(255,255,255,0.25); }
+
+  .blocked-ips-page .ant-table:not(.ant-table-expanded-row .ant-table) {
+    outline: 1px solid #f0f0f0; outline-offset: -1px;
+    border-radius: 1rem; overflow-x: hidden;
+  }
+  .blocked-ips-page.dark .ant-table:not(.ant-table-expanded-row .ant-table) {
+    outline-color: var(--dark-color-table-ring);
   }
 </style>
 
@@ -18,120 +110,152 @@
   <a-sidebar></a-sidebar>
   <a-layout id="content-layout">
     <a-layout-content>
-      <a-spin :spinning="loading" :delay="200" tip="Loading...">
+      <a-spin :spinning="loading" :delay="200" tip='{{ i18n "loading" }}'>
         <transition name="list" appear>
           <template>
-            <a-row :gutter="[isMobile ? 8 : 16, isMobile ? 8 : 12]">
+            <a-row v-if="loading && !fetched">
+              <a-card style="text-align:center;padding:30px 0;margin-top:10px;background:transparent;border:none">
+                <a-spin tip='{{ i18n "loading" }}'></a-spin>
+              </a-card>
+            </a-row>
+            <a-row :gutter="[isMobile ? 8 : 16, isMobile ? 8 : 12]" v-else>
 
-              <!-- Stats Row -->
-              <a-col :xs="8">
-                <a-card hoverable class="stat-card">
-                  <div class="stat-number" style="color:#e04141">[[ stats.active ]]</div>
-                  <div class="stat-label">Active Blocks</div>
+              <!-- Stats -->
+              <a-col :xs="24" :sm="8">
+                <a-card hoverable>
+                  <div class="stat-box">
+                    <div class="stat-icon-wrap red"><a-icon type="lock" /></div>
+                    <div class="stat-info">
+                      <div class="stat-val">[[ stats.active ]]</div>
+                      <div class="stat-lbl">Active Blocks</div>
+                    </div>
+                  </div>
                 </a-card>
               </a-col>
-              <a-col :xs="8">
-                <a-card hoverable class="stat-card">
-                  <div class="stat-number" style="color:#52c41a">[[ stats.unblocked ]]</div>
-                  <div class="stat-label">Unblocked</div>
+              <a-col :xs="12" :sm="8">
+                <a-card hoverable>
+                  <div class="stat-box">
+                    <div class="stat-icon-wrap green"><a-icon type="unlock" /></div>
+                    <div class="stat-info">
+                      <div class="stat-val">[[ stats.unblocked ]]</div>
+                      <div class="stat-lbl">Unblocked</div>
+                    </div>
+                  </div>
                 </a-card>
               </a-col>
-              <a-col :xs="8">
-                <a-card hoverable class="stat-card">
-                  <div class="stat-number" style="color:#1890ff">[[ stats.total ]]</div>
-                  <div class="stat-label">Total Records</div>
+              <a-col :xs="12" :sm="8">
+                <a-card hoverable>
+                  <div class="stat-box">
+                    <div class="stat-icon-wrap blue"><a-icon type="database" /></div>
+                    <div class="stat-info">
+                      <div class="stat-val">[[ stats.total ]]</div>
+                      <div class="stat-lbl">Total Records</div>
+                    </div>
+                  </div>
                 </a-card>
               </a-col>
 
-              <!-- Main Table -->
+              <!-- Table Card -->
               <a-col :xs="24">
                 <a-card hoverable>
                   <template #title>
-                    <a-icon type="stop" /> Blocked IPs
+                    <a-space direction="horizontal">
+                      <a-icon type="safety-certificate" style="font-size:16px" />
+                      <span>IP Access Control</span>
+                    </a-space>
                   </template>
                   <template #extra>
                     <a-space>
-                      <a-button size="small" icon="reload" @click="fetchBlockedIPs" :loading="refreshing">
-                        Refresh
-                      </a-button>
-                      <a-popconfirm title="Unblock all active IPs?" ok-text="Yes" cancel-text="No" @confirm="clearAll"
-                        :overlay-class-name="themeSwitcher.currentTheme">
-                        <a-button size="small" type="danger" icon="delete" :disabled="stats.active === 0">
-                          Clear All
-                        </a-button>
+                      <a-tooltip title="Refresh">
+                        <a-button size="small" shape="circle" icon="sync"
+                          @click="fetchBlockedIPs" :loading="refreshing" />
+                      </a-tooltip>
+                      <a-popconfirm title="Unblock all active IPs?" ok-text="Yes" cancel-text="No"
+                        @confirm="clearAll" :overlay-class-name="themeSwitcher.currentTheme">
+                        <a-tooltip title="Unblock All">
+                          <a-button size="small" type="danger" shape="circle" icon="delete"
+                            :disabled="stats.active === 0" />
+                        </a-tooltip>
                       </a-popconfirm>
                     </a-space>
                   </template>
 
                   <!-- Filters -->
-                  <a-row :gutter="[8,8]" class="filter-bar">
-                    <a-col :xs="24" :sm="8">
-                      <a-input-search v-model="filters.search" placeholder="Search IP or Email..." allow-clear
-                        size="small" @search="applyFilters" @change="applyFilters" />
-                    </a-col>
-                    <a-col :xs="12" :sm="8">
-                      <a-select v-model="filters.status" size="small" style="width:100%" @change="applyFilters"
-                        :dropdown-class-name="themeSwitcher.currentTheme">
-                        <a-select-option value="all">All Status</a-select-option>
-                        <a-select-option value="active">Active Only</a-select-option>
-                        <a-select-option value="unblocked">Unblocked Only</a-select-option>
-                      </a-select>
-                    </a-col>
-                    <a-col :xs="12" :sm="8">
-                      <a-select v-model="filters.sortBy" size="small" style="width:100%" @change="applyFilters"
-                        :dropdown-class-name="themeSwitcher.currentTheme">
-                        <a-select-option value="newest">Newest First</a-select-option>
-                        <a-select-option value="oldest">Oldest First</a-select-option>
-                        <a-select-option value="email">By Email</a-select-option>
-                      </a-select>
-                    </a-col>
-                  </a-row>
+                  <div class="filter-row">
+                    <a-input-search v-model="filters.search" placeholder="Search IP or email..."
+                      allow-clear size="small" @search="applyFilters" @change="applyFilters" />
+                    <a-select v-model="filters.status" size="small" @change="applyFilters"
+                      :dropdown-class-name="themeSwitcher.currentTheme">
+                      <a-select-option value="all">All Status</a-select-option>
+                      <a-select-option value="active">Active Only</a-select-option>
+                      <a-select-option value="unblocked">Unblocked Only</a-select-option>
+                    </a-select>
+                    <a-select v-model="filters.sortBy" size="small" @change="applyFilters"
+                      :dropdown-class-name="themeSwitcher.currentTheme">
+                      <a-select-option value="newest">Newest First</a-select-option>
+                      <a-select-option value="oldest">Oldest First</a-select-option>
+                      <a-select-option value="email">By Email</a-select-option>
+                    </a-select>
+                  </div>
+
+                  <!-- Empty State -->
+                  <div v-if="fetched && filteredIPs.length === 0" class="empty-box">
+                    <div class="empty-box-icon"><a-icon type="safety-certificate" /></div>
+                    <div class="empty-box-title">No Blocked IPs</div>
+                    <div class="empty-box-desc">
+                      All clients are within their IP limits. Blocked IPs will appear here when a client exceeds its connection limit.
+                    </div>
+                  </div>
 
                   <!-- Table -->
-                  <a-table
+                  <a-table v-else
                     :columns="columns"
                     :data-source="filteredIPs"
                     :row-key="record => record.id"
-                    :pagination="{ pageSize: 15, showSizeChanger: true, pageSizeOptions: ['10','15','30','50'], showTotal: (total) => 'Total ' + total }"
-                    :scroll="{ x: 700 }"
+                    :pagination="filteredIPs.length > 10 ? { pageSize: 15, size: 'small', showSizeChanger: true, pageSizeOptions: ['10','15','30','50'], showTotal: (total) => total + ' records' } : false"
+                    :scroll="isMobile ? { x: 650 } : {}"
                     size="small"
-                    :locale="{ emptyText: 'No blocked IPs found' }"
                   >
                     <template slot="ip" slot-scope="text, record">
-                      <a-tag :color="record.active ? 'red' : 'default'" :class="record.active ? 'ip-tag-active' : 'ip-tag-inactive'">
-                        <a-icon :type="record.active ? 'lock' : 'unlock'" />
+                      <span class="ip-cell">
+                        <a-icon :type="record.active ? 'lock' : 'unlock'"
+                          :style="{ color: record.active ? '#e04141' : '#52c41a', marginRight: '6px', fontSize: '12px' }" />
                         [[ text ]]
-                      </a-tag>
+                      </span>
                     </template>
 
                     <template slot="clientEmail" slot-scope="text">
-                      <a-tooltip :title="text">
-                        <span style="font-family:monospace;font-size:12px">[[ text || '—' ]]</span>
+                      <a-tooltip :title="text" :overlay-class-name="themeSwitcher.currentTheme">
+                        <span class="email-cell">[[ text || '—' ]]</span>
                       </a-tooltip>
                     </template>
 
                     <template slot="blockedAt" slot-scope="text">
-                      <span style="font-size:12px">[[ formatTime(text) ]]</span>
+                      <span class="time-cell">[[ formatTime(text) ]]</span>
                     </template>
 
                     <template slot="duration" slot-scope="text, record">
-                      <span style="font-size:12px">[[ getDuration(record) ]]</span>
+                      <a-tag v-if="record.active" color="red" style="margin:0;font-size:11px">
+                        [[ getDuration(record) ]]
+                      </a-tag>
+                      <span v-else class="dur-cell" style="color:#52c41a">[[ getDuration(record) ]]</span>
                     </template>
 
                     <template slot="status" slot-scope="text, record">
                       <a-badge v-if="record.active" status="error" text="Blocked" />
-                      <a-badge v-else status="success" text="Unblocked" />
+                      <a-badge v-else status="success" text="Released" />
                     </template>
 
                     <template slot="action" slot-scope="text, record">
-                      <a-popconfirm v-if="record.active" title="Unblock this IP?" ok-text="Yes" cancel-text="No"
-                        @confirm="unblockIP(record.id)" :overlay-class-name="themeSwitcher.currentTheme">
-                        <a-button size="small" type="primary" ghost>
+                      <a-popconfirm v-if="record.active" title="Unblock this IP?"
+                        ok-text="Yes" cancel-text="No" @confirm="unblockIP(record.id)"
+                        :overlay-class-name="themeSwitcher.currentTheme">
+                        <a-button size="small" type="primary" ghost style="border-radius:6px">
                           <a-icon type="unlock" /> Unblock
                         </a-button>
                       </a-popconfirm>
-                      <a-tag v-else color="green" style="margin:0">
-                        <a-icon type="check-circle" /> Released
+                      <a-tag v-else color="green" style="margin:0;border-radius:6px">
+                        <a-icon type="check-circle" /> Done
                       </a-tag>
                     </template>
                   </a-table>
@@ -156,6 +280,7 @@
     data: {
       themeSwitcher,
       loading: true,
+      fetched: false,
       refreshing: false,
       blockedIPs: [],
       filteredIPs: [],
@@ -166,11 +291,11 @@
       },
       columns: [
         { title: 'IP Address', dataIndex: 'ip', key: 'ip', scopedSlots: { customRender: 'ip' }, width: 180 },
-        { title: 'Client Email', dataIndex: 'clientEmail', key: 'clientEmail', scopedSlots: { customRender: 'clientEmail' }, ellipsis: true },
-        { title: 'Blocked At', dataIndex: 'blockedAt', key: 'blockedAt', scopedSlots: { customRender: 'blockedAt' }, width: 170 },
-        { title: 'Duration', key: 'duration', scopedSlots: { customRender: 'duration' }, width: 120 },
-        { title: 'Status', key: 'status', scopedSlots: { customRender: 'status' }, width: 110 },
-        { title: 'Action', key: 'action', scopedSlots: { customRender: 'action' }, width: 120, fixed: 'right' },
+        { title: 'Client', dataIndex: 'clientEmail', key: 'clientEmail', scopedSlots: { customRender: 'clientEmail' }, ellipsis: true },
+        { title: 'Blocked At', dataIndex: 'blockedAt', key: 'blockedAt', scopedSlots: { customRender: 'blockedAt' }, width: 160 },
+        { title: 'Duration', key: 'duration', scopedSlots: { customRender: 'duration' }, width: 100 },
+        { title: 'Status', key: 'status', scopedSlots: { customRender: 'status' }, width: 100 },
+        { title: '', key: 'action', scopedSlots: { customRender: 'action' }, width: 110, fixed: 'right' },
       ],
     },
     computed: {
@@ -196,6 +321,7 @@
           console.error('Failed to fetch blocked IPs:', e);
         }
         this.loading = false;
+        this.fetched = true;
         this.refreshing = false;
       },
 
@@ -254,7 +380,8 @@
       formatTime(timestamp) {
         if (!timestamp) return '—';
         const d = new Date(timestamp * 1000);
-        return d.toLocaleString();
+        const pad = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
       },
 
       getDuration(record) {
@@ -262,14 +389,14 @@
         const start = record.blockedAt * 1000;
         const end = record.active ? Date.now() : (record.unblockedAt ? record.unblockedAt * 1000 : Date.now());
         const diff = Math.max(0, end - start);
-        const seconds = Math.floor(diff / 1000);
-        if (seconds < 60) return seconds + 's';
-        const minutes = Math.floor(seconds / 60);
-        if (minutes < 60) return minutes + 'm ' + (seconds % 60) + 's';
-        const hours = Math.floor(minutes / 60);
-        if (hours < 24) return hours + 'h ' + (minutes % 60) + 'm';
-        const days = Math.floor(hours / 24);
-        return days + 'd ' + (hours % 24) + 'h';
+        const sec = Math.floor(diff / 1000);
+        if (sec < 60) return sec + 's';
+        const min = Math.floor(sec / 60);
+        if (min < 60) return min + 'm ' + (sec % 60) + 's';
+        const hr = Math.floor(min / 60);
+        if (hr < 24) return hr + 'h ' + (min % 60) + 'm';
+        const d = Math.floor(hr / 24);
+        return d + 'd ' + (hr % 24) + 'h';
       },
     },
     async mounted() {

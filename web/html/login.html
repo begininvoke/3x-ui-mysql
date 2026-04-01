@@ -1,202 +1,287 @@
 {{ template "page/head_start" .}}
 <style>
-  #app.login-app { overflow: hidden; }
-
-  .login-bg {
-    position: fixed; inset: 0; z-index: 0;
-    background: linear-gradient(135deg, #0a2e26 0%, #0d3d32 25%, #093028 50%, #0b1d18 100%);
+  #app.login-app {
     overflow: hidden;
+    background: transparent !important;
   }
-  .login-bg::before {
-    content: ''; position: absolute; width: 600px; height: 600px; border-radius: 50%;
-    background: radial-gradient(circle, rgba(0,135,113,0.25) 0%, transparent 70%);
-    top: -200px; right: -100px; animation: float-orb-1 18s ease-in-out infinite;
+  #app.login-app .ant-layout-content {
+    background: transparent !important;
   }
-  .login-bg::after {
-    content: ''; position: absolute; width: 500px; height: 500px; border-radius: 50%;
-    background: radial-gradient(circle, rgba(0,180,140,0.15) 0%, transparent 70%);
-    bottom: -150px; left: -100px; animation: float-orb-2 22s ease-in-out infinite;
-  }
-  .login-bg-orb {
-    position: absolute; width: 350px; height: 350px; border-radius: 50%;
-    background: radial-gradient(circle, rgba(0,100,85,0.2) 0%, transparent 70%);
-    top: 50%; left: 50%; transform: translate(-50%, -50%);
-    animation: float-orb-3 15s ease-in-out infinite;
-  }
-  .login-grid-overlay {
-    position: absolute; inset: 0;
-    background-image:
-      linear-gradient(rgba(0,135,113,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,135,113,0.03) 1px, transparent 1px);
-    background-size: 60px 60px;
-  }
-  @keyframes float-orb-1 { 0%,100% { transform: translate(0,0) } 50% { transform: translate(-40px,30px) } }
-  @keyframes float-orb-2 { 0%,100% { transform: translate(0,0) } 50% { transform: translate(30px,-40px) } }
-  @keyframes float-orb-3 { 0%,100% { transform: translate(-50%,-50%) scale(1) } 50% { transform: translate(-50%,-50%) scale(1.15) } }
 
-  .login-wrapper {
+  .login-scene {
+    position: fixed; inset: 0; z-index: 0;
+    background: linear-gradient(160deg, #e8f5f0 0%, #d4ede5 30%, #c7ebe2 60%, #b8e4d8 100%);
+  }
+  .dark .login-scene {
+    background: linear-gradient(160deg, #0a1e1a 0%, #0d2820 30%, #082218 60%, #061a12 100%);
+  }
+
+  .login-scene-blob {
+    position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.6;
+  }
+  .login-scene-blob.b1 {
+    width: 420px; height: 420px; top: -120px; right: -60px;
+    background: rgba(0,135,113,0.18);
+    animation: blob-drift 20s ease-in-out infinite alternate;
+  }
+  .login-scene-blob.b2 {
+    width: 360px; height: 360px; bottom: -100px; left: -80px;
+    background: rgba(0,180,140,0.14);
+    animation: blob-drift 25s ease-in-out infinite alternate-reverse;
+  }
+  .login-scene-blob.b3 {
+    width: 200px; height: 200px; top: 40%; left: 30%;
+    background: rgba(0,135,113,0.1);
+    animation: blob-drift 18s ease-in-out infinite alternate;
+  }
+  .dark .login-scene-blob.b1 { background: rgba(0,135,113,0.12); }
+  .dark .login-scene-blob.b2 { background: rgba(0,180,140,0.08); }
+  .dark .login-scene-blob.b3 { background: rgba(0,135,113,0.06); }
+  @keyframes blob-drift {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(30px, -20px) scale(1.08); }
+  }
+
+  .login-scene-dots {
+    position: absolute; inset: 0;
+    background-image: radial-gradient(circle, rgba(0,135,113,0.08) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .dark .login-scene-dots {
+    background-image: radial-gradient(circle, rgba(0,135,113,0.06) 1px, transparent 1px);
+  }
+
+  .login-center {
     position: relative; z-index: 1; min-height: 100vh;
     display: flex; align-items: center; justify-content: center;
-    padding: 24px;
+    padding: 20px;
   }
 
-  .login-card {
-    width: 100%; max-width: 420px;
-    background: rgba(255,255,255,0.06);
-    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 24px;
-    padding: 48px 40px 40px;
-    animation: card-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08);
+  .login-panel {
+    width: 100%; max-width: 400px;
+    animation: panel-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
-  @keyframes card-enter {
-    from { opacity: 0; transform: translateY(32px) scale(0.96); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+  @keyframes panel-rise {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
-  .login-brand {
-    text-align: center; margin-bottom: 36px;
+  .login-panel-top {
+    text-align: center; margin-bottom: 32px;
   }
-  .login-brand-icon {
-    width: 56px; height: 56px; margin: 0 auto 16px;
-    background: linear-gradient(135deg, #008771 0%, #00b38a 100%);
-    border-radius: 16px; display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 4px 16px rgba(0,135,113,0.4);
-    animation: icon-pulse 3s ease-in-out infinite;
+  .login-logo {
+    width: 52px; height: 52px; margin: 0 auto 14px;
+    background: linear-gradient(145deg, #008771, #00a88a);
+    border-radius: 14px; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 20px rgba(0,135,113,0.3);
   }
-  @keyframes icon-pulse {
-    0%,100% { box-shadow: 0 4px 16px rgba(0,135,113,0.4) }
-    50% { box-shadow: 0 4px 24px rgba(0,135,113,0.6) }
+  .login-logo svg { width: 26px; height: 26px; fill: #fff; }
+  .login-panel-top h2 {
+    color: #1a3a32; font-size: 21px; font-weight: 700;
+    margin: 0 0 4px; letter-spacing: -0.3px;
   }
-  .login-brand-icon svg { width: 28px; height: 28px; fill: #fff; }
-  .login-brand h2 {
-    color: rgba(255,255,255,0.92); font-size: 22px; font-weight: 600;
-    margin: 0 0 6px; letter-spacing: -0.3px;
+  .dark .login-panel-top h2 { color: rgba(255,255,255,0.9); }
+  .login-panel-top .login-subtitle {
+    color: #5a7a70; font-size: 13px; margin: 0; font-weight: 400;
   }
-  .login-brand p {
-    color: rgba(255,255,255,0.45); font-size: 13px; margin: 0;
+  .dark .login-panel-top .login-subtitle { color: rgba(255,255,255,0.4); }
+
+  #app.login-app #login {
+    background: rgba(255,255,255,0.82) !important;
+    backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(255,255,255,0.5) !important;
+    border-radius: 20px !important;
+    padding: 40px 32px 32px !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04) !important;
+    animation: none !important;
+    transition: box-shadow 0.3s ease;
+  }
+  #app.login-app #login:hover {
+    box-shadow: 0 8px 40px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04) !important;
+  }
+  #app.login-app.dark #login {
+    background: rgba(18,32,28,0.75) !important;
+    border-color: rgba(255,255,255,0.06) !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2) !important;
+  }
+  #app.login-app.dark #login:hover {
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.2) !important;
   }
 
-  .login-field { margin-bottom: 20px; position: relative; }
-  .login-field label {
-    display: block; color: rgba(255,255,255,0.55); font-size: 12px;
-    font-weight: 500; text-transform: uppercase; letter-spacing: 0.8px;
-    margin-bottom: 8px;
+  .login-label {
+    display: block; font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    color: #3d6b5e; margin-bottom: 6px;
   }
-  .login-card .ant-input,
-  .login-card .ant-input-password .ant-input {
-    height: 48px !important; border-radius: 12px !important;
-    background: rgba(255,255,255,0.06) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
-    color: rgba(255,255,255,0.9) !important; font-size: 15px !important;
-    padding-left: 44px !important;
-    transition: all 0.25s ease !important;
+  .dark .login-label { color: rgba(255,255,255,0.45); }
+
+  .login-field-wrap { margin-bottom: 18px; }
+
+  #app.login-app .ant-input,
+  #app.login-app .ant-input-password .ant-input {
+    height: 46px !important; border-radius: 12px !important;
+    background: rgba(0,135,113,0.04) !important;
+    border: 1.5px solid rgba(0,135,113,0.12) !important;
+    color: #1a3a32 !important; font-size: 14px !important;
+    transition: all 0.2s ease !important;
   }
-  .login-card .ant-input:hover,
-  .login-card .ant-input-password .ant-input:hover {
-    background: rgba(255,255,255,0.09) !important;
-    border-color: rgba(0,135,113,0.5) !important;
+  #app.login-app .ant-input:hover,
+  #app.login-app .ant-input-password .ant-input:hover {
+    border-color: rgba(0,135,113,0.35) !important;
+    background: rgba(0,135,113,0.06) !important;
   }
-  .login-card .ant-input:focus,
-  .login-card .ant-input-password .ant-input:focus {
-    background: rgba(255,255,255,0.09) !important;
+  #app.login-app .ant-input:focus,
+  #app.login-app .ant-input-password .ant-input:focus {
+    border-color: #008771 !important;
+    background: rgba(0,135,113,0.06) !important;
+    box-shadow: 0 0 0 3px rgba(0,135,113,0.1) !important;
+  }
+  #app.login-app .ant-input::placeholder { color: #8aaa9e !important; }
+  #app.login-app .ant-input-affix-wrapper .ant-input-prefix {
+    left: 14px !important; color: #5a8a7a !important; font-size: 15px !important;
+  }
+  #app.login-app .ant-input-affix-wrapper .ant-input:not(:first-child) {
+    padding-left: 42px !important;
+  }
+  #app.login-app .ant-input-password .ant-input-suffix .anticon {
+    color: #5a8a7a !important;
+  }
+
+  #app.login-app.dark .ant-input,
+  #app.login-app.dark .ant-input-password .ant-input {
+    background: rgba(255,255,255,0.05) !important;
+    border-color: rgba(255,255,255,0.08) !important;
+    color: rgba(255,255,255,0.88) !important;
+  }
+  #app.login-app.dark .ant-input:hover,
+  #app.login-app.dark .ant-input-password .ant-input:hover {
+    background: rgba(255,255,255,0.08) !important;
+    border-color: rgba(0,135,113,0.4) !important;
+  }
+  #app.login-app.dark .ant-input:focus,
+  #app.login-app.dark .ant-input-password .ant-input:focus {
+    background: rgba(255,255,255,0.08) !important;
     border-color: #008771 !important;
     box-shadow: 0 0 0 3px rgba(0,135,113,0.15) !important;
   }
-  .login-card .ant-input::placeholder { color: rgba(255,255,255,0.3) !important; }
-  .login-card .ant-input-affix-wrapper .ant-input-prefix {
-    left: 16px !important; color: rgba(255,255,255,0.4);
-    font-size: 16px !important;
-  }
-  .login-card .ant-input-affix-wrapper .ant-input:not(:first-child) {
-    padding-left: 44px !important;
-  }
-  .login-card .ant-input-suffix { color: rgba(255,255,255,0.4); }
+  #app.login-app.dark .ant-input::placeholder { color: rgba(255,255,255,0.25) !important; }
+  #app.login-app.dark .ant-input-affix-wrapper .ant-input-prefix { color: rgba(255,255,255,0.35) !important; }
+  #app.login-app.dark .ant-input-password .ant-input-suffix .anticon { color: rgba(255,255,255,0.35) !important; }
 
-  .login-card .ant-input-password .ant-input-suffix .anticon {
-    color: rgba(255,255,255,0.4) !important;
+  .login-btn-wrap { margin-top: 24px; }
+
+  #app.login-app .ant-form-item-children .ant-btn,
+  #app.login-app .login-go-btn {
+    width: 100% !important; height: 46px !important; border-radius: 12px !important;
+    font-size: 14px !important; font-weight: 600 !important;
+    background: linear-gradient(145deg, #008771 0%, #00a88a 100%) !important;
+    border: none !important; color: #fff !important;
+    box-shadow: 0 4px 14px rgba(0,135,113,0.28) !important;
+    transition: all 0.25s ease !important;
+    letter-spacing: 0.2px;
   }
-  .login-card .ant-input-password .ant-input-suffix .anticon:hover {
+  #app.login-app .ant-form-item-children .ant-btn:hover,
+  #app.login-app .login-go-btn:hover,
+  #app.login-app .ant-form-item-children .ant-btn:focus,
+  #app.login-app .login-go-btn:focus {
+    background: linear-gradient(145deg, #009980 0%, #00b894 100%) !important;
+    box-shadow: 0 6px 20px rgba(0,135,113,0.35) !important;
+    transform: translateY(-1px) !important;
+  }
+  #app.login-app .ant-form-item-children .ant-btn:active,
+  #app.login-app .login-go-btn:active {
+    transform: translateY(0) !important;
+    box-shadow: 0 2px 8px rgba(0,135,113,0.2) !important;
+  }
+
+  .login-bottom {
+    text-align: center; margin-top: 20px;
+    padding-top: 16px; border-top: 1px solid rgba(0,135,113,0.08);
+  }
+  .dark .login-bottom { border-top-color: rgba(255,255,255,0.05); }
+  .login-bottom-link {
+    color: #7aaa9e; font-size: 12px; text-decoration: none;
+    transition: color 0.2s;
+  }
+  .login-bottom-link:hover { color: #008771; }
+  .dark .login-bottom-link { color: rgba(255,255,255,0.3); }
+  .dark .login-bottom-link:hover { color: rgba(0,180,140,0.8); }
+
+  .login-gear {
+    position: fixed; top: 16px; right: 16px; z-index: 10;
+  }
+  .login-gear .ant-btn {
+    background: rgba(255,255,255,0.6) !important;
+    backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(0,135,113,0.1) !important;
+    color: #5a8a7a !important;
+    width: 38px !important; height: 38px !important; border-radius: 10px !important;
+    display: flex !important; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    transition: all 0.2s ease;
+  }
+  .login-gear .ant-btn:hover {
+    background: rgba(255,255,255,0.85) !important;
+    color: #008771 !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  }
+  .dark .login-gear .ant-btn {
+    background: rgba(255,255,255,0.06) !important;
+    border-color: rgba(255,255,255,0.08) !important;
+    color: rgba(255,255,255,0.45) !important;
+    box-shadow: none;
+  }
+  .dark .login-gear .ant-btn:hover {
+    background: rgba(255,255,255,0.1) !important;
     color: rgba(255,255,255,0.7) !important;
   }
 
-  .login-submit-btn {
-    width: 100%; height: 48px !important; border-radius: 12px !important;
-    font-size: 15px !important; font-weight: 600 !important;
-    background: linear-gradient(135deg, #008771 0%, #00a88a 100%) !important;
-    border: none !important; color: #fff !important;
-    box-shadow: 0 4px 16px rgba(0,135,113,0.35) !important;
-    transition: all 0.3s ease !important;
-    letter-spacing: 0.3px;
-  }
-  .login-submit-btn:hover, .login-submit-btn:focus {
-    background: linear-gradient(135deg, #009980 0%, #00c4a0 100%) !important;
-    box-shadow: 0 6px 24px rgba(0,135,113,0.45) !important;
-    transform: translateY(-1px);
-  }
-  .login-submit-btn:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 8px rgba(0,135,113,0.3) !important;
-  }
+  #app.login-app .waves-header { display: none !important; }
+  #app.login-app .under { background: transparent !important; }
+  #app.login-app .wave-btn-bg,
+  #app.login-app .wave-btn-bg-cl { all: unset !important; width: 100% !important; display: block !important; }
+  #app.login-app .ant-btn-primary-login { display: none; }
+  #app.login-app .headline, #app.login-app .title { display: none !important; }
+  #app.login-app .setting-section { display: none !important; }
 
-  .login-footer {
-    text-align: center; margin-top: 28px;
-    padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.06);
-  }
-  .login-footer-text {
-    color: rgba(255,255,255,0.3); font-size: 12px;
-  }
-  .login-footer-text a { color: rgba(0,180,140,0.7); text-decoration: none; }
-  .login-footer-text a:hover { color: #00b38a; }
-
-  .login-settings-btn {
-    position: absolute; top: 20px; right: 20px; z-index: 10;
-  }
-  .login-settings-btn .ant-btn {
-    background: rgba(255,255,255,0.06) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
-    color: rgba(255,255,255,0.5) !important;
-    width: 40px; height: 40px; border-radius: 12px !important;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.25s ease;
-  }
-  .login-settings-btn .ant-btn:hover {
-    background: rgba(255,255,255,0.1) !important;
-    color: rgba(255,255,255,0.8) !important;
-  }
-
-  .login-card input:-webkit-autofill,
-  .login-card input:-webkit-autofill:hover,
-  .login-card input:-webkit-autofill:focus {
-    -webkit-text-fill-color: rgba(255,255,255,0.9) !important;
-    caret-color: rgba(255,255,255,0.9);
-    -webkit-box-shadow: 0 0 0 1000px rgba(0,50,40,0.8) inset !important;
-    box-shadow: 0 0 0 1000px rgba(0,50,40,0.8) inset !important;
+  #app.login-app input:-webkit-autofill,
+  #app.login-app input:-webkit-autofill:hover,
+  #app.login-app input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px rgba(232,244,240,0.95) inset !important;
+    -webkit-text-fill-color: #1a3a32 !important;
     transition: background-color 9999s ease-in-out 0s;
+  }
+  #app.login-app.dark input:-webkit-autofill,
+  #app.login-app.dark input:-webkit-autofill:hover,
+  #app.login-app.dark input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px rgba(18,32,28,0.9) inset !important;
+    -webkit-text-fill-color: rgba(255,255,255,0.88) !important;
   }
 
   @media (max-width: 480px) {
-    .login-card { padding: 36px 24px 32px; border-radius: 20px; }
-    .login-brand h2 { font-size: 20px; }
-    .login-bg::before { width: 300px; height: 300px; }
-    .login-bg::after { width: 250px; height: 250px; }
+    #app.login-app #login { padding: 32px 24px 28px !important; border-radius: 16px !important; }
+    .login-panel-top h2 { font-size: 19px; }
+    .login-logo { width: 46px; height: 46px; border-radius: 12px; }
+    .login-logo svg { width: 22px; height: 22px; }
   }
 </style>
 {{ template "page/head_end" .}}
 
 {{ template "page/body_start" .}}
-<a-layout id="app" v-cloak class="login-app">
-  <div class="login-bg">
-    <div class="login-bg-orb"></div>
-    <div class="login-grid-overlay"></div>
+<a-layout id="app" v-cloak :class="themeSwitcher.currentTheme + ' login-app'">
+  <div class="login-scene">
+    <div class="login-scene-blob b1"></div>
+    <div class="login-scene-blob b2"></div>
+    <div class="login-scene-blob b3"></div>
+    <div class="login-scene-dots"></div>
   </div>
 
-  <div class="login-settings-btn">
+  <div class="login-gear">
     <a-popover :overlay-class-name="themeSwitcher.currentTheme" title='{{ i18n "menu.settings" }}'
       placement="bottomRight" trigger="click">
       <template slot="content">
         <a-space direction="vertical" :size="10">
+          <a-theme-switch-login></a-theme-switch-login>
           <span>{{ i18n "pages.settings.language" }}</span>
           <a-select ref="selectLang" class="w-100" v-model="lang" @change="LanguageManager.setLanguage(lang)"
             :dropdown-class-name="themeSwitcher.currentTheme">
@@ -211,67 +296,71 @@
     </a-popover>
   </div>
 
-  <div class="login-wrapper">
-    <template v-if="!loadingStates.fetched">
-      <div style="text-align:center">
-        <a-spin size="large" />
-      </div>
-    </template>
-    <div v-else class="login-card">
-      <div class="login-brand">
-        <div class="login-brand-icon">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 2.18l7 3.12v4.7c0 4.83-3.13 9.37-7 10.82-3.87-1.45-7-5.99-7-10.82V6.3l7-3.12z"/>
-            <path d="M10 12.5l-2-2-1.41 1.41L10 15.32l5.41-5.41L14 8.5l-4 4z"/>
-          </svg>
+  <div class="login-center">
+    <div class="login-panel">
+      <template v-if="!loadingStates.fetched">
+        <div style="text-align:center; padding: 60px 0;">
+          <a-spin size="large" />
         </div>
-        <h2>3X-UI Panel</h2>
-        <p>{{ i18n "pages.login.title" }}</p>
-      </div>
-
-      <a-form @submit.prevent="login">
-        <div class="login-field">
-          <label>{{ i18n "username" }}</label>
-          <a-input autocomplete="username" name="username" v-model.trim="user.username"
-            placeholder='{{ i18n "username" }}' autofocus required size="large">
-            <a-icon slot="prefix" type="user"></a-icon>
-          </a-input>
+      </template>
+      <template v-else>
+        <div class="login-panel-top">
+          <div class="login-logo">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 2.18l7 3.12v4.7c0 4.83-3.13 9.37-7 10.82-3.87-1.45-7-5.99-7-10.82V6.3l7-3.12z"/>
+              <path d="M10 12.5l-2-2-1.41 1.41L10 15.32l5.41-5.41L14 8.5l-4 4z"/>
+            </svg>
+          </div>
+          <h2>3X-UI Panel</h2>
+          <p class="login-subtitle">{{ i18n "pages.login.title" }}</p>
         </div>
 
-        <div class="login-field">
-          <label>{{ i18n "password" }}</label>
-          <a-input-password autocomplete="current-password" name="password" v-model.trim="user.password"
-            placeholder='{{ i18n "password" }}' required size="large">
-            <a-icon slot="prefix" type="lock"></a-icon>
-          </a-input-password>
-        </div>
+        <div id="login">
+          <a-form @submit.prevent="login">
+            <div class="login-field-wrap">
+              <span class="login-label">{{ i18n "username" }}</span>
+              <a-input autocomplete="username" name="username" v-model.trim="user.username"
+                placeholder='{{ i18n "username" }}' autofocus required>
+                <a-icon slot="prefix" type="user"></a-icon>
+              </a-input>
+            </div>
 
-        <div class="login-field" v-if="twoFactorEnable">
-          <label>{{ i18n "twoFactorCode" }}</label>
-          <a-input autocomplete="one-time-code" name="twoFactorCode" v-model.trim="user.twoFactorCode"
-            placeholder='{{ i18n "twoFactorCode" }}' required size="large">
-            <a-icon slot="prefix" type="key"></a-icon>
-          </a-input>
-        </div>
+            <div class="login-field-wrap">
+              <span class="login-label">{{ i18n "password" }}</span>
+              <a-input-password autocomplete="current-password" name="password" v-model.trim="user.password"
+                placeholder='{{ i18n "password" }}' required>
+                <a-icon slot="prefix" type="lock"></a-icon>
+              </a-input-password>
+            </div>
 
-        <div style="margin-top: 28px;">
-          <a-button class="login-submit-btn" type="primary" :loading="loadingStates.spinning"
-            html-type="submit" size="large">
-            [[ loadingStates.spinning ? '' : '{{ i18n "login" }}' ]]
-          </a-button>
-        </div>
-      </a-form>
+            <div class="login-field-wrap" v-if="twoFactorEnable">
+              <span class="login-label">{{ i18n "twoFactorCode" }}</span>
+              <a-input autocomplete="one-time-code" name="twoFactorCode" v-model.trim="user.twoFactorCode"
+                placeholder='{{ i18n "twoFactorCode" }}' required>
+                <a-icon slot="prefix" type="key"></a-icon>
+              </a-input>
+            </div>
 
-      <div class="login-footer">
-        <span class="login-footer-text">
-          <a href="https://github.com/begininvoke/3x-ui-mysql" target="_blank" rel="noopener">3X-UI MySQL</a>
-          &middot; Secure Panel Access
-        </span>
-      </div>
+            <div class="login-btn-wrap">
+              <a-button class="login-go-btn" type="primary" :loading="loadingStates.spinning"
+                html-type="submit">
+                [[ loadingStates.spinning ? '' : '{{ i18n "login" }}' ]]
+              </a-button>
+            </div>
+          </a-form>
+
+          <div class="login-bottom">
+            <a class="login-bottom-link" href="https://github.com/begininvoke/3x-ui-mysql" target="_blank" rel="noopener">
+              3X-UI MySQL
+            </a>
+          </div>
+        </div>
+      </template>
     </div>
   </div>
 </a-layout>
 {{template "page/body_scripts" .}}
+{{template "component/aThemeSwitch" .}}
 <script>
   const app = new Vue({
     delimiters: ['[[', ']]'],
@@ -341,7 +430,7 @@
 
   function pm_init() {
     document.querySelectorAll('form.ant-form').forEach(pm_attach_observer);
-    const pm_host = document.querySelector('.login-card') || document.body;
+    const pm_host = document.getElementById('login') || document.body;
     const pm_wait_for_forms = new MutationObserver(mutations => {
       for (const m of mutations) {
         for (const n of m.addedNodes) {
