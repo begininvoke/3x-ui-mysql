@@ -1,5 +1,14 @@
 {{ template "page/head_start" .}}
 {{ template "page/head_end" .}}
+<style>
+  .index-page .ant-card { margin-bottom: 0 !important; }
+  .index-page .ant-col { display: flex; }
+  .index-page .ant-col > .ant-card { width: 100%; flex: 1; }
+  .index-page .ant-card-body { padding: 16px; }
+  @media (max-width: 768px) {
+    .index-page .ant-card-body { padding: 12px; }
+  }
+</style>
 
 {{ template "page/body_start" .}}
 <a-layout id="app" v-cloak :class="themeSwitcher.currentTheme + ' index-page'">
@@ -83,7 +92,7 @@
 
               <!-- ===== Row 2: Small info cards — 3 across on lg+, 2 on md, 1 on xs/sm ===== -->
               <a-col :xs="24" :md="12" :lg="8">
-                <a-card title='{{ i18n "pages.index.operationHours" }}' hoverable style="height:100%">
+                <a-card title='{{ i18n "pages.index.operationHours" }}' hoverable>
                   <template #extra>
                     <a-tag color="blue" v-if="status.hostname">[[ status.hostname ]]</a-tag>
                   </template>
@@ -92,7 +101,7 @@
                 </a-card>
               </a-col>
               <a-col :xs="12" :md="6" :lg="8">
-                <a-card title='{{ i18n "pages.index.systemLoad" }}' hoverable style="height:100%">
+                <a-card title='{{ i18n "pages.index.systemLoad" }}' hoverable>
                   <a-tag color="green">
                     <a-tooltip>
                       [[ status.loads[0] ]] | [[ status.loads[1] ]] | [[ status.loads[2] ]]
@@ -104,7 +113,7 @@
                 </a-card>
               </a-col>
               <a-col :xs="12" :md="6" :lg="8">
-                <a-card title='{{ i18n "usage"}}' hoverable style="height:100%">
+                <a-card title='{{ i18n "usage"}}' hoverable>
                   <a-tag color="green"> {{ i18n "pages.index.memory" }}: [[ SizeFormatter.sizeFormat(status.appStats.mem) ]] </a-tag>
                   <a-tag color="green"> {{ i18n "pages.index.threads" }}: [[ status.appStats.threads ]] </a-tag>
                 </a-card>
@@ -112,7 +121,7 @@
 
               <!-- ===== Row 3: Connection Stats + Xray Status ===== -->
               <a-col :xs="24" :md="12">
-                <a-card title='{{ i18n "pages.index.connectionCount" }}' hoverable style="height:100%">
+                <a-card title='{{ i18n "pages.index.connectionCount" }}' hoverable>
                   <a-row>
                     <a-col :span="12">
                       <a-custom-statistic title="TCP" :value="status.tcpCount">
@@ -132,7 +141,7 @@
                 </a-card>
               </a-col>
               <a-col :xs="24" :md="12">
-                <a-card hoverable style="height:100%">
+                <a-card hoverable>
                   <template #title>
                     <a-space direction="horizontal">
                       <span>{{ i18n "pages.index.xrayStatus" }}</span>
@@ -193,7 +202,7 @@
 
               <!-- ===== Row 4: Overall Speed + Network Total ===== -->
               <a-col :xs="24" :md="12">
-                <a-card hoverable style="height:100%">
+                <a-card hoverable>
                   <template #title>
                     {{ i18n "pages.index.overallSpeed" }}
                     <a-tooltip :overlay-class-name="themeSwitcher.currentTheme">
@@ -237,7 +246,7 @@
                 </a-card>
               </a-col>
               <a-col :xs="24" :md="12">
-                <a-card title='{{ i18n "pages.index.totalData" }}' hoverable style="height:100%">
+                <a-card title='{{ i18n "pages.index.totalData" }}' hoverable>
                   <a-row>
                     <a-col :span="12">
                       <a-custom-statistic title='{{ i18n "pages.index.sent" }}'
@@ -261,7 +270,7 @@
 
               <!-- ===== Row 5: Xray Traffic + IP Addresses ===== -->
               <a-col :xs="24" :md="12">
-                <a-card title='{{ i18n "pages.index.xrayTraffic" }}' hoverable style="height:100%">
+                <a-card title='{{ i18n "pages.index.xrayTraffic" }}' hoverable>
                   <a-row>
                     <a-col :span="12">
                       <a-custom-statistic title='{{ i18n "pages.index.upload" }}'
@@ -283,7 +292,7 @@
                 </a-card>
               </a-col>
               <a-col :xs="24" :md="12">
-                <a-card title='{{ i18n "pages.index.ipAddresses" }}' hoverable style="height:100%">
+                <a-card title='{{ i18n "pages.index.ipAddresses" }}' hoverable>
                   <template #extra>
                     <a-tooltip :placement="isMobile ? 'topRight' : 'top'">
                       <template #title>
@@ -362,7 +371,7 @@
 
               <!-- ===== Row 7: Panel Info + Quick Links ===== -->
               <a-col :xs="24" :md="12">
-                <a-card title='3X-UI MySQL' hoverable style="height:100%">
+                <a-card title='3X-UI MySQL' hoverable>
                   <template #extra>
                     <a-button size="small" type="primary" ghost @click="checkPanelUpdate" :loading="panelUpdate.checking">
                       <a-icon type="cloud-sync" /> Check Update
@@ -392,7 +401,7 @@
                 </a-card>
               </a-col>
               <a-col :xs="24" :md="12">
-                <a-card title='{{ i18n "menu.link" }}' hoverable style="height:100%">
+                <a-card title='{{ i18n "menu.link" }}' hoverable>
                   <template #actions>
                     <a-space direction="horizontal" @click="openLogs()" class="jc-center">
                       <a-icon type="bars"></a-icon>
@@ -476,6 +485,7 @@
         <a-checkbox v-model="logModal.syslog" @change="openLogs()">SysLog</a-checkbox>
       </a-form-item>
       <a-form-item style="float: right;">
+        <a-button type="danger" icon="delete" size="small" @click="clearLogs" style="margin-right:8px">Clear</a-button>
         <a-button type="primary" icon="download" @click="FileManager.downloadTextFile(logModal.logs?.join('\n'), 'x-ui.log')"></a-button>
       </a-form-item>
     </a-form>
@@ -571,7 +581,6 @@
         <a-select-option :value="360">6h</a-select-option>
         <a-select-option :value="720">12h</a-select-option>
         <a-select-option :value="1440">24h</a-select-option>
-        <a-select-option :value="300">5h</a-select-option>
       </a-select>
     </template>
     <div style="padding:16px">
@@ -588,7 +597,10 @@
         stroke="#1890ff" :stroke-width="2" :show-grid="true" :show-axes="true" :tick-count-x="5"
         :max-points="trafficHistoryDown.length" :fill-opacity="0.15" :marker-radius="2.5" :show-tooltip="true"
         :auto-scale="true" :tooltip-formatter="trafficTooltipDown" :y-label-formatter="trafficYLabel" :padding-left="52" />
-      <div style="margin-top:4px;font-size:11px;opacity:0.65">Timeframe: [[ trafficHistoryModal.bucket >= 60 ? (trafficHistoryModal.bucket / 60) + 'h' : trafficHistoryModal.bucket + 'm' ]] ([[ trafficHistoryUp.length ]] points)</div>
+      <div v-if="trafficHistoryUp.length < 3" style="text-align:center;color:#999;padding:20px 0">
+        Not enough data yet. Panel needs to run longer for this timeframe.
+      </div>
+      <div style="margin-top:4px;font-size:11px;opacity:0.65">Timeframe: [[ trafficHistoryModal.bucket >= 60 ? (trafficHistoryModal.bucket / 60) + 'h' : trafficHistoryModal.bucket + 'm' ]] ([[ trafficHistoryUp.length ]] data points)</div>
     </div>
   </a-modal>
 </a-layout>
@@ -1141,7 +1153,10 @@
           this.fetchCpuHistoryBucket()
         }
         if (this.trafficHistoryModal.visible) {
-          this.fetchTrafficHistoryBucket()
+          if (!this._lastTrafficFetch || Date.now() - this._lastTrafficFetch > 10000) {
+            this._lastTrafficFetch = Date.now()
+            this.fetchTrafficHistoryBucket()
+          }
         }
       },
       openCpuHistory() {
@@ -1327,6 +1342,13 @@
         this.loading(false);
         if (!msg.success) {
           return;
+        }
+      },
+      async clearLogs() {
+        const msg = await HttpUtil.post('/panel/api/server/clearLogs');
+        if (msg.success) {
+          this.$message.success('Logs cleared');
+          await this.openLogs();
         }
       },
       async openLogs() {

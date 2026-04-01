@@ -381,10 +381,32 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 	}
 
 	if len(j.disAllowedIps) > 0 {
-		logger.Infof("[LIMIT_IP] Client %s: Kept %d current IPs, queued %d new IPs for fail2ban", clientEmail, limitIp, len(j.disAllowedIps))
+		keptIps := allIps[:limitIp]
+		var keptList, bannedList []string
+		for _, ip := range keptIps {
+			keptList = append(keptList, ip.IP)
+		}
+		for _, ip := range j.disAllowedIps {
+			bannedList = append(bannedList, ip)
+		}
+		logger.Infof("[LIMIT_IP] Client %s (limit=%d): Active=[%s] Blocked=[%s]",
+			clientEmail, limitIp,
+			joinStrings(keptList, ", "),
+			joinStrings(bannedList, ", "))
 	}
 
 	return shouldCleanLog
+}
+
+func joinStrings(strs []string, sep string) string {
+	result := ""
+	for i, s := range strs {
+		if i > 0 {
+			result += sep
+		}
+		result += s
+	}
+	return result
 }
 
 func (j *CheckClientIpJob) getInboundByEmail(clientEmail string) (*model.Inbound, error) {

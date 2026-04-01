@@ -125,6 +125,15 @@ func CloseLogger() {
 	}
 }
 
+// ClearLogs truncates the in-memory log buffer and the log file on disk.
+func ClearLogs() {
+	logBuffer = logBuffer[:0]
+	if logFile != nil {
+		_ = logFile.Truncate(0)
+		_, _ = logFile.Seek(0, 0)
+	}
+}
+
 // Debug logs a debug message and adds it to the log buffer.
 func Debug(args ...any) {
 	logger.Debug(args...)

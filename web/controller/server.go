@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mhsanaei/3x-ui/v2/logger"
 	"github.com/mhsanaei/3x-ui/v2/web/global"
 	"github.com/mhsanaei/3x-ui/v2/web/service"
 	"github.com/mhsanaei/3x-ui/v2/web/websocket"
@@ -63,6 +64,7 @@ func (a *ServerController) initRouter(g *gin.RouterGroup) {
 	g.POST("/updateGeofile", a.updateGeofile)
 	g.POST("/updateGeofile/:fileName", a.updateGeofile)
 	g.POST("/logs/:count", a.getLogs)
+	g.POST("/clearLogs", a.clearLogs)
 	g.POST("/xraylogs/:count", a.getXrayLogs)
 	g.POST("/importDB", a.importDB)
 	g.POST("/getNewEchCert", a.getNewEchCert)
@@ -127,7 +129,7 @@ func (a *ServerController) getTrafficHistoryBucket(c *gin.Context) {
 		jsonMsg(c, "invalid timeframe", fmt.Errorf("bad value"))
 		return
 	}
-	allowed := map[int]bool{10: true, 30: true, 60: true, 180: true, 360: true, 720: true, 1440: true}
+	allowed := map[int]bool{10: true, 30: true, 60: true, 180: true, 300: true, 360: true, 720: true, 1440: true}
 	if !allowed[minutes] {
 		jsonMsg(c, "invalid timeframe", fmt.Errorf("unsupported value"))
 		return
@@ -263,6 +265,11 @@ func (a *ServerController) getLogs(c *gin.Context) {
 	syslog := c.PostForm("syslog")
 	logs := a.serverService.GetLogs(count, level, syslog)
 	jsonObj(c, logs, nil)
+}
+
+func (a *ServerController) clearLogs(c *gin.Context) {
+	logger.ClearLogs()
+	jsonMsg(c, "Logs cleared successfully", nil)
 }
 
 // getXrayLogs retrieves Xray logs with filtering options for direct, blocked, and proxy traffic.
