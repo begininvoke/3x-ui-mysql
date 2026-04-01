@@ -487,7 +487,7 @@ func (a *InboundController) addBlockedIp(c *gin.Context) {
 		return
 	}
 	if form.Duration < 0 {
-		form.Duration = 300
+		form.Duration = 1800
 	} else if form.Duration == 0 {
 		form.Duration = 315360000 // ~10 years = permanent
 	}

@@ -50,7 +50,7 @@ var defaultValueMap = map[string]string{
 	"tgBotLoginNotify":            "true",
 	"tgCpu":                       "80",
 	"tgLang":                      "en-US",
-	"ipLimitBlockDuration":         "300",
+	"ipLimitBlockDuration":        "1800",
 	"twoFactorEnable":             "false",
 	"twoFactorToken":              "",
 	"subEnable":                   "true",

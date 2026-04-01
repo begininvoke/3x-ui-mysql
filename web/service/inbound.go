@@ -2644,7 +2644,7 @@ func (s *InboundService) SaveBlockedIP(ip string, clientEmail string, blockedAt 
 		return nil
 	}
 	if durationSeconds <= 0 {
-		durationSeconds = 300
+		durationSeconds = 1800
 	}
 	blocked := &model.BlockedIP{
 		IP:            ip,

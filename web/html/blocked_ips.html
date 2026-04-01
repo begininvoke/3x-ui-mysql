@@ -452,7 +452,7 @@
         ip: '',
         email: '',
         reason: '',
-        duration: 300,
+        duration: 1800,
       },
       blockedIPs: [],
       filteredIPs: [],
@@ -537,7 +537,7 @@
           if (msg.success) {
             this.$message.success('IP blocked successfully');
             this.showAddModal = false;
-            this.addForm = { ip: '', email: '', reason: '', duration: 300 };
+            this.addForm = { ip: '', email: '', reason: '', duration: 1800 };
             await this.fetchBlockedIPs();
           }
         } catch (e) {
