@@ -83,6 +83,12 @@
   .blocked-ips-page.dark .reason-tag.disabled {
     background: rgba(224,65,65,0.1); color: #ff6b6b; border-color: rgba(224,65,65,0.15);
   }
+  .blocked-ips-page .reason-tag.manual {
+    background: rgba(24,144,255,0.08); color: #096dd9; border: 1px solid rgba(24,144,255,0.15);
+  }
+  .blocked-ips-page.dark .reason-tag.manual {
+    background: rgba(24,144,255,0.1); color: #40a9ff; border-color: rgba(24,144,255,0.15);
+  }
 
   .blocked-ips-page .time-cell {
     font-size: 12px; color: rgba(0,0,0,0.55);
@@ -234,6 +240,10 @@
                   </template>
                   <template #extra>
                     <a-space>
+                      <a-tooltip title="Block IP manually">
+                        <a-button size="small" type="primary" shape="circle" icon="plus"
+                          @click="showAddModal = true" />
+                      </a-tooltip>
                       <a-tooltip title="Refresh">
                         <a-button size="small" shape="circle" icon="sync"
                           @click="fetchBlockedIPs" :loading="refreshing" />
@@ -316,6 +326,12 @@
                             [[ record.reason ]]
                           </span>
                         </template>
+                        <template v-else-if="record.reason && (record.reason.includes('Manual') || record.reason.includes('manual'))">
+                          <span class="reason-tag manual">
+                            <a-icon type="edit" style="margin-right:3px"></a-icon>
+                            [[ record.reason ]]
+                          </span>
+                        </template>
                         <template v-else-if="record.reason">
                           <span>[[ record.reason ]]</span>
                         </template>
@@ -376,6 +392,46 @@
       </a-spin>
     </a-layout-content>
   </a-layout>
+
+  <a-modal
+    title="Block IP Manually"
+    :visible="showAddModal"
+    @cancel="showAddModal = false"
+    :footer="null"
+    :dialog-class="themeSwitcher.currentTheme"
+    :width="420"
+  >
+    <a-form layout="vertical">
+      <a-form-item label="IP Address" required>
+        <a-input v-model="addForm.ip" placeholder="e.g. 1.2.3.4 or 2001:db8::1"></a-input>
+      </a-form-item>
+      <a-form-item label="Client Email (optional)">
+        <a-input v-model="addForm.email" placeholder="e.g. user@example.com"></a-input>
+      </a-form-item>
+      <a-form-item label="Reason (optional)">
+        <a-input v-model="addForm.reason" placeholder="e.g. Manually blocked by admin"></a-input>
+      </a-form-item>
+      <a-form-item label="Block Duration">
+        <a-select v-model="addForm.duration" :dropdown-class-name="themeSwitcher.currentTheme">
+          <a-select-option :value="60">1 minute</a-select-option>
+          <a-select-option :value="300">5 minutes</a-select-option>
+          <a-select-option :value="600">10 minutes</a-select-option>
+          <a-select-option :value="1800">30 minutes</a-select-option>
+          <a-select-option :value="3600">1 hour</a-select-option>
+          <a-select-option :value="86400">24 hours</a-select-option>
+          <a-select-option :value="0">Permanent</a-select-option>
+        </a-select>
+      </a-form-item>
+      <a-form-item style="margin-bottom:0;text-align:right">
+        <a-space>
+          <a-button @click="showAddModal = false">Cancel</a-button>
+          <a-button type="primary" @click="addBlockedIP" :loading="addingIP">
+            <a-icon type="lock"></a-icon> Block
+          </a-button>
+        </a-space>
+      </a-form-item>
+    </a-form>
+  </a-modal>
 </a-layout>
 {{template "page/body_scripts" .}}
 {{template "component/aSidebar" .}}
@@ -390,6 +446,14 @@
       loading: true,
       fetched: false,
       refreshing: false,
+      showAddModal: false,
+      addingIP: false,
+      addForm: {
+        ip: '',
+        email: '',
+        reason: '',
+        duration: 300,
+      },
       blockedIPs: [],
       filteredIPs: [],
       filters: {
@@ -457,6 +521,31 @@
         this.filteredIPs = result;
       },
 
+      async addBlockedIP() {
+        if (!this.addForm.ip.trim()) {
+          this.$message.warning('Please enter an IP address');
+          return;
+        }
+        this.addingIP = true;
+        try {
+          const msg = await HttpUtil.post('/panel/api/inbounds/addBlockedIp', {
+            ip: this.addForm.ip.trim(),
+            email: this.addForm.email.trim(),
+            reason: this.addForm.reason.trim() || 'Manually blocked by admin',
+            duration: this.addForm.duration,
+          });
+          if (msg.success) {
+            this.$message.success('IP blocked successfully');
+            this.showAddModal = false;
+            this.addForm = { ip: '', email: '', reason: '', duration: 300 };
+            await this.fetchBlockedIPs();
+          }
+        } catch (e) {
+          this.$message.error('Failed to block IP');
+        }
+        this.addingIP = false;
+      },
+
       async unblockIP(id) {
         try {
           const msg = await HttpUtil.post('/panel/api/inbounds/unblockIp/' + id);
@@ -514,6 +603,7 @@
 
       getTimeLeft(record) {
         if (!record.expiresAt || !record.active) return '—';
+        if (record.blockDuration >= 315360000) return 'Permanent';
         const now = Math.floor(Date.now() / 1000);
         const left = record.expiresAt - now;
         if (left <= 0) return 'Expiring...';

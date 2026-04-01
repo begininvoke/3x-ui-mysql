@@ -54,6 +54,7 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.POST("/:id/delClientByEmail/:email", a.delInboundClientByEmail)
 
 	g.GET("/blockedIps", a.getBlockedIps)
+	g.POST("/addBlockedIp", a.addBlockedIp)
 	g.POST("/unblockIp/:id", a.unblockIp)
 	g.POST("/clearBlockedIps", a.clearBlockedIps)
 	g.POST("/deleteBlockedIp/:id", a.deleteBlockedIp)
@@ -468,6 +469,37 @@ func (a *InboundController) getBlockedIps(c *gin.Context) {
 		return
 	}
 	jsonObj(c, blockedIPs, nil)
+}
+
+func (a *InboundController) addBlockedIp(c *gin.Context) {
+	var form struct {
+		IP       string `json:"ip"`
+		Email    string `json:"email"`
+		Reason   string `json:"reason"`
+		Duration int64  `json:"duration"`
+	}
+	if err := c.ShouldBindJSON(&form); err != nil {
+		jsonMsg(c, "Invalid request", err)
+		return
+	}
+	if form.IP == "" {
+		jsonMsg(c, "IP address is required", fmt.Errorf("empty IP"))
+		return
+	}
+	if form.Duration < 0 {
+		form.Duration = 300
+	} else if form.Duration == 0 {
+		form.Duration = 315360000 // ~10 years = permanent
+	}
+	if form.Reason == "" {
+		form.Reason = "Manually blocked by admin"
+	}
+	err := a.inboundService.SaveBlockedIP(form.IP, form.Email, time.Now().Unix(), form.Duration, form.Reason)
+	if err != nil {
+		jsonMsg(c, "Failed to block IP", err)
+		return
+	}
+	jsonMsg(c, "IP blocked successfully", nil)
 }
 
 func (a *InboundController) unblockIp(c *gin.Context) {

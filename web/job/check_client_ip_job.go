@@ -358,7 +358,11 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 		bannedIps := allIps[limitIp:]
 
 		var inboundService service.InboundService
+		var settingService service.SettingService
 		blockDuration := int64(300)
+		if dur, err := settingService.GetIpLimitBlockDuration(); err == nil && dur > 0 {
+			blockDuration = int64(dur)
+		}
 		reason := fmt.Sprintf("IP limit exceeded: %d/%d active IPs (window: 60s)", len(allIps), limitIp)
 		for _, ipTime := range bannedIps {
 			j.disAllowedIps = append(j.disAllowedIps, ipTime.IP)

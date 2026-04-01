@@ -125,7 +125,16 @@
             </template>
         </a-setting-list-item>
     </a-collapse-panel>
-    <a-collapse-panel key="5" header='{{ i18n "pages.settings.dateAndTime" }}'>
+    <a-collapse-panel key="5" header="IP Blocking">
+        <a-setting-list-item paddings="small">
+            <template #title>Block Duration (seconds)</template>
+            <template #description>How long an IP stays blocked when the limit is exceeded. Default: 300 (5 minutes). Set to e.g. 1800 for 30 minutes.</template>
+            <template #control>
+                <a-input-number :min="10" :max="86400" v-model="allSetting.ipLimitBlockDuration" :style="{ width: '100%' }"></a-input-number>
+            </template>
+        </a-setting-list-item>
+    </a-collapse-panel>
+    <a-collapse-panel key="6" header='{{ i18n "pages.settings.dateAndTime" }}'>
         <a-setting-list-item paddings="small">
             <template #title>{{ i18n "pages.settings.timeZone"}}</template>
             <template #description>{{ i18n "pages.settings.timeZoneDesc"}}</template>
@@ -146,7 +155,7 @@
             </template>
         </a-setting-list-item>
     </a-collapse-panel>
-    <a-collapse-panel key="6" header='LDAP'>
+    <a-collapse-panel key="7" header='LDAP'>
         <a-setting-list-item paddings="small">
             <template #title>Enable LDAP sync</template>
             <template #control>
