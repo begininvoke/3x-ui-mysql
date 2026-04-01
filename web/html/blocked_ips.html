@@ -193,7 +193,7 @@
               <a-col :xs="24" :sm="8">
                 <a-card hoverable>
                   <div class="stat-box">
-                    <div class="stat-icon-wrap red"><a-icon type="lock" /></div>
+                    <div class="stat-icon-wrap red"><a-icon type="lock"></a-icon></div>
                     <div class="stat-info">
                       <div class="stat-val">[[ stats.active ]]</div>
                       <div class="stat-lbl">Active Blocks</div>
@@ -204,7 +204,7 @@
               <a-col :xs="12" :sm="8">
                 <a-card hoverable>
                   <div class="stat-box">
-                    <div class="stat-icon-wrap green"><a-icon type="unlock" /></div>
+                    <div class="stat-icon-wrap green"><a-icon type="unlock"></a-icon></div>
                     <div class="stat-info">
                       <div class="stat-val">[[ stats.unblocked ]]</div>
                       <div class="stat-lbl">Expired / Unblocked</div>
@@ -215,7 +215,7 @@
               <a-col :xs="12" :sm="8">
                 <a-card hoverable>
                   <div class="stat-box">
-                    <div class="stat-icon-wrap blue"><a-icon type="database" /></div>
+                    <div class="stat-icon-wrap blue"><a-icon type="database"></a-icon></div>
                     <div class="stat-info">
                       <div class="stat-val">[[ stats.total ]]</div>
                       <div class="stat-lbl">Total Records</div>
@@ -228,7 +228,7 @@
                 <a-card hoverable>
                   <template #title>
                     <a-space direction="horizontal">
-                      <a-icon type="safety-certificate" style="font-size:16px" />
+                      <a-icon type="safety-certificate" style="font-size:16px"></a-icon>
                       <span>IP Access Control</span>
                     </a-space>
                   </template>
@@ -273,7 +273,7 @@
                   </div>
 
                   <div v-if="fetched && filteredIPs.length === 0" class="empty-box">
-                    <div class="empty-box-icon"><a-icon type="safety-certificate" /></div>
+                    <div class="empty-box-icon"><a-icon type="safety-certificate"></a-icon></div>
                     <div class="empty-box-title">No Blocked IPs</div>
                     <div class="empty-box-desc">
                       All clients are within their IP limits. Blocked IPs will appear here automatically.
@@ -292,11 +292,11 @@
                       <div class="client-cell">
                         <span class="client-cell-ip">
                           <a-icon :type="record.active ? 'lock' : 'unlock'"
-                            :style="{ color: record.active ? '#e04141' : '#52c41a', fontSize: '11px' }" />
+                            :style="{ color: record.active ? '#e04141' : '#52c41a', fontSize: '11px' }"></a-icon>
                           [[ record.ip ]]
                         </span>
                         <span class="client-cell-name">
-                          <a-icon type="user" style="font-size:10px;margin-right:3px" />
+                          <a-icon type="user" style="font-size:10px;margin-right:3px"></a-icon>
                           [[ record.clientEmail || '—' ]]
                         </span>
                       </div>
@@ -306,13 +306,13 @@
                       <div class="reason-cell">
                         <template v-if="record.reason && record.reason.includes('limit')">
                           <span class="reason-tag limit">
-                            <a-icon type="warning" style="margin-right:3px" />
+                            <a-icon type="warning" style="margin-right:3px"></a-icon>
                             [[ record.reason ]]
                           </span>
                         </template>
                         <template v-else-if="record.reason && record.reason.includes('disabled')">
                           <span class="reason-tag disabled">
-                            <a-icon type="close-circle" style="margin-right:3px" />
+                            <a-icon type="close-circle" style="margin-right:3px"></a-icon>
                             [[ record.reason ]]
                           </span>
                         </template>
@@ -332,13 +332,13 @@
                     <template slot="expires" slot-scope="text, record">
                       <template v-if="record.active">
                         <span class="expires-cell expires-active">
-                          <a-icon type="clock-circle" style="margin-right:3px" />
+                          <a-icon type="clock-circle" style="margin-right:3px"></a-icon>
                           [[ getTimeLeft(record) ]]
                         </span>
                       </template>
                       <template v-else>
                         <span class="expires-cell expires-done">
-                          <a-icon type="check-circle" style="margin-right:3px" />
+                          <a-icon type="check-circle" style="margin-right:3px"></a-icon>
                           Released
                         </span>
                       </template>
@@ -351,7 +351,7 @@
                           :overlay-class-name="themeSwitcher.currentTheme">
                           <a-tooltip title="Unblock">
                             <a-button size="small" type="primary" ghost style="border-radius:6px">
-                              <a-icon type="unlock" />
+                              <a-icon type="unlock"></a-icon>
                             </a-button>
                           </a-tooltip>
                         </a-popconfirm>
@@ -360,7 +360,7 @@
                           :overlay-class-name="themeSwitcher.currentTheme">
                           <a-tooltip title="Delete">
                             <a-button size="small" type="danger" ghost style="border-radius:6px">
-                              <a-icon type="delete" />
+                              <a-icon type="delete"></a-icon>
                             </a-button>
                           </a-tooltip>
                         </a-popconfirm>
