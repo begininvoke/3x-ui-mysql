@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -950,9 +951,11 @@ func (s *InboundService) UpdateInboundClient(data *model.Inbound, clientId strin
 
 func (s *InboundService) AddTraffic(inboundTraffics []*xray.Traffic, clientTraffics []*xray.ClientTraffic) (error, bool) {
 	var needRestart0, needRestart1, needRestart2 bool
+	var disabledEmails []string
 
 	err := database.RetryOnDeadlock(func(tx *gorm.DB) error {
 		needRestart0, needRestart1, needRestart2 = false, false, false
+		disabledEmails = nil
 
 		if err := s.addInboundTraffic(tx, inboundTraffics); err != nil {
 			return err
@@ -971,7 +974,7 @@ func (s *InboundService) AddTraffic(inboundTraffics []*xray.Traffic, clientTraff
 			logger.Debugf("%v clients renewed", count)
 		}
 
-		needRestart1, count, err = s.disableInvalidClients(tx)
+		needRestart1, count, disabledEmails, err = s.disableInvalidClients(tx)
 		if err != nil {
 			logger.Warning("Error in disabling invalid clients:", err)
 		} else if count > 0 {
@@ -987,6 +990,10 @@ func (s *InboundService) AddTraffic(inboundTraffics []*xray.Traffic, clientTraff
 
 		return nil
 	})
+
+	if len(disabledEmails) > 0 {
+		go s.BlockIPsForDisabledClients(disabledEmails, 1800)
+	}
 
 	return err, (needRestart0 || needRestart1 || needRestart2)
 }
@@ -1301,9 +1308,10 @@ func (s *InboundService) disableInvalidInbounds(tx *gorm.DB) (bool, int64, error
 	return needRestart, count, err
 }
 
-func (s *InboundService) disableInvalidClients(tx *gorm.DB) (bool, int64, error) {
+func (s *InboundService) disableInvalidClients(tx *gorm.DB) (bool, int64, []string, error) {
 	now := time.Now().Unix() * 1000
 	needRestart := false
+	var disabledEmails []string
 
 	if p != nil {
 		var results []struct {
@@ -1317,10 +1325,11 @@ func (s *InboundService) disableInvalidClients(tx *gorm.DB) (bool, int64, error)
 			Where("((client_traffics.total > 0 AND client_traffics.up + client_traffics.down >= client_traffics.total) OR (client_traffics.expiry_time > 0 AND client_traffics.expiry_time <= ?)) AND client_traffics.enable = ?", now, true).
 			Scan(&results).Error
 		if err != nil {
-			return false, 0, err
+			return false, 0, nil, err
 		}
 		s.xrayApi.Init(p.GetAPIPort())
 		for _, result := range results {
+			disabledEmails = append(disabledEmails, result.Email)
 			err1 := s.xrayApi.RemoveUser(result.Tag, result.Email)
 			if err1 == nil {
 				logger.Debug("Client disabled by api:", result.Email)
@@ -1344,7 +1353,7 @@ func (s *InboundService) disableInvalidClients(tx *gorm.DB) (bool, int64, error)
 		Update("enable", false)
 	err := result.Error
 	count := result.RowsAffected
-	return needRestart, count, err
+	return needRestart, count, disabledEmails, err
 }
 
 func (s *InboundService) GetInboundTags() (string, error) {
@@ -2607,33 +2616,158 @@ func (s *InboundService) GetAllBlockedIPs() ([]model.BlockedIP, error) {
 
 func (s *InboundService) UnblockIP(id int) error {
 	db := database.GetDB()
-	return db.Model(&model.BlockedIP{}).Where("id = ?", id).Updates(map[string]interface{}{
+	var blocked model.BlockedIP
+	if err := db.Where("id = ?", id).First(&blocked).Error; err != nil {
+		return err
+	}
+	err := db.Model(&model.BlockedIP{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"active":       false,
 		"unblocked_at": time.Now().Unix(),
 	}).Error
+	if err != nil {
+		return err
+	}
+	s.fail2banUnbanIP(blocked.IP)
+	return nil
 }
 
-func (s *InboundService) SaveBlockedIP(ip string, clientEmail string, blockedAt int64) error {
+func (s *InboundService) SaveBlockedIP(ip string, clientEmail string, blockedAt int64, durationSeconds int64) error {
 	db := database.GetDB()
 	var existing model.BlockedIP
 	err := db.Where("ip = ? AND client_email = ? AND active = ?", ip, clientEmail, true).First(&existing).Error
 	if err == nil {
 		return nil
 	}
+	if durationSeconds <= 0 {
+		durationSeconds = 300
+	}
 	blocked := &model.BlockedIP{
-		IP:          ip,
-		ClientEmail: clientEmail,
-		BlockedAt:   blockedAt,
-		Active:      true,
+		IP:            ip,
+		ClientEmail:   clientEmail,
+		BlockedAt:     blockedAt,
+		BlockDuration: durationSeconds,
+		ExpiresAt:     blockedAt + durationSeconds,
+		Active:        true,
 	}
 	return db.Create(blocked).Error
 }
 
-func (s *InboundService) ClearAllBlockedIPs() error {
+func (s *InboundService) UnblockExpiredIPs() (int64, error) {
 	db := database.GetDB()
 	now := time.Now().Unix()
-	return db.Model(&model.BlockedIP{}).Where("active = ?", true).Updates(map[string]interface{}{
+	result := db.Model(&model.BlockedIP{}).
+		Where("active = ? AND expires_at > 0 AND expires_at <= ?", true, now).
+		Updates(map[string]interface{}{
+			"active":       false,
+			"unblocked_at": now,
+		})
+	return result.RowsAffected, result.Error
+}
+
+func (s *InboundService) GetActiveBlockedIPsForLog() ([]model.BlockedIP, error) {
+	db := database.GetDB()
+	var blockedIPs []model.BlockedIP
+	err := db.Where("active = ?", true).Find(&blockedIPs).Error
+	return blockedIPs, err
+}
+
+func (s *InboundService) ClearAllBlockedIPs() error {
+	db := database.GetDB()
+	var activeIPs []model.BlockedIP
+	db.Where("active = ?", true).Find(&activeIPs)
+
+	now := time.Now().Unix()
+	err := db.Model(&model.BlockedIP{}).Where("active = ?", true).Updates(map[string]interface{}{
 		"active":       false,
 		"unblocked_at": now,
 	}).Error
+	if err != nil {
+		return err
+	}
+
+	for _, b := range activeIPs {
+		s.fail2banUnbanIP(b.IP)
+	}
+	s.truncateIPLimitLog()
+	return nil
+}
+
+func (s *InboundService) DeleteBlockedIP(id int) error {
+	db := database.GetDB()
+	var blocked model.BlockedIP
+	if err := db.Where("id = ?", id).First(&blocked).Error; err != nil {
+		return err
+	}
+	if blocked.Active {
+		s.fail2banUnbanIP(blocked.IP)
+	}
+	return db.Delete(&model.BlockedIP{}, id).Error
+}
+
+func (s *InboundService) DeleteAllBlockedIPs() error {
+	db := database.GetDB()
+	var activeIPs []model.BlockedIP
+	db.Where("active = ?", true).Find(&activeIPs)
+
+	err := db.Where("1 = 1").Delete(&model.BlockedIP{}).Error
+	if err != nil {
+		return err
+	}
+
+	for _, b := range activeIPs {
+		s.fail2banUnbanIP(b.IP)
+	}
+	s.truncateIPLimitLog()
+	return nil
+}
+
+func (s *InboundService) fail2banUnbanIP(ip string) {
+	err := exec.Command("fail2ban-client", "set", "3x-ipl", "unbanip", ip).Run()
+	if err != nil {
+		logger.Debugf("fail2ban unban %s: %v (may not be installed)", ip, err)
+	}
+}
+
+func (s *InboundService) truncateIPLimitLog() {
+	logPath := xray.GetIPLimitLogPath()
+	_ = os.Truncate(logPath, 0)
+}
+
+func (s *InboundService) BlockIPsForDisabledClients(emails []string, durationSeconds int64) {
+	if len(emails) == 0 {
+		return
+	}
+	db := database.GetDB()
+	now := time.Now().Unix()
+
+	for _, email := range emails {
+		var record model.InboundClientIps
+		err := db.Where("client_email = ?", email).First(&record).Error
+		if err != nil {
+			continue
+		}
+		if record.Ips == "" {
+			continue
+		}
+
+		type ipEntry struct {
+			IP        string `json:"ip"`
+			Timestamp int64  `json:"timestamp"`
+		}
+		var ips []ipEntry
+		if err := json.Unmarshal([]byte(record.Ips), &ips); err != nil {
+			continue
+		}
+
+		for _, entry := range ips {
+			if entry.IP == "" || entry.IP == "127.0.0.1" || entry.IP == "::1" {
+				continue
+			}
+			_ = s.SaveBlockedIP(entry.IP, email, now, durationSeconds)
+		}
+
+		if len(ips) > 0 {
+			logger.Infof("[LIMIT_IP] Blocked %d IP(s) for disabled client %s (duration=%ds)", len(ips), email, durationSeconds)
+		}
+	}
 }

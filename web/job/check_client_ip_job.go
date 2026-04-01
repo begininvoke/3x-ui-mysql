@@ -44,6 +44,13 @@ func (j *CheckClientIpJob) Run() {
 		j.lastClear = time.Now().Unix()
 	}
 
+	var inboundService service.InboundService
+	if count, err := inboundService.UnblockExpiredIPs(); err != nil {
+		logger.Warning("failed to unblock expired IPs:", err)
+	} else if count > 0 {
+		logger.Infof("[LIMIT_IP] Auto-unblocked %d expired IP(s)", count)
+	}
+
 	shouldClearAccessLog := false
 	iplimitActive := j.hasLimitIp()
 	f2bInstalled := j.checkFail2BanInstalled()
@@ -59,13 +66,13 @@ func (j *CheckClientIpJob) Run() {
 				if f2bInstalled {
 					shouldClearAccessLog = j.processLogFile()
 				} else {
-					if !f2bInstalled {
-						logger.Warning("[LimitIP] Fail2Ban is not installed, Please install Fail2Ban from the x-ui bash menu.")
-					}
+					logger.Warning("[LimitIP] Fail2Ban is not installed, Please install Fail2Ban from the x-ui bash menu.")
 				}
 			}
 		}
 	}
+
+	j.syncBlockedIPsToLog()
 
 	if shouldClearAccessLog || (isAccessLogAvailable && time.Now().Unix()-j.lastClear > 3600) {
 		j.clearAccessLog()
@@ -341,16 +348,6 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 	shouldCleanLog := false
 	j.disAllowedIps = []string{}
 
-	// Open log file
-	logIpFile, err := os.OpenFile(xray.GetIPLimitLogPath(), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		logger.Errorf("failed to open IP limit log file: %s", err)
-		return false
-	}
-	defer logIpFile.Close()
-	log.SetOutput(logIpFile)
-	log.SetFlags(log.LstdFlags)
-
 	// Check if we exceed the limit
 	if len(allIps) > limitIp {
 		shouldCleanLog = true
@@ -360,10 +357,10 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 		bannedIps := allIps[limitIp:]
 
 		var inboundService service.InboundService
+		blockDuration := int64(300)
 		for _, ipTime := range bannedIps {
 			j.disAllowedIps = append(j.disAllowedIps, ipTime.IP)
-			log.Printf("[LIMIT_IP] Email = %s || Disconnecting OLD IP = %s || Timestamp = %d", clientEmail, ipTime.IP, ipTime.Timestamp)
-			if err := inboundService.SaveBlockedIP(ipTime.IP, clientEmail, ipTime.Timestamp); err != nil {
+			if err := inboundService.SaveBlockedIP(ipTime.IP, clientEmail, time.Now().Unix(), blockDuration); err != nil {
 				logger.Warning("failed to save blocked IP to database:", err)
 			}
 		}
@@ -409,6 +406,31 @@ func joinStrings(strs []string, sep string) string {
 		result += s
 	}
 	return result
+}
+
+func (j *CheckClientIpJob) syncBlockedIPsToLog() {
+	var inboundService service.InboundService
+	activeBlocks, err := inboundService.GetActiveBlockedIPsForLog()
+	if err != nil {
+		logger.Warning("failed to get active blocked IPs from database:", err)
+		return
+	}
+	if len(activeBlocks) == 0 {
+		return
+	}
+
+	logIpFile, err := os.OpenFile(xray.GetIPLimitLogPath(), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		logger.Errorf("failed to open IP limit log file: %s", err)
+		return
+	}
+	defer logIpFile.Close()
+	log.SetOutput(logIpFile)
+	log.SetFlags(log.LstdFlags)
+
+	for _, b := range activeBlocks {
+		log.Printf("[LIMIT_IP] Email = %s || Disconnecting OLD IP = %s || Timestamp = %d", b.ClientEmail, b.IP, b.BlockedAt)
+	}
 }
 
 func (j *CheckClientIpJob) getInboundByEmail(clientEmail string) (*model.Inbound, error) {

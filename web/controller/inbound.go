@@ -56,6 +56,8 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.GET("/blockedIps", a.getBlockedIps)
 	g.POST("/unblockIp/:id", a.unblockIp)
 	g.POST("/clearBlockedIps", a.clearBlockedIps)
+	g.POST("/deleteBlockedIp/:id", a.deleteBlockedIp)
+	g.POST("/deleteAllBlockedIps", a.deleteAllBlockedIps)
 }
 
 // getInbounds retrieves the list of inbounds for the logged-in user.
@@ -489,4 +491,27 @@ func (a *InboundController) clearBlockedIps(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, "All blocked IPs cleared", nil)
+}
+
+func (a *InboundController) deleteBlockedIp(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		jsonMsg(c, "Invalid ID", err)
+		return
+	}
+	err = a.inboundService.DeleteBlockedIP(id)
+	if err != nil {
+		jsonMsg(c, "Failed to delete blocked IP", err)
+		return
+	}
+	jsonMsg(c, "Blocked IP deleted", nil)
+}
+
+func (a *InboundController) deleteAllBlockedIps(c *gin.Context) {
+	err := a.inboundService.DeleteAllBlockedIPs()
+	if err != nil {
+		jsonMsg(c, "Failed to delete all blocked IPs", err)
+		return
+	}
+	jsonMsg(c, "All blocked IP records deleted", nil)
 }
