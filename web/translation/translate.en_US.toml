@@ -438,6 +438,9 @@
 "mysqlPassword" = "MySQL Password"
 "mysqlDBName" = "MySQL Database Name"
 
+[pages.blockedIps]
+"title" = "Blocked IPs"
+
 [pages.xray]
 "title" = "Xray Configs"
 "save" = "Save"

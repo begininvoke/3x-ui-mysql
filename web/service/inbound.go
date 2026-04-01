@@ -2590,3 +2590,50 @@ func (s *InboundService) DelInboundClientByEmail(inboundId int, email string) (b
 
 	return needRestart, db.Save(oldInbound).Error
 }
+
+func (s *InboundService) GetBlockedIPs() ([]model.BlockedIP, error) {
+	db := database.GetDB()
+	var blockedIPs []model.BlockedIP
+	err := db.Where("active = ?", true).Order("blocked_at DESC").Find(&blockedIPs).Error
+	return blockedIPs, err
+}
+
+func (s *InboundService) GetAllBlockedIPs() ([]model.BlockedIP, error) {
+	db := database.GetDB()
+	var blockedIPs []model.BlockedIP
+	err := db.Order("blocked_at DESC").Find(&blockedIPs).Error
+	return blockedIPs, err
+}
+
+func (s *InboundService) UnblockIP(id int) error {
+	db := database.GetDB()
+	return db.Model(&model.BlockedIP{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"active":       false,
+		"unblocked_at": time.Now().Unix(),
+	}).Error
+}
+
+func (s *InboundService) SaveBlockedIP(ip string, clientEmail string, blockedAt int64) error {
+	db := database.GetDB()
+	var existing model.BlockedIP
+	err := db.Where("ip = ? AND client_email = ? AND active = ?", ip, clientEmail, true).First(&existing).Error
+	if err == nil {
+		return nil
+	}
+	blocked := &model.BlockedIP{
+		IP:          ip,
+		ClientEmail: clientEmail,
+		BlockedAt:   blockedAt,
+		Active:      true,
+	}
+	return db.Create(blocked).Error
+}
+
+func (s *InboundService) ClearAllBlockedIPs() error {
+	db := database.GetDB()
+	now := time.Now().Unix()
+	return db.Model(&model.BlockedIP{}).Where("active = ?", true).Updates(map[string]interface{}{
+		"active":       false,
+		"unblocked_at": now,
+	}).Error
+}

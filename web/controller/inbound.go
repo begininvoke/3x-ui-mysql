@@ -52,6 +52,10 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.POST("/lastOnline", a.lastOnline)
 	g.POST("/updateClientTraffic/:email", a.updateClientTraffic)
 	g.POST("/:id/delClientByEmail/:email", a.delInboundClientByEmail)
+
+	g.GET("/blockedIps", a.getBlockedIps)
+	g.POST("/unblockIp/:id", a.unblockIp)
+	g.POST("/clearBlockedIps", a.clearBlockedIps)
 }
 
 // getInbounds retrieves the list of inbounds for the logged-in user.
@@ -453,4 +457,36 @@ func (a *InboundController) delInboundClientByEmail(c *gin.Context) {
 	if needRestart {
 		a.xrayService.SetToNeedRestart()
 	}
+}
+
+func (a *InboundController) getBlockedIps(c *gin.Context) {
+	blockedIPs, err := a.inboundService.GetAllBlockedIPs()
+	if err != nil {
+		jsonMsg(c, "Failed to get blocked IPs", err)
+		return
+	}
+	jsonObj(c, blockedIPs, nil)
+}
+
+func (a *InboundController) unblockIp(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		jsonMsg(c, "Invalid ID", err)
+		return
+	}
+	err = a.inboundService.UnblockIP(id)
+	if err != nil {
+		jsonMsg(c, "Failed to unblock IP", err)
+		return
+	}
+	jsonMsg(c, "IP unblocked successfully", nil)
+}
+
+func (a *InboundController) clearBlockedIps(c *gin.Context) {
+	err := a.inboundService.ClearAllBlockedIPs()
+	if err != nil {
+		jsonMsg(c, "Failed to clear blocked IPs", err)
+		return
+	}
+	jsonMsg(c, "All blocked IPs cleared", nil)
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v2/database"
 	"github.com/mhsanaei/3x-ui/v2/database/model"
 	"github.com/mhsanaei/3x-ui/v2/logger"
+	"github.com/mhsanaei/3x-ui/v2/web/service"
 	"github.com/mhsanaei/3x-ui/v2/xray"
 )
 
@@ -358,10 +359,13 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 		keptIps := allIps[:limitIp]
 		bannedIps := allIps[limitIp:]
 
-		// Log banned IPs in the format fail2ban filters expect
+		var inboundService service.InboundService
 		for _, ipTime := range bannedIps {
 			j.disAllowedIps = append(j.disAllowedIps, ipTime.IP)
 			log.Printf("[LIMIT_IP] Email = %s || Disconnecting OLD IP = %s || Timestamp = %d", clientEmail, ipTime.IP, ipTime.Timestamp)
+			if err := inboundService.SaveBlockedIP(ipTime.IP, clientEmail, ipTime.Timestamp); err != nil {
+				logger.Warning("failed to save blocked IP to database:", err)
+			}
 		}
 
 		// Update database with only the currently active (kept) IPs

@@ -26,6 +26,7 @@ func (a *XUIController) initRouter(g *gin.RouterGroup) {
 
 	g.GET("/", a.index)
 	g.GET("/inbounds", a.inbounds)
+	g.GET("/blocked-ips", a.blockedIps)
 	g.GET("/settings", a.settings)
 	g.GET("/xray", a.xraySettings)
 
@@ -46,6 +47,11 @@ func (a *XUIController) inbounds(c *gin.Context) {
 // settings renders the settings management page.
 func (a *XUIController) settings(c *gin.Context) {
 	html(c, "settings.html", "pages.settings.title", nil)
+}
+
+// blockedIps renders the blocked IPs management page.
+func (a *XUIController) blockedIps(c *gin.Context) {
+	html(c, "blocked_ips.html", "pages.blockedIps.title", nil)
 }
 
 // xraySettings renders the Xray settings page.

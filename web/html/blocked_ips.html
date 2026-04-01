@@ -1,0 +1,280 @@
+{{ template "page/head_start" .}}
+{{ template "page/head_end" .}}
+<style>
+  .blocked-ips-page .ant-card { margin-bottom: 0 !important; }
+  .blocked-ips-page .stat-card { text-align: center; }
+  .blocked-ips-page .stat-card .stat-number { font-size: 28px; font-weight: 700; line-height: 1.2; }
+  .blocked-ips-page .stat-card .stat-label { font-size: 13px; opacity: 0.65; margin-top: 4px; }
+  .blocked-ips-page .ip-tag-active { }
+  .blocked-ips-page .ip-tag-inactive { opacity: 0.5; }
+  .blocked-ips-page .filter-bar { margin-bottom: 12px; }
+  @media (max-width: 768px) {
+    .blocked-ips-page .ant-card-body { padding: 12px; }
+  }
+</style>
+
+{{ template "page/body_start" .}}
+<a-layout id="app" v-cloak :class="themeSwitcher.currentTheme + ' blocked-ips-page'">
+  <a-sidebar></a-sidebar>
+  <a-layout id="content-layout">
+    <a-layout-content>
+      <a-spin :spinning="loading" :delay="200" tip="Loading...">
+        <transition name="list" appear>
+          <template>
+            <a-row :gutter="[isMobile ? 8 : 16, isMobile ? 8 : 12]">
+
+              <!-- Stats Row -->
+              <a-col :xs="8">
+                <a-card hoverable class="stat-card">
+                  <div class="stat-number" style="color:#e04141">[[ stats.active ]]</div>
+                  <div class="stat-label">Active Blocks</div>
+                </a-card>
+              </a-col>
+              <a-col :xs="8">
+                <a-card hoverable class="stat-card">
+                  <div class="stat-number" style="color:#52c41a">[[ stats.unblocked ]]</div>
+                  <div class="stat-label">Unblocked</div>
+                </a-card>
+              </a-col>
+              <a-col :xs="8">
+                <a-card hoverable class="stat-card">
+                  <div class="stat-number" style="color:#1890ff">[[ stats.total ]]</div>
+                  <div class="stat-label">Total Records</div>
+                </a-card>
+              </a-col>
+
+              <!-- Main Table -->
+              <a-col :xs="24">
+                <a-card hoverable>
+                  <template #title>
+                    <a-icon type="stop" /> Blocked IPs
+                  </template>
+                  <template #extra>
+                    <a-space>
+                      <a-button size="small" icon="reload" @click="fetchBlockedIPs" :loading="refreshing">
+                        Refresh
+                      </a-button>
+                      <a-popconfirm title="Unblock all active IPs?" ok-text="Yes" cancel-text="No" @confirm="clearAll"
+                        :overlay-class-name="themeSwitcher.currentTheme">
+                        <a-button size="small" type="danger" icon="delete" :disabled="stats.active === 0">
+                          Clear All
+                        </a-button>
+                      </a-popconfirm>
+                    </a-space>
+                  </template>
+
+                  <!-- Filters -->
+                  <a-row :gutter="[8,8]" class="filter-bar">
+                    <a-col :xs="24" :sm="8">
+                      <a-input-search v-model="filters.search" placeholder="Search IP or Email..." allow-clear
+                        size="small" @search="applyFilters" @change="applyFilters" />
+                    </a-col>
+                    <a-col :xs="12" :sm="8">
+                      <a-select v-model="filters.status" size="small" style="width:100%" @change="applyFilters"
+                        :dropdown-class-name="themeSwitcher.currentTheme">
+                        <a-select-option value="all">All Status</a-select-option>
+                        <a-select-option value="active">Active Only</a-select-option>
+                        <a-select-option value="unblocked">Unblocked Only</a-select-option>
+                      </a-select>
+                    </a-col>
+                    <a-col :xs="12" :sm="8">
+                      <a-select v-model="filters.sortBy" size="small" style="width:100%" @change="applyFilters"
+                        :dropdown-class-name="themeSwitcher.currentTheme">
+                        <a-select-option value="newest">Newest First</a-select-option>
+                        <a-select-option value="oldest">Oldest First</a-select-option>
+                        <a-select-option value="email">By Email</a-select-option>
+                      </a-select>
+                    </a-col>
+                  </a-row>
+
+                  <!-- Table -->
+                  <a-table
+                    :columns="columns"
+                    :data-source="filteredIPs"
+                    :row-key="record => record.id"
+                    :pagination="{ pageSize: 15, showSizeChanger: true, pageSizeOptions: ['10','15','30','50'], showTotal: (total) => 'Total ' + total }"
+                    :scroll="{ x: 700 }"
+                    size="small"
+                    :locale="{ emptyText: 'No blocked IPs found' }"
+                  >
+                    <template slot="ip" slot-scope="text, record">
+                      <a-tag :color="record.active ? 'red' : 'default'" :class="record.active ? 'ip-tag-active' : 'ip-tag-inactive'">
+                        <a-icon :type="record.active ? 'lock' : 'unlock'" />
+                        [[ text ]]
+                      </a-tag>
+                    </template>
+
+                    <template slot="clientEmail" slot-scope="text">
+                      <a-tooltip :title="text">
+                        <span style="font-family:monospace;font-size:12px">[[ text || '—' ]]</span>
+                      </a-tooltip>
+                    </template>
+
+                    <template slot="blockedAt" slot-scope="text">
+                      <span style="font-size:12px">[[ formatTime(text) ]]</span>
+                    </template>
+
+                    <template slot="duration" slot-scope="text, record">
+                      <span style="font-size:12px">[[ getDuration(record) ]]</span>
+                    </template>
+
+                    <template slot="status" slot-scope="text, record">
+                      <a-badge v-if="record.active" status="error" text="Blocked" />
+                      <a-badge v-else status="success" text="Unblocked" />
+                    </template>
+
+                    <template slot="action" slot-scope="text, record">
+                      <a-popconfirm v-if="record.active" title="Unblock this IP?" ok-text="Yes" cancel-text="No"
+                        @confirm="unblockIP(record.id)" :overlay-class-name="themeSwitcher.currentTheme">
+                        <a-button size="small" type="primary" ghost>
+                          <a-icon type="unlock" /> Unblock
+                        </a-button>
+                      </a-popconfirm>
+                      <a-tag v-else color="green" style="margin:0">
+                        <a-icon type="check-circle" /> Released
+                      </a-tag>
+                    </template>
+                  </a-table>
+
+                </a-card>
+              </a-col>
+            </a-row>
+          </template>
+        </transition>
+      </a-spin>
+    </a-layout-content>
+  </a-layout>
+</a-layout>
+{{template "page/body_scripts" .}}
+{{template "component/aSidebar" .}}
+{{template "component/aThemeSwitch" .}}
+<script>
+  const app = new Vue({
+    delimiters: ['[[', ']]'],
+    el: '#app',
+    mixins: [MediaQueryMixin],
+    data: {
+      themeSwitcher,
+      loading: true,
+      refreshing: false,
+      blockedIPs: [],
+      filteredIPs: [],
+      filters: {
+        search: '',
+        status: 'all',
+        sortBy: 'newest',
+      },
+      columns: [
+        { title: 'IP Address', dataIndex: 'ip', key: 'ip', scopedSlots: { customRender: 'ip' }, width: 180 },
+        { title: 'Client Email', dataIndex: 'clientEmail', key: 'clientEmail', scopedSlots: { customRender: 'clientEmail' }, ellipsis: true },
+        { title: 'Blocked At', dataIndex: 'blockedAt', key: 'blockedAt', scopedSlots: { customRender: 'blockedAt' }, width: 170 },
+        { title: 'Duration', key: 'duration', scopedSlots: { customRender: 'duration' }, width: 120 },
+        { title: 'Status', key: 'status', scopedSlots: { customRender: 'status' }, width: 110 },
+        { title: 'Action', key: 'action', scopedSlots: { customRender: 'action' }, width: 120, fixed: 'right' },
+      ],
+    },
+    computed: {
+      stats() {
+        const active = this.blockedIPs.filter(ip => ip.active).length;
+        return {
+          active,
+          unblocked: this.blockedIPs.filter(ip => !ip.active).length,
+          total: this.blockedIPs.length,
+        };
+      },
+    },
+    methods: {
+      async fetchBlockedIPs() {
+        this.refreshing = true;
+        try {
+          const msg = await HttpUtil.get('/panel/api/inbounds/blockedIps');
+          if (msg.success) {
+            this.blockedIPs = msg.obj || [];
+            this.applyFilters();
+          }
+        } catch (e) {
+          console.error('Failed to fetch blocked IPs:', e);
+        }
+        this.loading = false;
+        this.refreshing = false;
+      },
+
+      applyFilters() {
+        let result = [...this.blockedIPs];
+
+        if (this.filters.status === 'active') {
+          result = result.filter(ip => ip.active);
+        } else if (this.filters.status === 'unblocked') {
+          result = result.filter(ip => !ip.active);
+        }
+
+        if (this.filters.search) {
+          const q = this.filters.search.toLowerCase();
+          result = result.filter(ip =>
+            (ip.ip && ip.ip.toLowerCase().includes(q)) ||
+            (ip.clientEmail && ip.clientEmail.toLowerCase().includes(q))
+          );
+        }
+
+        if (this.filters.sortBy === 'newest') {
+          result.sort((a, b) => b.blockedAt - a.blockedAt);
+        } else if (this.filters.sortBy === 'oldest') {
+          result.sort((a, b) => a.blockedAt - b.blockedAt);
+        } else if (this.filters.sortBy === 'email') {
+          result.sort((a, b) => (a.clientEmail || '').localeCompare(b.clientEmail || ''));
+        }
+
+        this.filteredIPs = result;
+      },
+
+      async unblockIP(id) {
+        try {
+          const msg = await HttpUtil.post('/panel/api/inbounds/unblockIp/' + id);
+          if (msg.success) {
+            this.$message.success('IP unblocked successfully');
+            await this.fetchBlockedIPs();
+          }
+        } catch (e) {
+          this.$message.error('Failed to unblock IP');
+        }
+      },
+
+      async clearAll() {
+        try {
+          const msg = await HttpUtil.post('/panel/api/inbounds/clearBlockedIps');
+          if (msg.success) {
+            this.$message.success('All blocked IPs cleared');
+            await this.fetchBlockedIPs();
+          }
+        } catch (e) {
+          this.$message.error('Failed to clear blocked IPs');
+        }
+      },
+
+      formatTime(timestamp) {
+        if (!timestamp) return '—';
+        const d = new Date(timestamp * 1000);
+        return d.toLocaleString();
+      },
+
+      getDuration(record) {
+        if (!record.blockedAt) return '—';
+        const start = record.blockedAt * 1000;
+        const end = record.active ? Date.now() : (record.unblockedAt ? record.unblockedAt * 1000 : Date.now());
+        const diff = Math.max(0, end - start);
+        const seconds = Math.floor(diff / 1000);
+        if (seconds < 60) return seconds + 's';
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return minutes + 'm ' + (seconds % 60) + 's';
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return hours + 'h ' + (minutes % 60) + 'm';
+        const days = Math.floor(hours / 24);
+        return days + 'd ' + (hours % 24) + 'h';
+      },
+    },
+    async mounted() {
+      await this.fetchBlockedIPs();
+    },
+  });
+</script>
+{{ template "page/body_end" .}}

@@ -46,6 +46,7 @@ func (a *ServerController) initRouter(g *gin.RouterGroup) {
 	g.GET("/status", a.status)
 	g.GET("/cpuHistory/:bucket", a.getCpuHistoryBucket)
 	g.GET("/trafficHistory/:bucket", a.getTrafficHistoryBucket)
+	g.GET("/connHistory/:bucket", a.getConnHistoryBucket)
 	g.GET("/dailyTraffic/:days", a.getDailyTraffic)
 	g.GET("/getXrayVersion", a.getXrayVersion)
 	g.GET("/getConfigJson", a.getConfigJson)
@@ -77,6 +78,7 @@ func (a *ServerController) refreshStatus() {
 		now := time.Now()
 		a.serverService.AppendCpuSample(now, a.lastStatus.Cpu)
 		a.serverService.AppendTrafficSample(now, a.lastStatus.NetIO.Up, a.lastStatus.NetIO.Down)
+		a.serverService.AppendConnectionSample(now, a.lastStatus.TcpCount, a.lastStatus.UdpCount)
 		websocket.BroadcastStatus(a.lastStatus)
 	}
 }
@@ -141,6 +143,28 @@ func (a *ServerController) getTrafficHistoryBucket(c *gin.Context) {
 	}
 	maxPoints := totalSeconds / bucketSize
 	points := a.serverService.AggregateTrafficHistory(bucketSize, maxPoints)
+	jsonObj(c, points, nil)
+}
+
+func (a *ServerController) getConnHistoryBucket(c *gin.Context) {
+	bucketStr := c.Param("bucket")
+	minutes, err := strconv.Atoi(bucketStr)
+	if err != nil || minutes <= 0 {
+		jsonMsg(c, "invalid timeframe", fmt.Errorf("bad value"))
+		return
+	}
+	allowed := map[int]bool{10: true, 30: true, 60: true, 180: true, 360: true, 720: true, 1440: true}
+	if !allowed[minutes] {
+		jsonMsg(c, "invalid timeframe", fmt.Errorf("unsupported value"))
+		return
+	}
+	totalSeconds := minutes * 60
+	bucketSize := totalSeconds / 360
+	if bucketSize < 2 {
+		bucketSize = 2
+	}
+	maxPoints := totalSeconds / bucketSize
+	points := a.serverService.AggregateConnectionHistory(bucketSize, maxPoints)
 	jsonObj(c, points, nil)
 }
 

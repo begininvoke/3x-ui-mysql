@@ -1,107 +1,277 @@
 {{ template "page/head_start" .}}
+<style>
+  #app.login-app { overflow: hidden; }
+
+  .login-bg {
+    position: fixed; inset: 0; z-index: 0;
+    background: linear-gradient(135deg, #0a2e26 0%, #0d3d32 25%, #093028 50%, #0b1d18 100%);
+    overflow: hidden;
+  }
+  .login-bg::before {
+    content: ''; position: absolute; width: 600px; height: 600px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,135,113,0.25) 0%, transparent 70%);
+    top: -200px; right: -100px; animation: float-orb-1 18s ease-in-out infinite;
+  }
+  .login-bg::after {
+    content: ''; position: absolute; width: 500px; height: 500px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,180,140,0.15) 0%, transparent 70%);
+    bottom: -150px; left: -100px; animation: float-orb-2 22s ease-in-out infinite;
+  }
+  .login-bg-orb {
+    position: absolute; width: 350px; height: 350px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,100,85,0.2) 0%, transparent 70%);
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    animation: float-orb-3 15s ease-in-out infinite;
+  }
+  .login-grid-overlay {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,135,113,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,135,113,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+  @keyframes float-orb-1 { 0%,100% { transform: translate(0,0) } 50% { transform: translate(-40px,30px) } }
+  @keyframes float-orb-2 { 0%,100% { transform: translate(0,0) } 50% { transform: translate(30px,-40px) } }
+  @keyframes float-orb-3 { 0%,100% { transform: translate(-50%,-50%) scale(1) } 50% { transform: translate(-50%,-50%) scale(1.15) } }
+
+  .login-wrapper {
+    position: relative; z-index: 1; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+
+  .login-card {
+    width: 100%; max-width: 420px;
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 24px;
+    padding: 48px 40px 40px;
+    animation: card-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  @keyframes card-enter {
+    from { opacity: 0; transform: translateY(32px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .login-brand {
+    text-align: center; margin-bottom: 36px;
+  }
+  .login-brand-icon {
+    width: 56px; height: 56px; margin: 0 auto 16px;
+    background: linear-gradient(135deg, #008771 0%, #00b38a 100%);
+    border-radius: 16px; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 16px rgba(0,135,113,0.4);
+    animation: icon-pulse 3s ease-in-out infinite;
+  }
+  @keyframes icon-pulse {
+    0%,100% { box-shadow: 0 4px 16px rgba(0,135,113,0.4) }
+    50% { box-shadow: 0 4px 24px rgba(0,135,113,0.6) }
+  }
+  .login-brand-icon svg { width: 28px; height: 28px; fill: #fff; }
+  .login-brand h2 {
+    color: rgba(255,255,255,0.92); font-size: 22px; font-weight: 600;
+    margin: 0 0 6px; letter-spacing: -0.3px;
+  }
+  .login-brand p {
+    color: rgba(255,255,255,0.45); font-size: 13px; margin: 0;
+  }
+
+  .login-field { margin-bottom: 20px; position: relative; }
+  .login-field label {
+    display: block; color: rgba(255,255,255,0.55); font-size: 12px;
+    font-weight: 500; text-transform: uppercase; letter-spacing: 0.8px;
+    margin-bottom: 8px;
+  }
+  .login-card .ant-input,
+  .login-card .ant-input-password .ant-input {
+    height: 48px !important; border-radius: 12px !important;
+    background: rgba(255,255,255,0.06) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    color: rgba(255,255,255,0.9) !important; font-size: 15px !important;
+    padding-left: 44px !important;
+    transition: all 0.25s ease !important;
+  }
+  .login-card .ant-input:hover,
+  .login-card .ant-input-password .ant-input:hover {
+    background: rgba(255,255,255,0.09) !important;
+    border-color: rgba(0,135,113,0.5) !important;
+  }
+  .login-card .ant-input:focus,
+  .login-card .ant-input-password .ant-input:focus {
+    background: rgba(255,255,255,0.09) !important;
+    border-color: #008771 !important;
+    box-shadow: 0 0 0 3px rgba(0,135,113,0.15) !important;
+  }
+  .login-card .ant-input::placeholder { color: rgba(255,255,255,0.3) !important; }
+  .login-card .ant-input-affix-wrapper .ant-input-prefix {
+    left: 16px !important; color: rgba(255,255,255,0.4);
+    font-size: 16px !important;
+  }
+  .login-card .ant-input-affix-wrapper .ant-input:not(:first-child) {
+    padding-left: 44px !important;
+  }
+  .login-card .ant-input-suffix { color: rgba(255,255,255,0.4); }
+
+  .login-card .ant-input-password .ant-input-suffix .anticon {
+    color: rgba(255,255,255,0.4) !important;
+  }
+  .login-card .ant-input-password .ant-input-suffix .anticon:hover {
+    color: rgba(255,255,255,0.7) !important;
+  }
+
+  .login-submit-btn {
+    width: 100%; height: 48px !important; border-radius: 12px !important;
+    font-size: 15px !important; font-weight: 600 !important;
+    background: linear-gradient(135deg, #008771 0%, #00a88a 100%) !important;
+    border: none !important; color: #fff !important;
+    box-shadow: 0 4px 16px rgba(0,135,113,0.35) !important;
+    transition: all 0.3s ease !important;
+    letter-spacing: 0.3px;
+  }
+  .login-submit-btn:hover, .login-submit-btn:focus {
+    background: linear-gradient(135deg, #009980 0%, #00c4a0 100%) !important;
+    box-shadow: 0 6px 24px rgba(0,135,113,0.45) !important;
+    transform: translateY(-1px);
+  }
+  .login-submit-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(0,135,113,0.3) !important;
+  }
+
+  .login-footer {
+    text-align: center; margin-top: 28px;
+    padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .login-footer-text {
+    color: rgba(255,255,255,0.3); font-size: 12px;
+  }
+  .login-footer-text a { color: rgba(0,180,140,0.7); text-decoration: none; }
+  .login-footer-text a:hover { color: #00b38a; }
+
+  .login-settings-btn {
+    position: absolute; top: 20px; right: 20px; z-index: 10;
+  }
+  .login-settings-btn .ant-btn {
+    background: rgba(255,255,255,0.06) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    color: rgba(255,255,255,0.5) !important;
+    width: 40px; height: 40px; border-radius: 12px !important;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.25s ease;
+  }
+  .login-settings-btn .ant-btn:hover {
+    background: rgba(255,255,255,0.1) !important;
+    color: rgba(255,255,255,0.8) !important;
+  }
+
+  .login-card input:-webkit-autofill,
+  .login-card input:-webkit-autofill:hover,
+  .login-card input:-webkit-autofill:focus {
+    -webkit-text-fill-color: rgba(255,255,255,0.9) !important;
+    caret-color: rgba(255,255,255,0.9);
+    -webkit-box-shadow: 0 0 0 1000px rgba(0,50,40,0.8) inset !important;
+    box-shadow: 0 0 0 1000px rgba(0,50,40,0.8) inset !important;
+    transition: background-color 9999s ease-in-out 0s;
+  }
+
+  @media (max-width: 480px) {
+    .login-card { padding: 36px 24px 32px; border-radius: 20px; }
+    .login-brand h2 { font-size: 20px; }
+    .login-bg::before { width: 300px; height: 300px; }
+    .login-bg::after { width: 250px; height: 250px; }
+  }
+</style>
 {{ template "page/head_end" .}}
 
 {{ template "page/body_start" .}}
-<a-layout id="app" v-cloak :class="themeSwitcher.currentTheme + ' login-app'">
-  <transition name="list" appear>
-    <a-layout-content class="under min-h-0">
-      <div class="waves-header">
-        <div class="waves-inner-header"></div>
-        <svg class="waves" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
-          viewBox="0 24 150 28" preserveAspectRatio="none" shape-rendering="auto">
-          <defs>
-            <path id="gentle-wave" d="M-160 44c30 0 58-18 88-18s 58 18 88 18 58-18 88-18 58 18 88 18 v44h-352z" />
-          </defs>
-          <g class="parallax">
-            <use xlink:href="#gentle-wave" x="48" y="0" fill="rgba(0, 135, 113, 0.08)" />
-            <use xlink:href="#gentle-wave" x="48" y="3" fill="rgba(0, 135, 113, 0.08)" />
-            <use xlink:href="#gentle-wave" x="48" y="5" fill="rgba(0, 135, 113, 0.08)" />
-            <use xlink:href="#gentle-wave" x="48" y="7" fill="#c7ebe2" />
-          </g>
-        </svg>
+<a-layout id="app" v-cloak class="login-app">
+  <div class="login-bg">
+    <div class="login-bg-orb"></div>
+    <div class="login-grid-overlay"></div>
+  </div>
+
+  <div class="login-settings-btn">
+    <a-popover :overlay-class-name="themeSwitcher.currentTheme" title='{{ i18n "menu.settings" }}'
+      placement="bottomRight" trigger="click">
+      <template slot="content">
+        <a-space direction="vertical" :size="10">
+          <span>{{ i18n "pages.settings.language" }}</span>
+          <a-select ref="selectLang" class="w-100" v-model="lang" @change="LanguageManager.setLanguage(lang)"
+            :dropdown-class-name="themeSwitcher.currentTheme">
+            <a-select-option :value="l.value" label="English" v-for="l in LanguageManager.supportedLanguages">
+              <span role="img" aria-label="l.name" v-text="l.icon"></span>
+              &nbsp;&nbsp;<span v-text="l.name"></span>
+            </a-select-option>
+          </a-select>
+        </a-space>
+      </template>
+      <a-button shape="circle" icon="setting"></a-button>
+    </a-popover>
+  </div>
+
+  <div class="login-wrapper">
+    <template v-if="!loadingStates.fetched">
+      <div style="text-align:center">
+        <a-spin size="large" />
       </div>
-      <a-row type="flex" justify="center" align="middle" class="h-100 overflow-y-auto overflow-x-hidden">
-        <a-col :xs="22" :sm="12" :md="10" :lg="8" :xl="6" :xxl="5" id="login" class="my-3rem">
-          <template v-if="!loadingStates.fetched">
-            <div class="text-center">
-              <a-spin size="large" />
-            </div>
-          </template>
-          <template v-else>
-            <div class="setting-section">
-              <a-popover :overlay-class-name="themeSwitcher.currentTheme" title='{{ i18n "menu.settings" }}'
-                placement="bottomRight" trigger="click">
-                <template slot="content">
-                  <a-space direction="vertical" :size="10">
-                    <a-theme-switch-login></a-theme-switch-login>
-                    <span>{{ i18n "pages.settings.language" }}</span>
-                    <a-select ref="selectLang" class="w-100" v-model="lang" @change="LanguageManager.setLanguage(lang)"
-                      :dropdown-class-name="themeSwitcher.currentTheme">
-                      <a-select-option :value="l.value" label="English" v-for="l in LanguageManager.supportedLanguages">
-                        <span role="img" aria-label="l.name" v-text="l.icon"></span>
-                        &nbsp;&nbsp;<span v-text="l.name"></span>
-                      </a-select-option>
-                    </a-select>
-                  </a-space>
-                </template>
-                <a-button shape="circle" icon="setting"></a-button>
-              </a-popover>
-            </div>
-            <a-row type="flex" justify="center">
-              <a-col :style="{ width: '100%' }">
-                <h2 class="title headline zoom">
-                  <span class="words-wrapper">
-                    <b class="is-visible">{{ i18n "pages.login.hello" }}</b>
-                    <b>{{ i18n "pages.login.title" }}</b>
-                  </span>
-                </h2>
-              </a-col>
-            </a-row>
-            <a-row type="flex" justify="center">
-              <a-col span="24">
-                <a-form @submit.prevent="login">
-                  <a-space direction="vertical" size="middle">
-                    <a-form-item>
-                      <a-input autocomplete="username" name="username" v-model.trim="user.username"
-                        placeholder='{{ i18n "username" }}' autofocus required>
-                        <a-icon slot="prefix" type="user" class="fs-1rem"></a-icon>
-                      </a-input>
-                    </a-form-item>
-                    <a-form-item>
-                      <a-input-password autocomplete="current-password" name="password" v-model.trim="user.password"
-                        placeholder='{{ i18n "password" }}' required>
-                        <a-icon slot="prefix" type="lock" class="fs-1rem"></a-icon>
-                      </a-input-password>
-                    </a-form-item>
-                    <a-form-item v-if="twoFactorEnable">
-                      <a-input autocomplete="one-time-code" name="twoFactorCode" v-model.trim="user.twoFactorCode"
-                        placeholder='{{ i18n "twoFactorCode" }}' required>
-                        <a-icon slot="prefix" type="key" class="fs-1rem"></a-icon>
-                      </a-input>
-                    </a-form-item>
-                    <a-form-item>
-                      <a-row justify="center" class="centered">
-                        <div class="wave-btn-bg wave-btn-bg-cl h-50px mt-1rem"
-                          :style="loadingStates.spinning ? 'width: 52px' : 'display: inline-block'">
-                          <a-button class="ant-btn-primary-login" type="primary" :loading="loadingStates.spinning"
-                            :icon="loadingStates.spinning ? 'poweroff' : undefined" html-type="submit">
-                            [[ loadingStates.spinning ? '' : '{{ i18n "login" }}' ]]
-                          </a-button>
-                        </div>
-                      </a-row>
-                    </a-form-item>
-                  </a-space>
-                </a-form>
-              </a-col>
-            </a-row>
-          </template>
-        </a-col>
-      </a-row>
-    </a-layout-content>
-  </transition>
+    </template>
+    <div v-else class="login-card">
+      <div class="login-brand">
+        <div class="login-brand-icon">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 2.18l7 3.12v4.7c0 4.83-3.13 9.37-7 10.82-3.87-1.45-7-5.99-7-10.82V6.3l7-3.12z"/>
+            <path d="M10 12.5l-2-2-1.41 1.41L10 15.32l5.41-5.41L14 8.5l-4 4z"/>
+          </svg>
+        </div>
+        <h2>3X-UI Panel</h2>
+        <p>{{ i18n "pages.login.title" }}</p>
+      </div>
+
+      <a-form @submit.prevent="login">
+        <div class="login-field">
+          <label>{{ i18n "username" }}</label>
+          <a-input autocomplete="username" name="username" v-model.trim="user.username"
+            placeholder='{{ i18n "username" }}' autofocus required size="large">
+            <a-icon slot="prefix" type="user"></a-icon>
+          </a-input>
+        </div>
+
+        <div class="login-field">
+          <label>{{ i18n "password" }}</label>
+          <a-input-password autocomplete="current-password" name="password" v-model.trim="user.password"
+            placeholder='{{ i18n "password" }}' required size="large">
+            <a-icon slot="prefix" type="lock"></a-icon>
+          </a-input-password>
+        </div>
+
+        <div class="login-field" v-if="twoFactorEnable">
+          <label>{{ i18n "twoFactorCode" }}</label>
+          <a-input autocomplete="one-time-code" name="twoFactorCode" v-model.trim="user.twoFactorCode"
+            placeholder='{{ i18n "twoFactorCode" }}' required size="large">
+            <a-icon slot="prefix" type="key"></a-icon>
+          </a-input>
+        </div>
+
+        <div style="margin-top: 28px;">
+          <a-button class="login-submit-btn" type="primary" :loading="loadingStates.spinning"
+            html-type="submit" size="large">
+            [[ loadingStates.spinning ? '' : '{{ i18n "login" }}' ]]
+          </a-button>
+        </div>
+      </a-form>
+
+      <div class="login-footer">
+        <span class="login-footer-text">
+          <a href="https://github.com/begininvoke/3x-ui-mysql" target="_blank" rel="noopener">3X-UI MySQL</a>
+          &middot; Secure Panel Access
+        </span>
+      </div>
+    </div>
+  </div>
 </a-layout>
 {{template "page/body_scripts" .}}
-{{template "component/aThemeSwitch" .}}
 <script>
   const app = new Vue({
     delimiters: ['[[', ']]'],
@@ -112,7 +282,6 @@
       user: { username: "", password: "", twoFactorCode: "" },
       twoFactorEnable: false,
       lang: "",
-      animationStarted: false
     },
     async mounted() {
       this.lang = LanguageManager.getLanguage();
@@ -132,78 +301,33 @@
         if (msg.success) {
           this.twoFactorEnable = msg.obj;
           this.loadingStates.fetched = true;
-          this.$nextTick(() => {
-            if (!this.animationStarted) {
-              this.animationStarted = true;
-              this.initHeadline();
-            }
-          });
           return msg.obj;
         }
       },
-      initHeadline() {
-        const animationDelay = 2000;
-        const headlines = this.$el.querySelectorAll('.headline');
-        headlines.forEach((headline) => {
-          const first = headline.querySelector('.is-visible');
-          if (!first) return;
-          setTimeout(() => this.hideWord(first, animationDelay), animationDelay);
-        });
-      },
-      hideWord(word, delay) {
-        const nextWord = this.takeNext(word);
-        this.switchWord(word, nextWord);
-        setTimeout(() => this.hideWord(nextWord, delay), delay);
-      },
-      takeNext(word) {
-        return word.nextElementSibling || word.parentElement.firstElementChild;
-      },
-      switchWord(oldWord, newWord) {
-        oldWord.classList.remove('is-visible');
-        oldWord.classList.add('is-hidden');
-        newWord.classList.remove('is-hidden');
-        newWord.classList.add('is-visible');
-      }
     },
   });
 
   const pm_input_selector = 'input.ant-input, textarea.ant-input';
-  const pm_strip_props = [
-    'background',
-    'background-color',
-    'background-image',
-    'color'
-  ];
-
+  const pm_strip_props = ['background', 'background-color', 'background-image', 'color'];
   const pm_observed_forms = new WeakSet();
 
   function pm_strip_inline(el) {
     if (!el || el.nodeType !== 1 || !el.matches?.(pm_input_selector)) return;
-
     let did_change = false;
     for (const prop of pm_strip_props) {
-      if (el.style.getPropertyValue(prop)) {
-        el.style.removeProperty(prop);
-        did_change = true;
-      }
+      if (el.style.getPropertyValue(prop)) { el.style.removeProperty(prop); did_change = true; }
     }
-
-    if (did_change && el.style.length === 0) {
-      el.removeAttribute('style');
-    }
+    if (did_change && el.style.length === 0) el.removeAttribute('style');
   }
 
   function pm_attach_observer(form) {
     if (pm_observed_forms.has(form)) return;
     pm_observed_forms.add(form);
-
     form.querySelectorAll(pm_input_selector).forEach(pm_strip_inline);
-
     const pm_mo = new MutationObserver(mutations => {
       for (const m of mutations) {
-        if (m.type === 'attributes') {
-          pm_strip_inline(m.target);
-        } else if (m.type === 'childList') {
+        if (m.type === 'attributes') pm_strip_inline(m.target);
+        else if (m.type === 'childList') {
           for (const n of m.addedNodes) {
             if (n.nodeType !== 1) continue;
             if (n.matches?.(pm_input_selector)) pm_strip_inline(n);
@@ -212,18 +336,12 @@
         }
       }
     });
-
-    pm_mo.observe(form, {
-      attributes: true,
-      attributeFilter: ['style'],
-      childList: true,
-      subtree: true
-    });
+    pm_mo.observe(form, { attributes: true, attributeFilter: ['style'], childList: true, subtree: true });
   }
 
   function pm_init() {
     document.querySelectorAll('form.ant-form').forEach(pm_attach_observer);
-    const pm_host = document.getElementById('login') || document.body;
+    const pm_host = document.querySelector('.login-card') || document.body;
     const pm_wait_for_forms = new MutationObserver(mutations => {
       for (const m of mutations) {
         for (const n of m.addedNodes) {

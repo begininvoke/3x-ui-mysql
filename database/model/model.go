@@ -119,6 +119,16 @@ type PanelRestart struct {
 	RequestedAt int64 `json:"requestedAt" gorm:"default:0"`
 }
 
+// BlockedIP represents a blocked IP record stored in the database for admin visibility and management.
+type BlockedIP struct {
+	Id          int    `json:"id" gorm:"primaryKey;autoIncrement"`
+	IP          string `json:"ip" gorm:"size:45;index"`
+	ClientEmail string `json:"clientEmail" gorm:"size:255;index"`
+	BlockedAt   int64  `json:"blockedAt"`
+	UnblockedAt int64  `json:"unblockedAt" gorm:"default:0"`
+	Active      bool   `json:"active" gorm:"default:true;index"`
+}
+
 // Client represents a client configuration for Xray inbounds with traffic limits and settings.
 type Client struct {
 	ID         string `json:"id"`                           // Unique client identifier

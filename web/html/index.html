@@ -121,7 +121,15 @@
 
               <!-- ===== Row 3: Connection Stats + Xray Status ===== -->
               <a-col :xs="24" :md="12">
-                <a-card title='{{ i18n "pages.index.connectionCount" }}' hoverable>
+                <a-card hoverable>
+                  <template #title>
+                    {{ i18n "pages.index.connectionCount" }}
+                    <a-tooltip :overlay-class-name="themeSwitcher.currentTheme">
+                      <a-button size="small" shape="circle" class="ml-8" @click="openConnHistory()">
+                        <a-icon type="history" />
+                      </a-button>
+                    </a-tooltip>
+                  </template>
                   <a-row>
                     <a-col :span="12">
                       <a-custom-statistic title="TCP" :value="status.tcpCount">
@@ -200,8 +208,8 @@
                 </a-card>
               </a-col>
 
-              <!-- ===== Row 4: Overall Speed + Network Total ===== -->
-              <a-col :xs="24" :md="12">
+              <!-- ===== Row 4: Overall Speed (full width) ===== -->
+              <a-col :xs="24">
                 <a-card hoverable>
                   <template #title>
                     {{ i18n "pages.index.overallSpeed" }}
@@ -211,106 +219,93 @@
                       </a-button>
                     </a-tooltip>
                   </template>
-                  <a-row>
-                    <a-col :span="12">
+                  <a-row :gutter="[16,0]">
+                    <a-col :xs="12" :md="6">
                       <a-custom-statistic title='{{ i18n "pages.index.upload" }}'
                         :value="SizeFormatter.sizeFormat(status.netIO.up)">
                         <template #prefix>
                           <a-icon type="arrow-up" style="color:#52c41a" />
                         </template>
-                        <template #suffix>
-                          /s
-                        </template>
+                        <template #suffix>/s</template>
                       </a-custom-statistic>
                     </a-col>
-                    <a-col :span="12">
+                    <a-col :xs="12" :md="6">
                       <a-custom-statistic title='{{ i18n "pages.index.download" }}'
                         :value="SizeFormatter.sizeFormat(status.netIO.down)">
                         <template #prefix>
                           <a-icon type="arrow-down" style="color:#1890ff" />
                         </template>
-                        <template #suffix>
-                          /s
-                        </template>
+                        <template #suffix>/s</template>
                       </a-custom-statistic>
                     </a-col>
-                  </a-row>
-                  <div v-if="trafficUpLive.length > 2" style="margin-top:8px;position:relative">
-                    <sparkline :data="trafficUpLive" :vb-width="400" :height="30" stroke="#52c41a" :stroke-width="1.5"
-                      :auto-scale="true" :fill-opacity="0.1" :show-marker="true" :marker-radius="2"
-                      :padding-left="0" :padding-right="0" :padding-top="2" :padding-bottom="2" />
-                    <sparkline :data="trafficDownLive" :vb-width="400" :height="30" stroke="#1890ff" :stroke-width="1.5"
-                      :auto-scale="true" :fill-opacity="0.1" :show-marker="true" :marker-radius="2"
-                      :padding-left="0" :padding-right="0" :padding-top="2" :padding-bottom="2" />
-                  </div>
-                </a-card>
-              </a-col>
-              <a-col :xs="24" :md="12">
-                <a-card title='{{ i18n "pages.index.totalData" }}' hoverable>
-                  <a-row>
-                    <a-col :span="12">
-                      <a-custom-statistic title='{{ i18n "pages.index.sent" }}'
-                        :value="SizeFormatter.sizeFormat(status.netTraffic.sent)">
-                        <template #prefix>
-                          <a-icon type="cloud-upload" />
-                        </template>
-                      </a-custom-statistic>
-                    </a-col>
-                    <a-col :span="12">
-                      <a-custom-statistic title='{{ i18n "pages.index.received" }}'
-                        :value="SizeFormatter.sizeFormat(status.netTraffic.recv)">
-                        <template #prefix>
-                          <a-icon type="cloud-download" />
-                        </template>
-                      </a-custom-statistic>
+                    <a-col :xs="24" :md="12">
+                      <div v-if="trafficUpLive.length > 2" style="position:relative">
+                        <sparkline :data="trafficUpLive" :vb-width="500" :height="28" stroke="#52c41a" :stroke-width="1.5"
+                          :auto-scale="true" :fill-opacity="0.1" :show-marker="true" :marker-radius="2"
+                          :padding-left="0" :padding-right="0" :padding-top="2" :padding-bottom="2" />
+                        <sparkline :data="trafficDownLive" :vb-width="500" :height="28" stroke="#1890ff" :stroke-width="1.5"
+                          :auto-scale="true" :fill-opacity="0.1" :show-marker="true" :marker-radius="2"
+                          :padding-left="0" :padding-right="0" :padding-top="2" :padding-bottom="2" />
+                      </div>
                     </a-col>
                   </a-row>
                 </a-card>
               </a-col>
 
-              <!-- ===== Row 5: Xray Traffic + IP Addresses ===== -->
-              <a-col :xs="24" :md="12">
-                <a-card title='{{ i18n "pages.index.xrayTraffic" }}' hoverable>
-                  <a-row>
-                    <a-col :span="12">
-                      <a-custom-statistic title='{{ i18n "pages.index.upload" }}'
-                        :value="SizeFormatter.sizeFormat(status.xrayTraffic.up)">
-                        <template #prefix>
-                          <a-icon type="arrow-up" style="color: #52c41a" />
-                        </template>
-                      </a-custom-statistic>
-                    </a-col>
-                    <a-col :span="12">
-                      <a-custom-statistic title='{{ i18n "pages.index.download" }}'
-                        :value="SizeFormatter.sizeFormat(status.xrayTraffic.down)">
-                        <template #prefix>
-                          <a-icon type="arrow-down" style="color: #1890ff" />
-                        </template>
-                      </a-custom-statistic>
-                    </a-col>
-                  </a-row>
-                </a-card>
-              </a-col>
-              <a-col :xs="24" :md="12">
-                <a-card title='{{ i18n "pages.index.ipAddresses" }}' hoverable>
+              <!-- ===== Row 5: Network Data + Xray Traffic + IP Addresses (merged, full width) ===== -->
+              <a-col :xs="24">
+                <a-card hoverable>
+                  <template #title>
+                    <a-icon type="dashboard" /> {{ i18n "pages.index.totalData" }} / {{ i18n "pages.index.xrayTraffic" }}
+                  </template>
                   <template #extra>
                     <a-tooltip :placement="isMobile ? 'topRight' : 'top'">
-                      <template #title>
-                        {{ i18n "pages.index.toggleIpVisibility" }}
-                      </template>
+                      <template #title>{{ i18n "pages.index.toggleIpVisibility" }}</template>
                       <a-icon :type="showIp ? 'eye' : 'eye-invisible'" class="fs-1rem"
                         @click="showIp = !showIp"></a-icon>
                     </a-tooltip>
                   </template>
-                  <a-row :class="showIp ? 'ip-visible' : 'ip-hidden'">
-                    <a-col :xs="24" :sm="12">
+                  <a-row :gutter="[16, isMobile ? 12 : 0]">
+                    <a-col :xs="12" :md="4">
+                      <a-custom-statistic title='{{ i18n "pages.index.sent" }}'
+                        :value="SizeFormatter.sizeFormat(status.netTraffic.sent)">
+                        <template #prefix>
+                          <a-icon type="cloud-upload" style="color:#52c41a" />
+                        </template>
+                      </a-custom-statistic>
+                    </a-col>
+                    <a-col :xs="12" :md="4">
+                      <a-custom-statistic title='{{ i18n "pages.index.received" }}'
+                        :value="SizeFormatter.sizeFormat(status.netTraffic.recv)">
+                        <template #prefix>
+                          <a-icon type="cloud-download" style="color:#1890ff" />
+                        </template>
+                      </a-custom-statistic>
+                    </a-col>
+                    <a-col :xs="12" :md="4">
+                      <a-custom-statistic title='Xray ↑'
+                        :value="SizeFormatter.sizeFormat(status.xrayTraffic.up)">
+                        <template #prefix>
+                          <a-icon type="arrow-up" style="color:#52c41a" />
+                        </template>
+                      </a-custom-statistic>
+                    </a-col>
+                    <a-col :xs="12" :md="4">
+                      <a-custom-statistic title='Xray ↓'
+                        :value="SizeFormatter.sizeFormat(status.xrayTraffic.down)">
+                        <template #prefix>
+                          <a-icon type="arrow-down" style="color:#1890ff" />
+                        </template>
+                      </a-custom-statistic>
+                    </a-col>
+                    <a-col :xs="12" :md="4" :class="showIp ? 'ip-visible' : 'ip-hidden'">
                       <a-custom-statistic title="IPv4" :value="status.publicIP.ipv4">
                         <template #prefix>
                           <a-icon type="global" />
                         </template>
                       </a-custom-statistic>
                     </a-col>
-                    <a-col :xs="24" :sm="12">
+                    <a-col :xs="12" :md="4" :class="showIp ? 'ip-visible' : 'ip-hidden'">
                       <a-custom-statistic title="IPv6" :value="status.publicIP.ipv6">
                         <template #prefix>
                           <a-icon type="global" />
@@ -601,6 +596,42 @@
         Not enough data yet. Panel needs to run longer for this timeframe.
       </div>
       <div style="margin-top:4px;font-size:11px;opacity:0.65">Timeframe: [[ trafficHistoryModal.bucket >= 60 ? (trafficHistoryModal.bucket / 60) + 'h' : trafficHistoryModal.bucket + 'm' ]] ([[ trafficHistoryUp.length ]] data points)</div>
+    </div>
+  </a-modal>
+  <!-- Connection History Modal -->
+  <a-modal id="conn-history-modal" v-model="connHistoryModal.visible" :closable="true"
+    @cancel="() => connHistoryModal.visible = false" :class="themeSwitcher.currentTheme" width="900px" footer="">
+    <template slot="title">
+      Connection History
+      <a-select size="small" v-model="connHistoryModal.bucket" class="ml-10" style="width: 80px"
+        @change="fetchConnHistoryBucket">
+        <a-select-option :value="10">10m</a-select-option>
+        <a-select-option :value="30">30m</a-select-option>
+        <a-select-option :value="60">1h</a-select-option>
+        <a-select-option :value="180">3h</a-select-option>
+        <a-select-option :value="360">6h</a-select-option>
+        <a-select-option :value="720">12h</a-select-option>
+        <a-select-option :value="1440">24h</a-select-option>
+      </a-select>
+    </template>
+    <div style="padding:16px">
+      <div style="margin-bottom:8px;font-size:13px">
+        <span style="color:#1890ff;font-weight:bold">&#9644; TCP</span>
+        <span style="margin-left:16px;color:#722ed1;font-weight:bold">&#9644; UDP</span>
+      </div>
+      <sparkline :data="connHistoryTCP" :labels="connHistoryLabels" :vb-width="840" :height="120"
+        stroke="#1890ff" :stroke-width="2" :show-grid="true" :show-axes="true" :tick-count-x="5"
+        :max-points="connHistoryTCP.length" :fill-opacity="0.15" :marker-radius="2.5" :show-tooltip="true"
+        :auto-scale="true" :tooltip-formatter="connTooltipTCP" :padding-left="42" />
+      <div style="height:8px"></div>
+      <sparkline :data="connHistoryUDP" :labels="connHistoryLabels" :vb-width="840" :height="120"
+        stroke="#722ed1" :stroke-width="2" :show-grid="true" :show-axes="true" :tick-count-x="5"
+        :max-points="connHistoryUDP.length" :fill-opacity="0.15" :marker-radius="2.5" :show-tooltip="true"
+        :auto-scale="true" :tooltip-formatter="connTooltipUDP" :padding-left="42" />
+      <div v-if="connHistoryTCP.length < 3" style="text-align:center;color:#999;padding:20px 0">
+        Not enough data yet. Panel needs to run longer for this timeframe.
+      </div>
+      <div style="margin-top:4px;font-size:11px;opacity:0.65">Timeframe: [[ connHistoryModal.bucket >= 60 ? (connHistoryModal.bucket / 60) + 'h' : connHistoryModal.bucket + 'm' ]] ([[ connHistoryTCP.length ]] data points)</div>
     </div>
   </a-modal>
 </a-layout>
@@ -1080,6 +1111,10 @@
   trafficHistoryDown: [],
   trafficHistoryLabels: [],
   trafficHistoryModal: { visible: false, bucket: 30 },
+  connHistoryTCP: [],
+  connHistoryUDP: [],
+  connHistoryLabels: [],
+  connHistoryModal: { visible: false, bucket: 30 },
   panelUpdate: { checking: false, updating: false, checked: false, hasUpdate: false, latestVersion: '' },
   dailyTrafficDays: 7,
   dailyTrafficData: [],
@@ -1158,6 +1193,12 @@
             this.fetchTrafficHistoryBucket()
           }
         }
+        if (this.connHistoryModal.visible) {
+          if (!this._lastConnFetch || Date.now() - this._lastConnFetch > 10000) {
+            this._lastConnFetch = Date.now()
+            this.fetchConnHistoryBucket()
+          }
+        }
       },
       openCpuHistory() {
         this.cpuHistoryModal.visible = true
@@ -1222,6 +1263,41 @@
       },
       trafficYLabel(val) {
         return SizeFormatter.sizeFormat(val)
+      },
+      openConnHistory() {
+        this.connHistoryModal.visible = true
+        this.fetchConnHistoryBucket()
+      },
+      async fetchConnHistoryBucket() {
+        const minutes = this.connHistoryModal.bucket || 30
+        try {
+          const msg = await HttpUtil.get(`/panel/api/server/connHistory/${minutes}`)
+          if (msg.success && Array.isArray(msg.obj)) {
+            const tcps = [], udps = [], labels = []
+            for (const p of msg.obj) {
+              const d = new Date(p.t * 1000)
+              const hh = String(d.getHours()).padStart(2,'0')
+              const mm = String(d.getMinutes()).padStart(2,'0')
+              const ss = String(d.getSeconds()).padStart(2,'0')
+              labels.push(minutes >= 60 ? `${hh}:${mm}` : `${hh}:${mm}:${ss}`)
+              tcps.push(p.tcp || 0)
+              udps.push(p.udp || 0)
+            }
+            this.connHistoryLabels = labels
+            this.connHistoryTCP = tcps
+            this.connHistoryUDP = udps
+          }
+        } catch(e) {
+          console.error('Failed to fetch connection history', e)
+        }
+      },
+      connTooltipTCP(val, idx) {
+        const lab = this.connHistoryLabels[idx] || ''
+        return `TCP: ${val}${lab ? ' • ' + lab : ''}`
+      },
+      connTooltipUDP(val, idx) {
+        const lab = this.connHistoryLabels[idx] || ''
+        return `UDP: ${val}${lab ? ' • ' + lab : ''}`
       },
       async fetchDailyTraffic() {
         try {

@@ -132,6 +132,13 @@ type TrafficSample struct {
 	Down int64 `json:"down"`
 }
 
+// ConnectionSample stores a single TCP/UDP connection count snapshot.
+type ConnectionSample struct {
+	T   int64 `json:"t"`
+	TCP int   `json:"tcp"`
+	UDP int   `json:"udp"`
+}
+
 // ServerService provides business logic for server monitoring and management.
 // It handles system status collection, IP detection, and application statistics.
 type ServerService struct {
@@ -147,6 +154,7 @@ type ServerService struct {
 	emaCPU             float64
 	cpuHistory         []CPUSample
 	trafficHistory     []TrafficSample
+	connHistory        []ConnectionSample
 	cachedCpuSpeedMhz  float64
 	lastCpuInfoAttempt time.Time
 }
@@ -556,6 +564,81 @@ func (s *ServerService) AggregateTrafficHistory(bucketSeconds int, maxPoints int
 		}
 		accUp = append(accUp, p.Up)
 		accDown = append(accDown, p.Down)
+	}
+	flush(curBucket)
+	if len(out) > maxPoints {
+		out = out[len(out)-maxPoints:]
+	}
+	return out
+}
+
+// AppendConnectionSample records a TCP/UDP connection count snapshot.
+func (s *ServerService) AppendConnectionSample(t time.Time, tcp, udp int) {
+	const capacity = 43200
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	sample := ConnectionSample{T: t.Unix(), TCP: tcp, UDP: udp}
+	if n := len(s.connHistory); n > 0 && s.connHistory[n-1].T == sample.T {
+		s.connHistory[n-1] = sample
+	} else {
+		s.connHistory = append(s.connHistory, sample)
+	}
+	if len(s.connHistory) > capacity {
+		s.connHistory = s.connHistory[len(s.connHistory)-capacity:]
+	}
+}
+
+// AggregateConnectionHistory returns bucketed connection count history.
+func (s *ServerService) AggregateConnectionHistory(bucketSeconds int, maxPoints int) []map[string]any {
+	if bucketSeconds <= 0 || maxPoints <= 0 {
+		return nil
+	}
+	cutoff := time.Now().Add(-time.Duration(bucketSeconds*maxPoints) * time.Second).Unix()
+	s.mu.Lock()
+	hist := s.connHistory
+	startIdx := 0
+	for i := len(hist) - 1; i >= 0; i-- {
+		if hist[i].T < cutoff {
+			startIdx = i + 1
+			break
+		}
+	}
+	if startIdx >= len(hist) {
+		s.mu.Unlock()
+		return []map[string]any{}
+	}
+	slice := hist[startIdx:]
+	tmp := make([]ConnectionSample, len(slice))
+	copy(tmp, slice)
+	s.mu.Unlock()
+	if len(tmp) == 0 {
+		return []map[string]any{}
+	}
+	var out []map[string]any
+	var accTCP, accUDP []int
+	bSize := int64(bucketSeconds)
+	curBucket := (tmp[0].T / bSize) * bSize
+	flush := func(ts int64) {
+		if len(accTCP) == 0 {
+			return
+		}
+		var sumTCP, sumUDP int
+		for i := range accTCP {
+			sumTCP += accTCP[i]
+			sumUDP += accUDP[i]
+		}
+		out = append(out, map[string]any{"t": ts, "tcp": sumTCP / len(accTCP), "udp": sumUDP / len(accUDP)})
+		accTCP = accTCP[:0]
+		accUDP = accUDP[:0]
+	}
+	for _, p := range tmp {
+		b := (p.T / bSize) * bSize
+		if b != curBucket {
+			flush(curBucket)
+			curBucket = b
+		}
+		accTCP = append(accTCP, p.TCP)
+		accUDP = append(accUDP, p.UDP)
 	}
 	flush(curBucket)
 	if len(out) > maxPoints {
