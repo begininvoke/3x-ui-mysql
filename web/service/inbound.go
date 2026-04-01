@@ -2760,7 +2760,7 @@ func (s *InboundService) BlockIPsForDisabledClients(emails []string, durationSec
 			continue
 		}
 
-		reason := fmt.Sprintf("Account disabled (traffic limit or expired)")
+		reason := "Account disabled (traffic limit or expired)"
 		for _, entry := range ips {
 			if entry.IP == "" || entry.IP == "127.0.0.1" || entry.IP == "::1" {
 				continue
