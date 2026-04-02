@@ -2646,6 +2646,11 @@ func (s *InboundService) UnblockIP(id int) error {
 }
 
 func (s *InboundService) SaveBlockedIP(ip string, clientEmail string, blockedAt int64, durationSeconds int64, reason string) error {
+	var settingService SettingService
+	if settingService.IsIPWhitelisted(ip) {
+		logger.Debugf("IP %s is whitelisted, skipping block", ip)
+		return nil
+	}
 	db := database.GetDB()
 	var existing model.BlockedIP
 	err := db.Where("ip = ? AND client_email = ? AND active = ?", ip, clientEmail, true).First(&existing).Error

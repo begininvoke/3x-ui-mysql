@@ -336,14 +336,17 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 		}
 	}
 
-	// Convert back to slice and sort by timestamp (newest first)
-	// This keeps the most recently active IPs and bans the least-recently-seen excess ones.
+	// Convert back to slice, excluding whitelisted IPs from the count
+	var settingService service.SettingService
 	allIps := make([]IPWithTimestamp, 0, len(ipMap))
 	for ip, timestamp := range ipMap {
+		if settingService.IsIPWhitelisted(ip) {
+			continue
+		}
 		allIps = append(allIps, IPWithTimestamp{IP: ip, Timestamp: timestamp})
 	}
 	sort.Slice(allIps, func(i, j int) bool {
-		return allIps[i].Timestamp > allIps[j].Timestamp // Descending order (newest first)
+		return allIps[i].Timestamp > allIps[j].Timestamp
 	})
 
 	shouldCleanLog := false
@@ -358,7 +361,6 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 		bannedIps := allIps[limitIp:]
 
 		var inboundService service.InboundService
-		var settingService service.SettingService
 		blockDuration := int64(300)
 		if dur, err := settingService.GetIpLimitBlockDuration(); err == nil && dur > 0 {
 			blockDuration = int64(dur)

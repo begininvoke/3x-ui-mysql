@@ -59,6 +59,8 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.POST("/clearBlockedIps", a.clearBlockedIps)
 	g.POST("/deleteBlockedIp/:id", a.deleteBlockedIp)
 	g.POST("/deleteAllBlockedIps", a.deleteAllBlockedIps)
+	g.GET("/ipWhitelist", a.getIpWhitelist)
+	g.POST("/ipWhitelist", a.saveIpWhitelist)
 }
 
 // getInbounds retrieves the list of inbounds for the logged-in user.
@@ -546,4 +548,31 @@ func (a *InboundController) deleteAllBlockedIps(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, "All blocked IP records deleted", nil)
+}
+
+func (a *InboundController) getIpWhitelist(c *gin.Context) {
+	var settingService service.SettingService
+	list, err := settingService.GetIpLimitWhitelist()
+	if err != nil {
+		jsonMsg(c, "Failed to get whitelist", err)
+		return
+	}
+	jsonObj(c, list, nil)
+}
+
+func (a *InboundController) saveIpWhitelist(c *gin.Context) {
+	var form struct {
+		Whitelist string `json:"whitelist" form:"whitelist"`
+	}
+	if err := c.ShouldBind(&form); err != nil {
+		jsonMsg(c, "Invalid request", err)
+		return
+	}
+	var settingService service.SettingService
+	err := settingService.SetIpLimitWhitelist(form.Whitelist)
+	if err != nil {
+		jsonMsg(c, "Failed to save whitelist", err)
+		return
+	}
+	jsonMsg(c, "Whitelist saved", nil)
 }

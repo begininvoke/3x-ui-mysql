@@ -282,6 +282,32 @@
                     </a-select>
                   </div>
 
+                  <a-collapse :bordered="false" style="margin-bottom:12px;background:transparent">
+                    <a-collapse-panel key="wl" style="border:0">
+                      <template slot="header">
+                        <a-icon type="safety-certificate" style="margin-right:6px"></a-icon>
+                        IP Whitelist
+                        <a-tag v-if="whitelistIPs.length" size="small" color="green" style="margin-left:6px">[[ whitelistIPs.length ]]</a-tag>
+                      </template>
+                      <div style="margin-bottom:8px">
+                        <a-input-search
+                          v-model="whitelistInput"
+                          placeholder="Enter IP to whitelist (e.g. 1.2.3.4)"
+                          enter-button="Add"
+                          size="small"
+                          @search="addWhitelistIP"
+                        ></a-input-search>
+                      </div>
+                      <div v-if="whitelistIPs.length === 0" style="font-size:12px;opacity:0.5;padding:4px 0">
+                        No whitelisted IPs. Whitelisted IPs will never be blocked.
+                      </div>
+                      <div v-else style="display:flex;flex-wrap:wrap;gap:4px">
+                        <a-tag v-for="ip in whitelistIPs" :key="ip" closable @close="removeWhitelistIP(ip)"
+                          color="green" style="margin:0">[[ ip ]]</a-tag>
+                      </div>
+                    </a-collapse-panel>
+                  </a-collapse>
+
                   <div v-if="fetched && filteredIPs.length === 0" class="empty-box">
                     <div class="empty-box-icon"><a-icon type="safety-certificate"></a-icon></div>
                     <div class="empty-box-title">No Blocked IPs</div>
@@ -454,6 +480,8 @@
         reason: '',
         duration: 1800,
       },
+      whitelistInput: '',
+      whitelistIPs: [],
       blockedIPs: [],
       filteredIPs: [],
       filters: {
@@ -519,6 +547,45 @@
           result.sort((a, b) => (a.clientEmail || '').localeCompare(b.clientEmail || ''));
         }
         this.filteredIPs = result;
+      },
+
+      async fetchWhitelist() {
+        try {
+          const msg = await HttpUtil.get('/panel/api/inbounds/ipWhitelist');
+          if (msg.success) {
+            const raw = msg.obj || '';
+            this.whitelistIPs = raw ? raw.split(',').map(ip => ip.trim()).filter(Boolean) : [];
+          }
+        } catch (e) {
+          console.error('Failed to fetch whitelist:', e);
+        }
+      },
+
+      async saveWhitelist() {
+        try {
+          await HttpUtil.post('/panel/api/inbounds/ipWhitelist', { whitelist: this.whitelistIPs.join(',') });
+        } catch (e) {
+          this.$message.error('Failed to save whitelist');
+        }
+      },
+
+      async addWhitelistIP() {
+        const ip = this.whitelistInput.trim();
+        if (!ip) return;
+        if (this.whitelistIPs.includes(ip)) {
+          this.$message.warning('IP is already in the whitelist');
+          return;
+        }
+        this.whitelistIPs.push(ip);
+        this.whitelistInput = '';
+        await this.saveWhitelist();
+        this.$message.success('IP added to whitelist');
+      },
+
+      async removeWhitelistIP(ip) {
+        this.whitelistIPs = this.whitelistIPs.filter(i => i !== ip);
+        await this.saveWhitelist();
+        this.$message.success('IP removed from whitelist');
       },
 
       async addBlockedIP() {
@@ -616,7 +683,7 @@
       },
     },
     async mounted() {
-      await this.fetchBlockedIPs();
+      await Promise.all([this.fetchBlockedIPs(), this.fetchWhitelist()]);
       this._timer = setInterval(() => { this.$forceUpdate(); }, 5000);
     },
     beforeDestroy() {
