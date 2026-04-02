@@ -152,8 +152,19 @@ func InitDB(dbPath string) error {
 		if err != nil {
 			return fmt.Errorf("failed to connect to MySQL: %w", err)
 		}
-		log.Printf("Connected to MySQL database at %s:%d/%s",
-			config.GetMySQLHost(), config.GetMySQLPort(), config.GetMySQLDBName())
+
+		sqlDB, poolErr := db.DB()
+		if poolErr != nil {
+			return fmt.Errorf("failed to get underlying sql.DB: %w", poolErr)
+		}
+		sqlDB.SetMaxOpenConns(config.GetMySQLMaxOpenConns())
+		sqlDB.SetMaxIdleConns(config.GetMySQLMaxIdleConns())
+		sqlDB.SetConnMaxLifetime(time.Duration(config.GetMySQLConnMaxLifetimeSec()) * time.Second)
+		sqlDB.SetConnMaxIdleTime(5 * time.Minute)
+
+		log.Printf("Connected to MySQL database at %s:%d/%s (pool: maxOpen=%d, maxIdle=%d, lifetime=%ds)",
+			config.GetMySQLHost(), config.GetMySQLPort(), config.GetMySQLDBName(),
+			config.GetMySQLMaxOpenConns(), config.GetMySQLMaxIdleConns(), config.GetMySQLConnMaxLifetimeSec())
 	default:
 		dir := path.Dir(dbPath)
 		err = os.MkdirAll(dir, fs.ModePerm)

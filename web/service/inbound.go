@@ -1325,7 +1325,7 @@ func (s *InboundService) disableInvalidClients(tx *gorm.DB) (bool, int64, []stri
 	}
 	trafficThreshold := 100 - bufferPct
 
-	trafficCond := fmt.Sprintf("(total > 0 AND (up + down) * 100 >= total * %d)", trafficThreshold)
+	trafficCond := fmt.Sprintf("(client_traffics.total > 0 AND (client_traffics.up + client_traffics.down) * 100 >= client_traffics.total * %d)", trafficThreshold)
 
 	if p != nil {
 		var results []struct {

@@ -155,10 +155,49 @@ func GetMySQLDBName() string {
 	return dbName
 }
 
-// GetMySQLDSN builds a MySQL DSN string from environment config.
+func GetMySQLMaxOpenConns() int {
+	return getEnvInt("XUI_MYSQL_MAX_OPEN_CONNS", 25)
+}
+
+func GetMySQLMaxIdleConns() int {
+	return getEnvInt("XUI_MYSQL_MAX_IDLE_CONNS", 10)
+}
+
+func GetMySQLConnMaxLifetimeSec() int {
+	return getEnvInt("XUI_MYSQL_CONN_MAX_LIFETIME", 300)
+}
+
+func GetMySQLConnectTimeoutSec() int {
+	return getEnvInt("XUI_MYSQL_CONNECT_TIMEOUT", 10)
+}
+
+func GetMySQLReadTimeoutSec() int {
+	return getEnvInt("XUI_MYSQL_READ_TIMEOUT", 30)
+}
+
+func GetMySQLWriteTimeoutSec() int {
+	return getEnvInt("XUI_MYSQL_WRITE_TIMEOUT", 30)
+}
+
+func getEnvInt(key string, fallback int) int {
+	s := os.Getenv(key)
+	if s == "" {
+		return fallback
+	}
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return fallback
+	}
+	return v
+}
+
+// GetMySQLDSN builds a MySQL DSN string from environment config,
+// including timeout parameters for faster remote connections.
 func GetMySQLDSN() string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		GetMySQLUser(), GetMySQLPassword(), GetMySQLHost(), GetMySQLPort(), GetMySQLDBName())
+	return fmt.Sprintf(
+		"%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local&timeout=%ds&readTimeout=%ds&writeTimeout=%ds&interpolateParams=true",
+		GetMySQLUser(), GetMySQLPassword(), GetMySQLHost(), GetMySQLPort(), GetMySQLDBName(),
+		GetMySQLConnectTimeoutSec(), GetMySQLReadTimeoutSec(), GetMySQLWriteTimeoutSec())
 }
 
 // GetLogFolder returns the path to the log folder based on environment variables or platform defaults.
