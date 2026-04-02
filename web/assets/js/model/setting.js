@@ -53,6 +53,9 @@ class AllSetting {
         this.subJsonMux = "";
         this.subJsonRules = "";
 
+        this.ipLimitBlockDuration = 1800;
+        this.trafficLimitBuffer = 5;
+        this.ipLimitWhitelist = "";
         this.timeLocation = "Local";
 
         // LDAP settings

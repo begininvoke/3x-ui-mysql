@@ -59,6 +59,7 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.POST("/clearBlockedIps", a.clearBlockedIps)
 	g.POST("/deleteBlockedIp/:id", a.deleteBlockedIp)
 	g.POST("/deleteAllBlockedIps", a.deleteAllBlockedIps)
+	g.POST("/fail2banUnbanAll", a.fail2banUnbanAll)
 	g.GET("/ipWhitelist", a.getIpWhitelist)
 	g.POST("/ipWhitelist", a.saveIpWhitelist)
 }
@@ -548,6 +549,15 @@ func (a *InboundController) deleteAllBlockedIps(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, "All blocked IP records deleted", nil)
+}
+
+func (a *InboundController) fail2banUnbanAll(c *gin.Context) {
+	err := a.inboundService.Fail2banUnbanAll()
+	if err != nil {
+		jsonMsg(c, "Fail2ban may not be installed or jail not active", nil)
+		return
+	}
+	jsonMsg(c, "All IPs unbanned from fail2ban", nil)
 }
 
 func (a *InboundController) getIpWhitelist(c *gin.Context) {

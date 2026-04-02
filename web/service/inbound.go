@@ -2693,8 +2693,6 @@ func (s *InboundService) GetActiveBlockedIPsForLog() ([]model.BlockedIP, error) 
 
 func (s *InboundService) ClearAllBlockedIPs() error {
 	db := database.GetDB()
-	var activeIPs []model.BlockedIP
-	db.Where("active = ?", true).Find(&activeIPs)
 
 	now := time.Now().Unix()
 	err := db.Model(&model.BlockedIP{}).Where("active = ?", true).Updates(map[string]interface{}{
@@ -2705,9 +2703,7 @@ func (s *InboundService) ClearAllBlockedIPs() error {
 		return err
 	}
 
-	for _, b := range activeIPs {
-		s.fail2banUnbanIP(b.IP)
-	}
+	s.Fail2banUnbanAll()
 	s.truncateIPLimitLog()
 	return nil
 }
@@ -2726,17 +2722,13 @@ func (s *InboundService) DeleteBlockedIP(id int) error {
 
 func (s *InboundService) DeleteAllBlockedIPs() error {
 	db := database.GetDB()
-	var activeIPs []model.BlockedIP
-	db.Where("active = ?", true).Find(&activeIPs)
 
 	err := db.Where("1 = 1").Delete(&model.BlockedIP{}).Error
 	if err != nil {
 		return err
 	}
 
-	for _, b := range activeIPs {
-		s.fail2banUnbanIP(b.IP)
-	}
+	s.Fail2banUnbanAll()
 	s.truncateIPLimitLog()
 	return nil
 }
@@ -2746,6 +2738,16 @@ func (s *InboundService) fail2banUnbanIP(ip string) {
 	if err != nil {
 		logger.Debugf("fail2ban unban %s: %v (may not be installed)", ip, err)
 	}
+}
+
+func (s *InboundService) Fail2banUnbanAll() error {
+	err := exec.Command("fail2ban-client", "set", "3x-ipl", "unbanip", "--all").Run()
+	if err != nil {
+		logger.Debugf("fail2ban unban all: %v (may not be installed or jail not active)", err)
+		return err
+	}
+	logger.Info("fail2ban: unbanned all IPs from 3x-ipl jail")
+	return nil
 }
 
 func (s *InboundService) truncateIPLimitLog() {

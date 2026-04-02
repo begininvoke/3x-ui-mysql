@@ -262,6 +262,12 @@
                             :disabled="stats.total === 0" />
                         </a-tooltip>
                       </a-popconfirm>
+                      <a-popconfirm title="Unban ALL IPs from fail2ban firewall? (even ones not in the list)" ok-text="Yes" cancel-text="No"
+                        @confirm="fail2banUnbanAll" :overlay-class-name="themeSwitcher.currentTheme">
+                        <a-tooltip title="Flush Fail2ban (unban all)">
+                          <a-button size="small" shape="circle" icon="fire" />
+                        </a-tooltip>
+                      </a-popconfirm>
                     </a-space>
                   </template>
 
@@ -658,6 +664,15 @@
           }
         } catch (e) {
           this.$message.error('Failed to delete all records');
+        }
+      },
+
+      async fail2banUnbanAll() {
+        try {
+          const msg = await HttpUtil.post('/panel/api/inbounds/fail2banUnbanAll');
+          this.$message.success(msg.msg || 'All IPs unbanned from fail2ban');
+        } catch (e) {
+          this.$message.error('Failed to flush fail2ban');
         }
       },
 
