@@ -51,6 +51,7 @@ var defaultValueMap = map[string]string{
 	"tgCpu":                       "80",
 	"tgLang":                      "en-US",
 	"ipLimitBlockDuration":        "1800",
+	"trafficLimitBuffer":          "5",
 	"twoFactorEnable":             "false",
 	"twoFactorToken":              "",
 	"subEnable":                   "true",
@@ -630,6 +631,10 @@ func (s *SettingService) GetIpLimitBlockDuration() (int, error) {
 
 func (s *SettingService) SetIpLimitBlockDuration(seconds int) error {
 	return s.setInt("ipLimitBlockDuration", seconds)
+}
+
+func (s *SettingService) GetTrafficLimitBuffer() (int, error) {
+	return s.getInt("trafficLimitBuffer")
 }
 
 // GetLdapEnable returns whether LDAP is enabled.

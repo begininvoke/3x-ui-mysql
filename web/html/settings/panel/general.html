@@ -125,12 +125,19 @@
             </template>
         </a-setting-list-item>
     </a-collapse-panel>
-    <a-collapse-panel key="5" header="IP Blocking">
+    <a-collapse-panel key="5" header="IP & Traffic Limits">
         <a-setting-list-item paddings="small">
-            <template #title>Block Duration (seconds)</template>
-            <template #description>How long an IP stays blocked when the limit is exceeded. Default: 300 (5 minutes). Set to e.g. 1800 for 30 minutes.</template>
+            <template #title>IP Block Duration (seconds)</template>
+            <template #description>How long an IP stays blocked when the limit is exceeded. Default: 1800 (30 minutes).</template>
             <template #control>
                 <a-input-number :min="10" :max="86400" v-model="allSetting.ipLimitBlockDuration" :style="{ width: '100%' }"></a-input-number>
+            </template>
+        </a-setting-list-item>
+        <a-setting-list-item paddings="small">
+            <template #title>Traffic Limit Buffer (%)</template>
+            <template #description>Disable client before reaching 100% of their traffic limit to prevent overshoot. E.g. 5% means a 1GB client is disabled at ~950MB. Set 0 to disable.</template>
+            <template #control>
+                <a-input-number :min="0" :max="30" v-model="allSetting.trafficLimitBuffer" :style="{ width: '100%' }"></a-input-number>
             </template>
         </a-setting-list-item>
     </a-collapse-panel>

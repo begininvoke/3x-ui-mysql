@@ -1318,6 +1318,15 @@ func (s *InboundService) disableInvalidClients(tx *gorm.DB) (bool, int64, []stri
 	needRestart := false
 	var disabledEmails []string
 
+	var settingService SettingService
+	bufferPct := 0
+	if b, err := settingService.GetTrafficLimitBuffer(); err == nil && b > 0 && b <= 30 {
+		bufferPct = b
+	}
+	trafficThreshold := 100 - bufferPct
+
+	trafficCond := fmt.Sprintf("(total > 0 AND (up + down) * 100 >= total * %d)", trafficThreshold)
+
 	if p != nil {
 		var results []struct {
 			Tag   string
@@ -1327,7 +1336,7 @@ func (s *InboundService) disableInvalidClients(tx *gorm.DB) (bool, int64, []stri
 		err := tx.Table("inbounds").
 			Select("inbounds.tag, client_traffics.email").
 			Joins("JOIN client_traffics ON inbounds.id = client_traffics.inbound_id").
-			Where("((client_traffics.total > 0 AND client_traffics.up + client_traffics.down >= client_traffics.total) OR (client_traffics.expiry_time > 0 AND client_traffics.expiry_time <= ?)) AND client_traffics.enable = ?", now, true).
+			Where("(("+trafficCond+") OR (client_traffics.expiry_time > 0 AND client_traffics.expiry_time <= ?)) AND client_traffics.enable = ?", now, true).
 			Scan(&results).Error
 		if err != nil {
 			return false, 0, nil, err
@@ -1354,7 +1363,7 @@ func (s *InboundService) disableInvalidClients(tx *gorm.DB) (bool, int64, []stri
 		s.xrayApi.Close()
 	}
 	result := tx.Model(xray.ClientTraffic{}).
-		Where("((total > 0 and up + down >= total) or (expiry_time > 0 and expiry_time <= ?)) and enable = ?", now, true).
+		Where("(("+trafficCond+") or (expiry_time > 0 and expiry_time <= ?)) and enable = ?", now, true).
 		Update("enable", false)
 	err := result.Error
 	count := result.RowsAffected

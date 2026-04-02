@@ -473,12 +473,12 @@ func (a *InboundController) getBlockedIps(c *gin.Context) {
 
 func (a *InboundController) addBlockedIp(c *gin.Context) {
 	var form struct {
-		IP       string `json:"ip"`
-		Email    string `json:"email"`
-		Reason   string `json:"reason"`
-		Duration int64  `json:"duration"`
+		IP       string `json:"ip" form:"ip"`
+		Email    string `json:"email" form:"email"`
+		Reason   string `json:"reason" form:"reason"`
+		Duration int64  `json:"duration" form:"duration"`
 	}
-	if err := c.ShouldBindJSON(&form); err != nil {
+	if err := c.ShouldBind(&form); err != nil {
 		jsonMsg(c, "Invalid request", err)
 		return
 	}

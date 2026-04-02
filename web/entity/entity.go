@@ -50,6 +50,7 @@ type AllSetting struct {
 
 	// Security settings
 	IpLimitBlockDuration int    `json:"ipLimitBlockDuration" form:"ipLimitBlockDuration"` // IP block duration in seconds when limit exceeded
+	TrafficLimitBuffer   int    `json:"trafficLimitBuffer" form:"trafficLimitBuffer"`     // Buffer percentage to disable client before exact limit
 	TimeLocation         string `json:"timeLocation" form:"timeLocation"`                 // Time zone location
 	TwoFactorEnable      bool   `json:"twoFactorEnable" form:"twoFactorEnable"`           // Enable two-factor authentication
 	TwoFactorToken       string `json:"twoFactorToken" form:"twoFactorToken"`             // Two-factor authentication token
