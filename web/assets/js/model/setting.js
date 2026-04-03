@@ -58,6 +58,14 @@ class AllSetting {
         this.ipLimitWhitelist = "";
         this.timeLocation = "Local";
 
+        // Database (read-only from server; fields must be declared here so ObjectUtil.cloneProps copies API values)
+        this.dbType = "sqlite";
+        this.mysqlHost = "";
+        this.mysqlPort = 3306;
+        this.mysqlUser = "";
+        this.mysqlPassword = "";
+        this.mysqlDBName = "";
+
         // LDAP settings
         this.ldapEnable = false;
         this.ldapHost = "";

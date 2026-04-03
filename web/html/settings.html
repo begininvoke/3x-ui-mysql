@@ -89,7 +89,7 @@
                     </template>
                     {{ template "settings/panel/subscription/json" . }}
                   </a-tab-pane>
-                  <a-tab-pane key="6" :style="{ paddingTop: '20px' }">
+                  <a-tab-pane key="6" :force-render="true" :style="{ paddingTop: '20px' }">
                     <template #tab>
                       <a-icon type="database"></a-icon>
                       <span>{{ i18n "pages.settings.dbSettings" }}</span>
@@ -152,6 +152,7 @@
       dbStatusLoading: false,
       dbAutoRefresh: true,
       dbAutoRefreshTimer: null,
+      serverDbType: "{{if .serverDbType}}{{.serverDbType}}{{else}}sqlite{{end}}",
       lang: LanguageManager.getLanguage(),
       inboundOptions: [],
       remarkModels: { i: 'Inbound', e: 'Email', o: 'Other' },
@@ -279,7 +280,7 @@
       },
       startDbAutoRefresh() {
         this.stopDbAutoRefresh();
-        if (this.dbAutoRefresh && this.allSetting.dbType === 'mysql') {
+        if (this.dbAutoRefresh && this.isMysqlDatabase) {
           this.dbAutoRefreshTimer = setInterval(() => this.fetchDbStatus(), 5000);
         }
       },
@@ -326,6 +327,14 @@
           this.allSetting = new AllSetting(msg.obj);
           app.changeRemarkSample();
           this.saveBtnDisable = true;
+          this.$nextTick(() => {
+            if (this.isMysqlDatabase) {
+              this.fetchDbStatus();
+              this.startDbAutoRefresh();
+            } else {
+              this.stopDbAutoRefresh();
+            }
+          });
         }
       },
       async loadInboundTags() {
@@ -490,6 +499,17 @@
       },
     },
     computed: {
+      resolvedDbType() {
+        if (this.loadingStates.fetched) {
+          const t = (this.allSetting.dbType || "").toString().trim().toLowerCase();
+          if (t) return t;
+        }
+        const fb = (this.serverDbType || "sqlite").toString().trim().toLowerCase();
+        return fb || "sqlite";
+      },
+      isMysqlDatabase() {
+        return this.resolvedDbType === "mysql";
+      },
       ldapInboundTagList: {
         get: function () {
           const csv = this.allSetting.ldapInboundTags || "";
@@ -689,10 +709,6 @@
       this.entryIsIP = this._isIp(this.entryHost);
       await this.getAllSetting();
       await this.loadInboundTags();
-      if (this.allSetting.dbType === 'mysql') {
-        await this.fetchDbStatus();
-        this.startDbAutoRefresh();
-      }
       while (true) {
         await PromiseUtil.sleep(1000);
         this.saveBtnDisable = this.oldAllSetting.equals(this.allSetting);

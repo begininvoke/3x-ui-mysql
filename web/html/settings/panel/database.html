@@ -1,43 +1,43 @@
 {{define "settings/panel/database"}}
 <a-collapse default-active-key="1">
-    <a-collapse-panel key="1" header='{{ i18n "pages.settings.dbSettings"}}'>
+    <a-collapse-panel key="1" header='{{ i18nf "pages.settings.dbSettings" "Database" }}'>
         <a-alert type="info" :style="{ marginBottom: '16px' }"
-            message='{{ i18n "pages.settings.dbSettingsDesc"}}' show-icon>
+            message='{{ i18nf "pages.settings.dbSettingsDesc" "Database settings come from environment variables (XUI_DB_TYPE, XUI_MYSQL_*). Restart the panel after changes." }}' show-icon>
         </a-alert>
         <a-setting-list-item paddings="small">
-            <template #title>{{ i18n "pages.settings.dbType"}}</template>
-            <template #description>{{ i18n "pages.settings.dbTypeDesc"}}</template>
+            <template #title>{{ i18nf "pages.settings.dbType" "Database Type" }}</template>
+            <template #description>{{ i18nf "pages.settings.dbTypeDesc" "Current database backend (sqlite or mysql). Set via XUI_DB_TYPE environment variable." }}</template>
             <template #control>
-                <a-input type="text" v-model="allSetting.dbType" disabled></a-input>
+                <a-input type="text" :value="resolvedDbType" disabled></a-input>
             </template>
         </a-setting-list-item>
-        <template v-if="allSetting.dbType === 'mysql'">
+        <template v-if="isMysqlDatabase">
             <a-setting-list-item paddings="small">
-                <template #title>{{ i18n "pages.settings.mysqlHost"}}</template>
+                <template #title>{{ i18nf "pages.settings.mysqlHost" "MySQL Host" }}</template>
                 <template #control>
                     <a-input type="text" v-model="allSetting.mysqlHost" disabled></a-input>
                 </template>
             </a-setting-list-item>
             <a-setting-list-item paddings="small">
-                <template #title>{{ i18n "pages.settings.mysqlPort"}}</template>
+                <template #title>{{ i18nf "pages.settings.mysqlPort" "MySQL Port" }}</template>
                 <template #control>
                     <a-input-number :min="1" :max="65535" v-model="allSetting.mysqlPort" disabled :style="{ width: '100%' }"></a-input-number>
                 </template>
             </a-setting-list-item>
             <a-setting-list-item paddings="small">
-                <template #title>{{ i18n "pages.settings.mysqlUser"}}</template>
+                <template #title>{{ i18nf "pages.settings.mysqlUser" "MySQL User" }}</template>
                 <template #control>
                     <a-input type="text" v-model="allSetting.mysqlUser" disabled></a-input>
                 </template>
             </a-setting-list-item>
             <a-setting-list-item paddings="small">
-                <template #title>{{ i18n "pages.settings.mysqlPassword"}}</template>
+                <template #title>{{ i18nf "pages.settings.mysqlPassword" "MySQL Password" }}</template>
                 <template #control>
                     <a-input type="password" v-model="allSetting.mysqlPassword" disabled></a-input>
                 </template>
             </a-setting-list-item>
             <a-setting-list-item paddings="small">
-                <template #title>{{ i18n "pages.settings.mysqlDBName"}}</template>
+                <template #title>{{ i18nf "pages.settings.mysqlDBName" "MySQL Database Name" }}</template>
                 <template #control>
                     <a-input type="text" v-model="allSetting.mysqlDBName" disabled></a-input>
                 </template>
@@ -46,28 +46,28 @@
     </a-collapse-panel>
 </a-collapse>
 
-<template v-if="allSetting.dbType === 'mysql'">
+<template v-if="isMysqlDatabase">
 <a-collapse default-active-key="1" :style="{ marginTop: '16px' }">
-    <a-collapse-panel key="1" header='{{ i18n "pages.settings.dbConnectionStatus"}}'>
+    <a-collapse-panel key="1" header='{{ i18nf "pages.settings.dbConnectionStatus" "Connection status" }}'>
         <a-alert :type="dbStatus.healthy ? 'success' : 'error'" :style="{ marginBottom: '16px' }" show-icon>
             <template #message>
                 <span v-if="dbStatus.healthy">
                     <a-icon type="check-circle" :style="{ marginRight: '8px' }" />
-                    {{ i18n "pages.settings.dbHealthy" }} — [[ dbStatus.host ]]:[[ dbStatus.port ]]/[[ dbStatus.dbName ]]
+                    {{ i18nf "pages.settings.dbHealthy" "Healthy" }} — [[ dbStatus.host ]]:[[ dbStatus.port ]]/[[ dbStatus.dbName ]]
                 </span>
                 <span v-else>
                     <a-icon type="close-circle" :style="{ marginRight: '8px' }" />
-                    {{ i18n "pages.settings.dbUnhealthy" }} — [[ dbStatus.pingError ]]
+                    {{ i18nf "pages.settings.dbUnhealthy" "Unhealthy" }} — [[ dbStatus.pingError ]]
                 </span>
             </template>
         </a-alert>
         <a-alert type="info" :style="{ marginBottom: '16px' }"
-            message='{{ i18n "pages.settings.dbConnectionStatusDesc"}}' show-icon>
+            message='{{ i18nf "pages.settings.dbConnectionStatusDesc" "Live connection pool statistics. Refreshes every 5 seconds when Auto is on." }}' show-icon>
         </a-alert>
 
         <a-row :gutter="[16, 16]">
             <a-col :xs="12" :sm="8" :md="6">
-                <a-statistic title='{{ i18n "pages.settings.dbPingLatency"}}' :value="dbStatus.pingLatency"
+                <a-statistic title='{{ i18nf "pages.settings.dbPingLatency" "Ping latency" }}' :value="dbStatus.pingLatency"
                     :value-style="{ color: dbStatus.healthy ? '#3f8600' : '#cf1322' }">
                     <template #prefix>
                         <a-icon :type="dbStatus.healthy ? 'check-circle' : 'close-circle'" />
@@ -75,19 +75,19 @@
                 </a-statistic>
             </a-col>
             <a-col :xs="12" :sm="8" :md="6">
-                <a-statistic title='{{ i18n "pages.settings.dbPoolOpen"}}' :value="dbStatus.openConnections">
+                <a-statistic title='{{ i18nf "pages.settings.dbPoolOpen" "Open connections" }}' :value="dbStatus.openConnections">
                     <template #suffix>
                         <span :style="{ fontSize: '14px', color: '#999' }"> / [[ dbStatus.maxOpenConns ]]</span>
                     </template>
                 </a-statistic>
             </a-col>
             <a-col :xs="12" :sm="8" :md="6">
-                <a-statistic title='{{ i18n "pages.settings.dbPoolInUse"}}' :value="dbStatus.inUse"
+                <a-statistic title='{{ i18nf "pages.settings.dbPoolInUse" "In use" }}' :value="dbStatus.inUse"
                     :value-style="{ color: dbStatus.inUse > 0 ? '#1890ff' : '#3f8600' }">
                 </a-statistic>
             </a-col>
             <a-col :xs="12" :sm="8" :md="6">
-                <a-statistic title='{{ i18n "pages.settings.dbPoolIdle"}}' :value="dbStatus.idle"
+                <a-statistic title='{{ i18nf "pages.settings.dbPoolIdle" "Idle" }}' :value="dbStatus.idle"
                     :value-style="{ color: '#3f8600' }">
                 </a-statistic>
             </a-col>
@@ -97,20 +97,20 @@
 
         <a-row :gutter="[16, 16]">
             <a-col :xs="12" :sm="8" :md="6">
-                <a-statistic title='{{ i18n "pages.settings.dbPoolWaitCount"}}' :value="dbStatus.waitCount"
+                <a-statistic title='{{ i18nf "pages.settings.dbPoolWaitCount" "Wait count" }}' :value="dbStatus.waitCount"
                     :value-style="{ color: dbStatus.waitCount > 0 ? '#faad14' : '#3f8600' }">
                 </a-statistic>
             </a-col>
             <a-col :xs="12" :sm="8" :md="6">
-                <a-statistic title='{{ i18n "pages.settings.dbPoolWaitDuration"}}' :value="dbStatus.waitDuration">
+                <a-statistic title='{{ i18nf "pages.settings.dbPoolWaitDuration" "Total wait time" }}' :value="dbStatus.waitDuration">
                 </a-statistic>
             </a-col>
             <a-col :xs="12" :sm="8" :md="6">
-                <a-statistic title='{{ i18n "pages.settings.dbPoolMaxIdleClosed"}}' :value="dbStatus.maxIdleClosed">
+                <a-statistic title='{{ i18nf "pages.settings.dbPoolMaxIdleClosed" "Closed (max idle)" }}' :value="dbStatus.maxIdleClosed">
                 </a-statistic>
             </a-col>
             <a-col :xs="12" :sm="8" :md="6">
-                <a-statistic title='{{ i18n "pages.settings.dbPoolMaxLifetimeClosed"}}' :value="dbStatus.maxLifetimeClosed">
+                <a-statistic title='{{ i18nf "pages.settings.dbPoolMaxLifetimeClosed" "Closed (max lifetime)" }}' :value="dbStatus.maxLifetimeClosed">
                 </a-statistic>
             </a-col>
         </a-row>
@@ -120,7 +120,7 @@
         <a-row>
             <a-col :span="24" :style="{ textAlign: 'right' }">
                 <a-button type="primary" icon="reload" @click="fetchDbStatus" :loading="dbStatusLoading">
-                    {{ i18n "pages.settings.dbRefresh"}}
+                    {{ i18nf "pages.settings.dbRefresh" "Refresh" }}
                 </a-button>
                 <a-switch :style="{ marginLeft: '12px' }" v-model="dbAutoRefresh"
                     checked-children="Auto" un-checked-children="Manual" />

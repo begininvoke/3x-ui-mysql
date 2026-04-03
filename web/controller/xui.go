@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"github.com/mhsanaei/3x-ui/v2/config"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -46,7 +48,9 @@ func (a *XUIController) inbounds(c *gin.Context) {
 
 // settings renders the settings management page.
 func (a *XUIController) settings(c *gin.Context) {
-	html(c, "settings.html", "pages.settings.title", nil)
+	html(c, "settings.html", "pages.settings.title", gin.H{
+		"serverDbType": config.GetDBType(),
+	})
 }
 
 // blockedIps renders the blocked IPs management page.

@@ -238,6 +238,13 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 	// Register template functions before loading templates
 	funcMap := template.FuncMap{
 		"i18n": i18nWebFunc,
+		"i18nf": func(key, fallback string) string {
+			s := locale.I18n(locale.Web, key)
+			if strings.TrimSpace(s) == "" {
+				return fallback
+			}
+			return s
+		},
 	}
 	engine.SetFuncMap(funcMap)
 	engine.Use(locale.LocalizerMiddleware())
