@@ -1578,6 +1578,7 @@ func (s *InboundService) pruneClientActivity(email string) {
 }
 
 // GetClientActivities returns recent stored activity for a client (newest first).
+// When the DB has no rows (e.g. capture was just enabled), it falls back to scanning the access log tail.
 func (s *InboundService) GetClientActivities(email string, limit int) ([]model.ClientActivity, error) {
 	if limit <= 0 || limit > 500 {
 		limit = 200
@@ -1585,7 +1586,16 @@ func (s *InboundService) GetClientActivities(email string, limit int) ([]model.C
 	db := database.GetDB()
 	var rows []model.ClientActivity
 	err := db.Where("client_email = ?", email).Order("ts DESC").Limit(limit).Find(&rows).Error
-	return rows, err
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 && email != "" {
+		fromLog, logErr := ClientActivitiesFromAccessLogTail(email, limit)
+		if logErr == nil && len(fromLog) > 0 {
+			return fromLog, nil
+		}
+	}
+	return rows, nil
 }
 
 // ClearClientActivities removes all stored activity for a client.

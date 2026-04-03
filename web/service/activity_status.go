@@ -144,91 +144,95 @@ func (s *InboundService) GetActivityStatusOverview(hours int) (*ActivityStatusOv
 		TopUsersByTraffic:  []ActivityTrafficRank{},
 	}
 
-	qBase := db.Model(&model.ClientActivity{})
-	if since > 0 {
-		qBase = qBase.Where("ts >= ?", since)
-	}
-	if err := qBase.Count(&out.TotalActivityRows).Error; err != nil {
-		return nil, err
-	}
-
-	var emails []string
-	qDistinct := db.Model(&model.ClientActivity{}).Distinct("client_email")
-	if since > 0 {
-		qDistinct = qDistinct.Where("ts >= ?", since)
-	}
-	if err := qDistinct.Pluck("client_email", &emails).Error; err != nil {
-		return nil, err
-	}
-	out.DistinctClients = len(emails)
-
-	var toRows []struct {
-		ToAddr string `gorm:"column:to_addr"`
-		Cnt    int64  `gorm:"column:cnt"`
-	}
-	qTo := db.Model(&model.ClientActivity{}).Select("to_addr, COUNT(*) as cnt")
-	if since > 0 {
-		qTo = qTo.Where("ts >= ?", since)
-	}
-	if err := qTo.Group("to_addr").Order("cnt DESC").Limit(500).Scan(&toRows).Error; err != nil {
-		return nil, err
-	}
-	hostAgg := make(map[string]int64)
-	ipAgg := make(map[string]int64)
-	for _, r := range toRows {
-		h := hostFromActivityAddr(r.ToAddr)
-		if h == "" {
-			continue
+	// Prefer live access-log tail so Network insights reflects all clients in the log, not only
+	// rows stored for activity-capture users. Falls back to DB if the log is missing/unreadable.
+	if !TryFillActivityOverviewFromAccessLog(out, since) {
+		qBase := db.Model(&model.ClientActivity{})
+		if since > 0 {
+			qBase = qBase.Where("ts >= ?", since)
 		}
-		if net.ParseIP(h) != nil {
-			ipAgg[h] += r.Cnt
-		} else {
-			hostAgg[h] += r.Cnt
+		if err := qBase.Count(&out.TotalActivityRows).Error; err != nil {
+			return nil, err
 		}
-	}
-	out.TopDestHostnames = topNamedCounts(hostAgg, 30)
-	out.TopDestIPs = topNamedCounts(ipAgg, 30)
 
-	var fromRows []struct {
-		FromAddr string `gorm:"column:from_addr"`
-		Cnt      int64  `gorm:"column:cnt"`
-	}
-	qFrom := db.Model(&model.ClientActivity{}).Select("from_addr, COUNT(*) as cnt")
-	if since > 0 {
-		qFrom = qFrom.Where("ts >= ?", since)
-	}
-	if err := qFrom.Group("from_addr").Order("cnt DESC").Limit(400).Scan(&fromRows).Error; err != nil {
-		return nil, err
-	}
-	fromAgg := make(map[string]int64)
-	for _, r := range fromRows {
-		h := hostFromActivityAddr(r.FromAddr)
-		if h == "" {
-			continue
+		var emails []string
+		qDistinct := db.Model(&model.ClientActivity{}).Distinct("client_email")
+		if since > 0 {
+			qDistinct = qDistinct.Where("ts >= ?", since)
 		}
-		fromAgg[h] += r.Cnt
-	}
-	out.TopClientSourceIPs = topNamedCounts(fromAgg, 30)
+		if err := qDistinct.Pluck("client_email", &emails).Error; err != nil {
+			return nil, err
+		}
+		out.DistinctClients = len(emails)
 
-	var userRows []struct {
-		Email string `gorm:"column:client_email"`
-		Cnt   int64  `gorm:"column:cnt"`
-	}
-	qUser := db.Model(&model.ClientActivity{}).Select("client_email, COUNT(*) as cnt")
-	if since > 0 {
-		qUser = qUser.Where("ts >= ?", since)
-	}
-	if err := qUser.Group("client_email").Order("cnt DESC").Limit(25).Scan(&userRows).Error; err != nil {
-		return nil, err
-	}
-	for _, r := range userRows {
-		if r.Email == "" {
-			continue
+		var toRows []struct {
+			ToAddr string `gorm:"column:to_addr"`
+			Cnt    int64  `gorm:"column:cnt"`
 		}
-		out.TopUsersByActivity = append(out.TopUsersByActivity, ActivityUserRank{
-			Email:         r.Email,
-			ActivityCount: r.Cnt,
-		})
+		qTo := db.Model(&model.ClientActivity{}).Select("to_addr, COUNT(*) as cnt")
+		if since > 0 {
+			qTo = qTo.Where("ts >= ?", since)
+		}
+		if err := qTo.Group("to_addr").Order("cnt DESC").Limit(500).Scan(&toRows).Error; err != nil {
+			return nil, err
+		}
+		hostAgg := make(map[string]int64)
+		ipAgg := make(map[string]int64)
+		for _, r := range toRows {
+			h := hostFromActivityAddr(r.ToAddr)
+			if h == "" {
+				continue
+			}
+			if net.ParseIP(h) != nil {
+				ipAgg[h] += r.Cnt
+			} else {
+				hostAgg[h] += r.Cnt
+			}
+		}
+		out.TopDestHostnames = topNamedCounts(hostAgg, 30)
+		out.TopDestIPs = topNamedCounts(ipAgg, 30)
+
+		var fromRows []struct {
+			FromAddr string `gorm:"column:from_addr"`
+			Cnt      int64  `gorm:"column:cnt"`
+		}
+		qFrom := db.Model(&model.ClientActivity{}).Select("from_addr, COUNT(*) as cnt")
+		if since > 0 {
+			qFrom = qFrom.Where("ts >= ?", since)
+		}
+		if err := qFrom.Group("from_addr").Order("cnt DESC").Limit(400).Scan(&fromRows).Error; err != nil {
+			return nil, err
+		}
+		fromAgg := make(map[string]int64)
+		for _, r := range fromRows {
+			h := hostFromActivityAddr(r.FromAddr)
+			if h == "" {
+				continue
+			}
+			fromAgg[h] += r.Cnt
+		}
+		out.TopClientSourceIPs = topNamedCounts(fromAgg, 30)
+
+		var userRows []struct {
+			Email string `gorm:"column:client_email"`
+			Cnt   int64  `gorm:"column:cnt"`
+		}
+		qUser := db.Model(&model.ClientActivity{}).Select("client_email, COUNT(*) as cnt")
+		if since > 0 {
+			qUser = qUser.Where("ts >= ?", since)
+		}
+		if err := qUser.Group("client_email").Order("cnt DESC").Limit(25).Scan(&userRows).Error; err != nil {
+			return nil, err
+		}
+		for _, r := range userRows {
+			if r.Email == "" {
+				continue
+			}
+			out.TopUsersByActivity = append(out.TopUsersByActivity, ActivityUserRank{
+				Email:         r.Email,
+				ActivityCount: r.Cnt,
+			})
+		}
 	}
 
 	var traffics []xray.ClientTraffic

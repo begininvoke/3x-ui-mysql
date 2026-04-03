@@ -121,10 +121,10 @@
 "download" = "Download"
 "sectionActivity" = "Activity capture"
 "trafficHint" = "Ranked by upload + download from client traffic statistics (all time). Does not require activity capture."
-"activityWindowHint" = "Tables below use the time window selected above. Only clients with activity capture enabled contribute rows."
+"activityWindowHint" = "Tables below use the time window and the live access log tail (all clients with an email in the log). Stored DB rows are only kept for clients with activity capture enabled."
 "noTrafficYet" = "No client traffic recorded yet."
-"emptyHint" = "No activity data in this range. Enable activity capture on clients and ensure the Xray access log is configured."
-"dataNote" = "Hostnames come from sniffed TLS/HTTP targets in access logs. Only clients with activity capture contribute rows."
+"emptyHint" = "No matching lines in the access log for this time window. Ensure Xray access logging is enabled and the log file path is set in the running config."
+"dataNote" = "Aggregates are built from the Xray access log (recent tail). Hostnames come from sniffed targets. All users appear here when the log includes their email; detailed history in the client info modal still uses stored rows when activity capture is on."
 
 [pages.login]
 "hello" = "Hello"
