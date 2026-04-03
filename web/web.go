@@ -329,6 +329,9 @@ func (s *Server) startTask() {
 	// check client ips from log file every 10 sec
 	s.cron.AddJob("@every 10s", job.NewCheckClientIpJob())
 
+	// optional per-client activity capture from access log (only clients with activityCapture enabled)
+	s.cron.AddJob("@every 10s", job.NewCaptureClientActivityJob())
+
 	// check client ips from log file every day
 	s.cron.AddJob("@daily", job.NewClearLogsJob())
 

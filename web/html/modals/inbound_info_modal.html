@@ -287,6 +287,49 @@
                 </div>
               </td>
             </tr>
+            <tr v-if="infoModal.clientSettings && infoModal.clientSettings.activityCapture &&
+              [Protocols.VMESS, Protocols.VLESS, Protocols.TROJAN, Protocols.SHADOWSOCKS].includes(inbound.protocol)">
+              <td>
+                <a-tooltip>
+                  <template slot="title">
+                    <span>{{ i18n "pages.inbounds.activityLogDesc" }}</span>
+                  </template>
+                  {{ i18n "pages.inbounds.activityLog" }}
+                  <a-icon type="question-circle"></a-icon>
+                </a-tooltip>
+              </td>
+              <td>
+                <a-alert type="info" show-icon
+                  :style="{ marginBottom: '8px', fontSize: '12px', textAlign: 'left' }"
+                  message='{{ i18n "pages.inbounds.activityCaptureNoDecrypt" }}'></a-alert>
+                <div style="max-height: 220px; overflow-y: auto; text-align: left;">
+                  <div v-if="infoModal.clientActivities && infoModal.clientActivities.length > 0">
+                    <div v-for="(row, idx) in infoModal.clientActivities" :key="idx"
+                      style="margin: 4px 0; padding: 4px 6px; border-radius: 4px; background: rgba(0,0,0,0.04); font-family: monospace; font-size: 11px;">
+                      <div><strong>[[ formatActivityTime(row.ts) ]]</strong>
+                        <a-tag size="small" style="margin-left: 6px;">[[ row.event ]]</a-tag>
+                      </div>
+                      <div v-if="row.fromAddr">from [[ row.fromAddr ]]</div>
+                      <div v-if="row.toAddr">→ [[ row.toAddr ]]</div>
+                      <div v-if="row.inboundTag || row.outboundTag" style="opacity: 0.85;">
+                        [[ row.inboundTag ]] [[ row.outboundTag ? '→ ' + row.outboundTag : '' ]]
+                      </div>
+                    </div>
+                  </div>
+                  <a-tag v-else>—</a-tag>
+                </div>
+                <div style="margin-top: 5px;">
+                  <a-icon type="sync" :spin="refreshingActivity" @click="refreshClientActivities"
+                    :style="{ margin: '0 5px' }"></a-icon>
+                  <a-tooltip>
+                    <template slot="title">
+                      <span>{{ i18n "pages.inbounds.activityLogClear" }}</span>
+                    </template>
+                    <a-icon type="delete" @click="clearClientActivities"></a-icon>
+                  </a-tooltip>
+                </div>
+              </td>
+            </tr>
           </table>
           <table
             :style="{ display: 'inline-table', marginBlock: '10px', width: '100%', textAlign: 'center' }">
@@ -556,6 +599,15 @@
         </template>
       </a-modal>
       <script>
+  function refreshClientActivities(email) {
+    return HttpUtil.post(`/panel/api/inbounds/clientActivities/${email}?limit=200`).then((msg) => {
+      if (!msg.success || msg.obj == null) {
+        return [];
+      }
+      return Array.isArray(msg.obj) ? msg.obj : [];
+    });
+  }
+
   function refreshIPs(email) {
     return HttpUtil.post(`/panel/api/inbounds/clientIps/${email}`).then((msg) => {
       if (!msg.success) {
@@ -644,6 +696,7 @@
     subJsonLink: '',
     clientIps: '',
     clientIpsArray: [],
+    clientActivities: [],
     show(dbInbound, index) {
       this.index = index;
       this.inbound = dbInbound.toInbound();
@@ -652,6 +705,7 @@
       this.isExpired = this.inbound.clients ? this.inbound.isExpiry(index) : this.dbInbound.isExpiry;
       this.clientStats = this.inbound.clients ? (this.dbInbound.clientStats.find(row => row.email === this.clientSettings.email) || null) : null;
 
+      this.clientActivities = [];
       if (
         [
           Protocols.VMESS, 
@@ -665,6 +719,12 @@
             this.clientIps = result.text;
             this.clientIpsArray = result.array;
           })
+        }
+        const actEmail = this.clientSettings && this.clientSettings.email;
+        if (this.clientSettings.activityCapture && actEmail) {
+          refreshClientActivities(actEmail).then((rows) => {
+            this.clientActivities = rows;
+          });
         }
       }
       if (this.inbound.protocol == Protocols.WIREGUARD) {
@@ -696,6 +756,7 @@
     data: {
       infoModal,
       refreshing: false,
+      refreshingActivity: false,
       get dbInbound() {
         return this.infoModal.dbInbound;
       },
@@ -796,6 +857,51 @@
             }
             this.infoModal.clientIps = 'No IP Record';
             this.infoModal.clientIpsArray = [];
+          })
+          .catch(() => {});
+      },
+      formatActivityTime(ts) {
+        if (ts == null || ts === 0) {
+          return '—';
+        }
+        const d = new Date(Number(ts) * 1000);
+        return d.toLocaleString('en-GB', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+        }).replace(',', '');
+      },
+      refreshClientActivities() {
+        const email = (this.infoModal.clientSettings && this.infoModal.clientSettings.email) ||
+          (this.infoModal.clientStats && this.infoModal.clientStats.email);
+        if (!email) {
+          return;
+        }
+        this.refreshingActivity = true;
+        refreshClientActivities(email)
+          .then((rows) => {
+            this.infoModal.clientActivities = rows;
+          })
+          .finally(() => {
+            this.refreshingActivity = false;
+          });
+      },
+      clearClientActivities() {
+        const email = (this.infoModal.clientSettings && this.infoModal.clientSettings.email) ||
+          (this.infoModal.clientStats && this.infoModal.clientStats.email);
+        if (!email) {
+          return;
+        }
+        HttpUtil.post(`/panel/api/inbounds/clearClientActivities/${email}`)
+          .then((msg) => {
+            if (!msg.success) {
+              return;
+            }
+            this.infoModal.clientActivities = [];
           })
           .catch(() => {});
       },

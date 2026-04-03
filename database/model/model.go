@@ -149,4 +149,6 @@ type Client struct {
 	Reset      int    `json:"reset" form:"reset"`           // Reset period in days
 	CreatedAt  int64  `json:"created_at,omitempty"`         // Creation timestamp
 	UpdatedAt  int64  `json:"updated_at,omitempty"`         // Last update timestamp
+	// ActivityCapture when true stores Xray access-log rows for this client only (admin visibility).
+	ActivityCapture bool `json:"activityCapture" form:"activityCapture"`
 }

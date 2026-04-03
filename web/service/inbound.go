@@ -269,6 +269,8 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 		}
 	}
 
+	s.applySniffingForActivityCapture(inbound)
+
 	// Secure client ID
 	for _, client := range clients {
 		switch inbound.Protocol {
@@ -367,6 +369,10 @@ func (s *InboundService) DelInbound(id int) (bool, error) {
 	}
 	for _, client := range clients {
 		err := s.DelClientIPs(db, client.Email)
+		if err != nil {
+			return false, err
+		}
+		err = s.DelClientActivities(db, client.Email)
 		if err != nil {
 			return false, err
 		}
@@ -478,6 +484,8 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			}
 		}
 	}
+
+	s.applySniffingForActivityCapture(inbound)
 
 	oldInbound.Up = inbound.Up
 	oldInbound.Down = inbound.Down
@@ -640,6 +648,7 @@ func (s *InboundService) AddInboundClient(data *model.Inbound) (bool, error) {
 	}
 
 	oldInbound.Settings = string(newSettings)
+	s.applySniffingForActivityCapture(oldInbound)
 
 	db := database.GetDB()
 	tx := db.Begin()
@@ -738,6 +747,10 @@ func (s *InboundService) DelInboundClient(inboundId int, clientId string) (bool,
 	err = s.DelClientIPs(db, email)
 	if err != nil {
 		logger.Error("Error in delete client IPs")
+		return false, err
+	}
+	if err = s.DelClientActivities(db, email); err != nil {
+		logger.Error("Error in delete client activities")
 		return false, err
 	}
 	needRestart := false
@@ -871,6 +884,7 @@ func (s *InboundService) UpdateInboundClient(data *model.Inbound, clientId strin
 	}
 
 	oldInbound.Settings = string(newSettings)
+	s.applySniffingForActivityCapture(oldInbound)
 	db := database.GetDB()
 	tx := db.Begin()
 
@@ -892,6 +906,10 @@ func (s *InboundService) UpdateInboundClient(data *model.Inbound, clientId strin
 			if err != nil {
 				return false, err
 			}
+			err = s.UpdateClientActivities(tx, oldEmail, clients[0].Email)
+			if err != nil {
+				return false, err
+			}
 		} else {
 			s.AddClientStat(tx, data.Id, &clients[0])
 		}
@@ -901,6 +919,10 @@ func (s *InboundService) UpdateInboundClient(data *model.Inbound, clientId strin
 			return false, err
 		}
 		err = s.DelClientIPs(tx, oldEmail)
+		if err != nil {
+			return false, err
+		}
+		err = s.DelClientActivities(tx, oldEmail)
 		if err != nil {
 			return false, err
 		}
@@ -1434,12 +1456,137 @@ func (s *InboundService) UpdateClientIPs(tx *gorm.DB, oldEmail string, newEmail 
 	return tx.Model(model.InboundClientIps{}).Where("client_email = ?", oldEmail).Update("client_email", newEmail).Error
 }
 
+func (s *InboundService) UpdateClientActivities(tx *gorm.DB, oldEmail string, newEmail string) error {
+	return tx.Model(model.ClientActivity{}).Where("client_email = ?", oldEmail).Update("client_email", newEmail).Error
+}
+
 func (s *InboundService) DelClientStat(tx *gorm.DB, email string) error {
 	return tx.Where("email = ?", email).Delete(xray.ClientTraffic{}).Error
 }
 
 func (s *InboundService) DelClientIPs(tx *gorm.DB, email string) error {
 	return tx.Where("client_email = ?", email).Delete(model.InboundClientIps{}).Error
+}
+
+func (s *InboundService) DelClientActivities(tx *gorm.DB, email string) error {
+	return tx.Where("client_email = ?", email).Delete(model.ClientActivity{}).Error
+}
+
+// applySniffingForActivityCapture enables full inbound sniffing when any client has activityCapture.
+// Xray then resolves TLS SNI / HTTP Host / QUIC into domains for routing and access logs.
+// TLS application data (URLs, bodies) stays encrypted; this is not MITM decryption.
+func (s *InboundService) applySniffingForActivityCapture(inbound *model.Inbound) {
+	if inbound == nil || inbound.Settings == "" {
+		return
+	}
+	clients, err := s.GetClients(inbound)
+	if err != nil {
+		return
+	}
+	hasCapture := false
+	for _, c := range clients {
+		if c.ActivityCapture && c.Email != "" {
+			hasCapture = true
+			break
+		}
+	}
+	if !hasCapture {
+		return
+	}
+	var sniff map[string]any
+	if inbound.Sniffing != "" {
+		_ = json.Unmarshal([]byte(inbound.Sniffing), &sniff)
+	}
+	if sniff == nil {
+		sniff = map[string]any{}
+	}
+	sniff["enabled"] = true
+	sniff["destOverride"] = []any{"http", "tls", "quic", "fakedns"}
+	sniff["metadataOnly"] = false
+	sniff["routeOnly"] = false
+	out, err := json.MarshalIndent(sniff, "", "  ")
+	if err != nil {
+		return
+	}
+	inbound.Sniffing = string(out)
+}
+
+const maxClientActivityPerEmail = 2000
+
+// GetActivityCaptureEmailSet returns client emails that have per-client activity logging enabled.
+func (s *InboundService) GetActivityCaptureEmailSet() map[string]struct{} {
+	db := database.GetDB()
+	var inbounds []*model.Inbound
+	if err := db.Model(model.Inbound{}).Find(&inbounds).Error; err != nil {
+		return nil
+	}
+	out := make(map[string]struct{})
+	for _, inb := range inbounds {
+		if inb.Settings == "" {
+			continue
+		}
+		settings := map[string][]model.Client{}
+		if err := json.Unmarshal([]byte(inb.Settings), &settings); err != nil {
+			continue
+		}
+		for _, c := range settings["clients"] {
+			if c.ActivityCapture && c.Email != "" {
+				out[c.Email] = struct{}{}
+			}
+		}
+	}
+	return out
+}
+
+// AppendClientActivities inserts access-log-derived rows (used by the activity capture job).
+func (s *InboundService) AppendClientActivities(rows []model.ClientActivity) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	db := database.GetDB()
+	if err := db.CreateInBatches(rows, 100).Error; err != nil {
+		return err
+	}
+	seen := make(map[string]struct{})
+	for _, r := range rows {
+		if _, ok := seen[r.ClientEmail]; ok {
+			continue
+		}
+		seen[r.ClientEmail] = struct{}{}
+		s.pruneClientActivity(r.ClientEmail)
+	}
+	return nil
+}
+
+func (s *InboundService) pruneClientActivity(email string) {
+	db := database.GetDB()
+	var cnt int64
+	db.Model(&model.ClientActivity{}).Where("client_email = ?", email).Count(&cnt)
+	if cnt <= maxClientActivityPerEmail {
+		return
+	}
+	excess := int(cnt - maxClientActivityPerEmail)
+	var ids []int64
+	db.Model(&model.ClientActivity{}).Select("id").Where("client_email = ?", email).Order("ts ASC").Limit(excess).Pluck("id", &ids)
+	if len(ids) > 0 {
+		db.Delete(&model.ClientActivity{}, ids)
+	}
+}
+
+// GetClientActivities returns recent stored activity for a client (newest first).
+func (s *InboundService) GetClientActivities(email string, limit int) ([]model.ClientActivity, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 200
+	}
+	db := database.GetDB()
+	var rows []model.ClientActivity
+	err := db.Where("client_email = ?", email).Order("ts DESC").Limit(limit).Find(&rows).Error
+	return rows, err
+}
+
+// ClearClientActivities removes all stored activity for a client.
+func (s *InboundService) ClearClientActivities(email string) error {
+	return database.GetDB().Where("client_email = ?", email).Delete(&model.ClientActivity{}).Error
 }
 
 func (s *InboundService) GetClientInboundByTrafficID(trafficId int) (traffic *xray.ClientTraffic, inbound *model.Inbound, err error) {
@@ -2573,6 +2720,10 @@ func (s *InboundService) DelInboundClientByEmail(inboundId int, email string) (b
 	// remove IP bindings
 	if err := s.DelClientIPs(db, email); err != nil {
 		logger.Error("Error in delete client IPs")
+		return false, err
+	}
+	if err := s.DelClientActivities(db, email); err != nil {
+		logger.Error("Error in delete client activities")
 		return false, err
 	}
 

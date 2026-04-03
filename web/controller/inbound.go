@@ -40,6 +40,8 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.POST("/update/:id", a.updateInbound)
 	g.POST("/clientIps/:email", a.getClientIps)
 	g.POST("/clearClientIps/:email", a.clearClientIps)
+	g.POST("/clientActivities/:email", a.getClientActivities)
+	g.POST("/clearClientActivities/:email", a.clearClientActivities)
 	g.POST("/addClient", a.addInboundClient)
 	g.POST("/:id/delClient/:clientId", a.delInboundClient)
 	g.POST("/updateClient/:clientId", a.updateInboundClient)
@@ -248,6 +250,33 @@ func (a *InboundController) clearClientIps(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.logCleanSuccess"), nil)
+}
+
+// getClientActivities returns stored access-log-derived activity for a client (newest first).
+func (a *InboundController) getClientActivities(c *gin.Context) {
+	email := c.Param("email")
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "200"))
+	if err != nil {
+		limit = 200
+	}
+
+	rows, err := a.inboundService.GetClientActivities(email, limit)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	jsonObj(c, rows, nil)
+}
+
+// clearClientActivities removes stored activity rows for a client.
+func (a *InboundController) clearClientActivities(c *gin.Context) {
+	email := c.Param("email")
+	err := a.inboundService.ClearClientActivities(email)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.updateSuccess"), err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.activityLogClearSuccess"), nil)
 }
 
 // addInboundClient adds a new client to an existing inbound.
