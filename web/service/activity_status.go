@@ -19,8 +19,8 @@ type ActivityNamedCount struct {
 
 // ActivityUserRank ranks a client by stored activity rows in the time window.
 type ActivityUserRank struct {
-	Email          string `json:"email"`
-	ActivityCount  int64  `json:"activityCount"`
+	Email         string `json:"email"`
+	ActivityCount int64  `json:"activityCount"`
 }
 
 // ActivityTrafficRank ranks a client by recorded upload+download bytes.
@@ -33,15 +33,15 @@ type ActivityTrafficRank struct {
 
 // ActivityStatusOverview aggregates captured access-log rows for the status dashboard.
 type ActivityStatusOverview struct {
-	WindowHours         int                   `json:"windowHours"`
-	WindowLabel         string                `json:"windowLabel"`
-	TotalActivityRows   int64                 `json:"totalActivityRows"`
-	DistinctClients     int                   `json:"distinctClients"`
-	TopDestHostnames    []ActivityNamedCount  `json:"topDestHostnames"`
-	TopDestIPs          []ActivityNamedCount  `json:"topDestIps"`
-	TopClientSourceIPs  []ActivityNamedCount  `json:"topClientSourceIps"`
-	TopUsersByActivity  []ActivityUserRank    `json:"topUsersByActivity"`
-	TopUsersByTraffic   []ActivityTrafficRank `json:"topUsersByTraffic"`
+	WindowHours        int                   `json:"windowHours"`
+	WindowLabel        string                `json:"windowLabel"`
+	TotalActivityRows  int64                 `json:"totalActivityRows"`
+	DistinctClients    int                   `json:"distinctClients"`
+	TopDestHostnames   []ActivityNamedCount  `json:"topDestHostnames"`
+	TopDestIPs         []ActivityNamedCount  `json:"topDestIps"`
+	TopClientSourceIPs []ActivityNamedCount  `json:"topClientSourceIps"`
+	TopUsersByActivity []ActivityUserRank    `json:"topUsersByActivity"`
+	TopUsersByTraffic  []ActivityTrafficRank `json:"topUsersByTraffic"`
 }
 
 // hostFromActivityAddr extracts host or IP from Xray access "to" / "from" style strings.
@@ -135,13 +135,13 @@ func (s *InboundService) GetActivityStatusOverview(hours int) (*ActivityStatusOv
 	}
 
 	out := &ActivityStatusOverview{
-		WindowHours:         hours,
-		WindowLabel:         label,
-		TopDestHostnames:    []ActivityNamedCount{},
-		TopDestIPs:          []ActivityNamedCount{},
-		TopClientSourceIPs:  []ActivityNamedCount{},
-		TopUsersByActivity:  []ActivityUserRank{},
-		TopUsersByTraffic:   []ActivityTrafficRank{},
+		WindowHours:        hours,
+		WindowLabel:        label,
+		TopDestHostnames:   []ActivityNamedCount{},
+		TopDestIPs:         []ActivityNamedCount{},
+		TopClientSourceIPs: []ActivityNamedCount{},
+		TopUsersByActivity: []ActivityUserRank{},
+		TopUsersByTraffic:  []ActivityTrafficRank{},
 	}
 
 	qBase := db.Model(&model.ClientActivity{})
