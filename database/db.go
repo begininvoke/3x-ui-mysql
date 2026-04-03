@@ -220,22 +220,22 @@ func IsMySQL() bool {
 }
 
 type PoolStats struct {
-	DBType          string `json:"dbType"`
-	Host            string `json:"host"`
-	Port            int    `json:"port"`
-	DBName          string `json:"dbName"`
-	MaxOpenConns    int    `json:"maxOpenConns"`
-	OpenConnections int    `json:"openConnections"`
-	InUse           int    `json:"inUse"`
-	Idle            int    `json:"idle"`
-	WaitCount       int64  `json:"waitCount"`
-	WaitDuration    string `json:"waitDuration"`
-	MaxIdleClosed   int64  `json:"maxIdleClosed"`
+	DBType            string `json:"dbType"`
+	Host              string `json:"host"`
+	Port              int    `json:"port"`
+	DBName            string `json:"dbName"`
+	MaxOpenConns      int    `json:"maxOpenConns"`
+	OpenConnections   int    `json:"openConnections"`
+	InUse             int    `json:"inUse"`
+	Idle              int    `json:"idle"`
+	WaitCount         int64  `json:"waitCount"`
+	WaitDuration      string `json:"waitDuration"`
+	MaxIdleClosed     int64  `json:"maxIdleClosed"`
 	MaxIdleTimeClosed int64  `json:"maxIdleTimeClosed"`
 	MaxLifetimeClosed int64  `json:"maxLifetimeClosed"`
-	Healthy         bool   `json:"healthy"`
-	PingLatency     string `json:"pingLatency"`
-	PingError       string `json:"pingError,omitempty"`
+	Healthy           bool   `json:"healthy"`
+	PingLatency       string `json:"pingLatency"`
+	PingError         string `json:"pingError,omitempty"`
 }
 
 func GetPoolStats() (*PoolStats, error) {
