@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"os/exec"
 	"regexp"
@@ -19,6 +20,10 @@ import (
 	"github.com/mhsanaei/3x-ui/v2/web/service"
 	"github.com/mhsanaei/3x-ui/v2/xray"
 )
+
+// How long an IP stays "live" for concurrent IP limit counting (seconds).
+// Only connections seen within this window compete for the client's LimitIP slots.
+const ipLimitLiveActivityWindowSec = 15
 
 // IPWithTimestamp tracks an IP address with its last seen timestamp
 type IPWithTimestamp struct {
@@ -327,9 +332,9 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 		}
 	}
 
-	// Expire IPs not seen in the last 60 seconds
+	// Expire IPs not seen within the live activity window
 	now := time.Now().Unix()
-	expiryWindow := int64(60)
+	expiryWindow := int64(ipLimitLiveActivityWindowSec)
 	for ip, ts := range ipMap {
 		if now-ts > expiryWindow {
 			delete(ipMap, ip)
@@ -352,20 +357,30 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 	shouldCleanLog := false
 	j.disAllowedIps = []string{}
 
-	// Check if we exceed the limit
+	var keptIps []IPWithTimestamp
+
+	// Check if we exceed the limit (only "live" IPs within ipLimitLiveActivityWindowSec)
 	if len(allIps) > limitIp {
 		shouldCleanLog = true
 
-		// Keep the most recently active IPs and ban the least-recently-seen excess ones.
-		keptIps := allIps[:limitIp]
-		bannedIps := allIps[limitIp:]
+		// Always keep the newest source IP; among the rest, randomly keep (limitIp-1)
+		// so a new live IP can replace a random older slot instead of always evicting LRU.
+		newest := allIps[0]
+		rest := make([]IPWithTimestamp, len(allIps)-1)
+		copy(rest, allIps[1:])
+		needKeepFromRest := limitIp - 1
+		rand.Shuffle(len(rest), func(i, j int) { rest[i], rest[j] = rest[j], rest[i] })
+		keptFromRest := rest[:needKeepFromRest]
+		bannedIps := rest[needKeepFromRest:]
+		keptIps = append([]IPWithTimestamp{newest}, keptFromRest...)
+		sort.Slice(keptIps, func(i, j int) bool {
+			return keptIps[i].Timestamp > keptIps[j].Timestamp
+		})
 
 		var inboundService service.InboundService
-		blockDuration := int64(300)
-		if dur, err := settingService.GetIpLimitBlockDuration(); err == nil && dur > 0 {
-			blockDuration = int64(dur)
-		}
-		reason := fmt.Sprintf("IP limit exceeded: %d/%d active IPs (window: 60s)", len(allIps), limitIp)
+		blockDuration := settingService.GetIpLimitBlockDurationSec()
+		reason := fmt.Sprintf("IP limit exceeded: %d/%d live IPs (window: %ds)",
+			len(allIps), limitIp, ipLimitLiveActivityWindowSec)
 		for _, ipTime := range bannedIps {
 			j.disAllowedIps = append(j.disAllowedIps, ipTime.IP)
 			if err := inboundService.SaveBlockedIP(ipTime.IP, clientEmail, time.Now().Unix(), blockDuration, reason); err != nil {
@@ -373,11 +388,10 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 			}
 		}
 
-		// Update database with only the currently active (kept) IPs
 		jsonIps, _ := json.Marshal(keptIps)
 		inboundClientIps.Ips = string(jsonIps)
 	} else {
-		// Under limit, save all IPs
+		keptIps = allIps
 		jsonIps, _ := json.Marshal(allIps)
 		inboundClientIps.Ips = string(jsonIps)
 	}
@@ -390,7 +404,6 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 	}
 
 	if len(j.disAllowedIps) > 0 {
-		keptIps := allIps[:limitIp]
 		keptList := make([]string, 0, len(keptIps))
 		for _, ip := range keptIps {
 			keptList = append(keptList, ip.IP)

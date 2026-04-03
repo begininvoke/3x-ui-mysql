@@ -993,10 +993,7 @@ func (s *InboundService) AddTraffic(inboundTraffics []*xray.Traffic, clientTraff
 
 	if len(disabledEmails) > 0 {
 		var settingService SettingService
-		blockDuration := int64(1800)
-		if dur, err := settingService.GetIpLimitBlockDuration(); err == nil && dur > 0 {
-			blockDuration = int64(dur)
-		}
+		blockDuration := settingService.GetIpLimitBlockDurationSec()
 		go s.BlockIPsForDisabledClients(disabledEmails, blockDuration)
 	}
 

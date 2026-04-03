@@ -630,6 +630,20 @@ func (s *SettingService) GetIpLimitBlockDuration() (int, error) {
 	return s.getInt("ipLimitBlockDuration")
 }
 
+// GetIpLimitBlockDurationSec returns panel setting ipLimitBlockDuration in seconds for runtime use.
+// If the value is missing, invalid, or non-positive, it falls back to defaultValueMap["ipLimitBlockDuration"].
+func (s *SettingService) GetIpLimitBlockDurationSec() int64 {
+	d, err := s.GetIpLimitBlockDuration()
+	if err == nil && d > 0 {
+		return int64(d)
+	}
+	def, convErr := strconv.Atoi(defaultValueMap["ipLimitBlockDuration"])
+	if convErr != nil || def <= 0 {
+		return 1800
+	}
+	return int64(def)
+}
+
 func (s *SettingService) SetIpLimitBlockDuration(seconds int) error {
 	return s.setInt("ipLimitBlockDuration", seconds)
 }
