@@ -1,0 +1,390 @@
+{{ template "page/head_start" .}}
+{{ template "page/head_end" .}}
+<style>
+  .network-insights-page .ant-card { margin-bottom: 0 !important; }
+  .network-insights-page .ant-col { display: flex; }
+  .network-insights-page .ant-col > .ant-card { width: 100%; flex: 1; }
+  .network-insights-page .ant-card-body { padding: 16px; }
+
+  @media (min-width: 769px) {
+    .network-insights-page .ant-layout-content { margin: 24px 16px; }
+  }
+  @media (max-width: 768px) {
+    .network-insights-page .ant-card-body { padding: 12px; }
+  }
+
+  .network-insights-page .stat-box {
+    display: flex; align-items: center; gap: 14px; padding: 4px 0;
+  }
+  .network-insights-page .stat-icon-wrap {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 20px;
+  }
+  .network-insights-page .stat-icon-wrap.blue { background: rgba(24,144,255,0.1); color: #1890ff; }
+  .network-insights-page .stat-icon-wrap.green { background: rgba(82,196,26,0.1); color: #52c41a; }
+  .network-insights-page .stat-icon-wrap.orange { background: rgba(250,140,22,0.12); color: #fa8c16; }
+  .network-insights-page.dark .stat-icon-wrap.blue { background: rgba(24,144,255,0.15); color: #40a9ff; }
+  .network-insights-page.dark .stat-icon-wrap.green { background: rgba(82,196,26,0.15); color: #73d13d; }
+  .network-insights-page.dark .stat-icon-wrap.orange { background: rgba(250,140,22,0.15); color: #ffc069; }
+
+  .network-insights-page .stat-val {
+    font-size: 22px; font-weight: 700; line-height: 1.2;
+    color: rgba(0,0,0,0.85);
+  }
+  .network-insights-page.dark .stat-val { color: rgba(255,255,255,0.85); }
+  .network-insights-page .stat-lbl {
+    font-size: 12px; color: rgba(0,0,0,0.45); margin-top: 2px;
+  }
+  .network-insights-page.dark .stat-lbl { color: rgba(255,255,255,0.4); }
+  .network-insights-page .stat-sub {
+    font-size: 11px; color: rgba(0,0,0,0.35); margin-top: 2px;
+  }
+  .network-insights-page.dark .stat-sub { color: rgba(255,255,255,0.3); }
+
+  .network-insights-page .filter-row {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;
+  }
+  .network-insights-page .filter-row > * { flex: 1; min-width: 140px; }
+  @media (max-width: 576px) {
+    .network-insights-page .filter-row > * { min-width: 100px; }
+  }
+
+  .network-insights-page .section-label {
+    font-size: 13px; font-weight: 600; color: rgba(0,0,0,0.75); margin: 16px 0 10px;
+  }
+  .network-insights-page.dark .section-label { color: rgba(255,255,255,0.75); }
+  .network-insights-page .section-hint {
+    font-size: 12px; color: rgba(0,0,0,0.45); margin: -4px 0 12px;
+  }
+  .network-insights-page.dark .section-hint { color: rgba(255,255,255,0.35); }
+
+  .network-insights-page .mono-cell {
+    font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+    font-size: 12px;
+  }
+
+  .network-insights-page .empty-box {
+    text-align: center; padding: 32px 16px;
+  }
+  .network-insights-page .empty-box-icon {
+    font-size: 40px; color: rgba(0,0,0,0.12); margin-bottom: 10px;
+  }
+  .network-insights-page.dark .empty-box-icon { color: rgba(255,255,255,0.1); }
+  .network-insights-page .empty-box-title {
+    font-size: 14px; font-weight: 600; color: rgba(0,0,0,0.65); margin-bottom: 4px;
+  }
+  .network-insights-page.dark .empty-box-title { color: rgba(255,255,255,0.6); }
+  .network-insights-page .empty-box-desc {
+    font-size: 12px; color: rgba(0,0,0,0.35); max-width: 360px; margin: 0 auto;
+  }
+  .network-insights-page.dark .empty-box-desc { color: rgba(255,255,255,0.25); }
+
+  .network-insights-page .ant-table:not(.ant-table-expanded-row .ant-table) {
+    outline: 1px solid #f0f0f0; outline-offset: -1px;
+    border-radius: 1rem; overflow-x: hidden;
+  }
+  .network-insights-page.dark .ant-table:not(.ant-table-expanded-row .ant-table) {
+    outline-color: var(--dark-color-table-ring);
+  }
+  .network-insights-page.dark .ant-table-fixed-right,
+  .network-insights-page.dark .ant-table-fixed-right table,
+  .network-insights-page.dark .ant-table-fixed-right .ant-table-thead > tr > th,
+  .network-insights-page.dark .ant-table-fixed-right .ant-table-tbody > tr > td,
+  .network-insights-page.dark .ant-table-fixed-right .ant-table-header,
+  .network-insights-page.dark .ant-table-fixed-right .ant-table-body-outer,
+  .network-insights-page.dark .ant-table-fixed-right .ant-table-body-inner {
+    background: transparent !important;
+    background-color: inherit !important;
+  }
+  .network-insights-page.dark .ant-table-fixed-columns-in-body {
+    background: inherit !important;
+  }
+
+  .network-insights-page .ant-btn-sm {
+    background: transparent !important;
+  }
+  .network-insights-page.dark .ant-btn-sm {
+    background: transparent !important;
+    color: rgba(255,255,255,0.65) !important;
+    border-color: rgba(255,255,255,0.15) !important;
+  }
+  .network-insights-page.dark .ant-btn-sm:hover {
+    color: #40a9ff !important;
+    border-color: #40a9ff !important;
+  }
+</style>
+{{ template "page/body_start" .}}
+<a-layout id="app" v-cloak :class="themeSwitcher.currentTheme + ' network-insights-page'">
+  <a-sidebar></a-sidebar>
+  <a-layout id="content-layout">
+    <a-layout-content>
+      <a-spin :spinning="loading" :delay="200" tip='{{ i18n "loading" }}'>
+        <transition name="list" appear>
+          <template>
+            <a-row key="network-insights-loading" v-if="loading && !fetched">
+              <a-card style="text-align:center;padding:30px 0;margin-top:10px;background:transparent;border:none">
+                <a-spin tip='{{ i18n "loading" }}'></a-spin>
+              </a-card>
+            </a-row>
+            <a-row key="network-insights-main" :gutter="[isMobile ? 8 : 16, isMobile ? 8 : 12]" v-else>
+              <a-col :xs="24" :sm="8">
+                <a-card hoverable>
+                  <div class="stat-box">
+                    <div class="stat-icon-wrap blue"><a-icon type="database"></a-icon></div>
+                    <div>
+                      <div class="stat-val">[[ overview.totalActivityRows != null ? overview.totalActivityRows : '—' ]]</div>
+                      <div class="stat-lbl">{{ i18n "pages.networkInsights.totalRows" }}</div>
+                      <div class="stat-sub" v-if="overview.windowLabel">[[ overview.windowLabel ]]</div>
+                    </div>
+                  </div>
+                </a-card>
+              </a-col>
+              <a-col :xs="12" :sm="8">
+                <a-card hoverable>
+                  <div class="stat-box">
+                    <div class="stat-icon-wrap green"><a-icon type="team"></a-icon></div>
+                    <div>
+                      <div class="stat-val">[[ overview.distinctClients != null ? overview.distinctClients : '—' ]]</div>
+                      <div class="stat-lbl">{{ i18n "pages.networkInsights.distinctClients" }}</div>
+                    </div>
+                  </div>
+                </a-card>
+              </a-col>
+              <a-col :xs="12" :sm="8">
+                <a-card hoverable>
+                  <div class="stat-box">
+                    <div class="stat-icon-wrap orange"><a-icon type="line-chart"></a-icon></div>
+                    <div>
+                      <div class="stat-val">[[ trafficRankedCount ]]</div>
+                      <div class="stat-lbl">{{ i18n "pages.networkInsights.statTrafficRanked" }}</div>
+                    </div>
+                  </div>
+                </a-card>
+              </a-col>
+
+              <a-col :xs="24">
+                <a-card hoverable>
+                  <template slot="title">
+                    <a-space direction="horizontal">
+                      <a-icon type="global" style="font-size:16px"></a-icon>
+                      <span>{{ i18n "pages.networkInsights.cardTitle" }}</span>
+                    </a-space>
+                  </template>
+                  <template slot="extra">
+                    <a-space>
+                      <a-tooltip title="{{ i18n "pages.networkInsights.refresh" }}">
+                        <a-button size="small" shape="circle" icon="sync"
+                          @click="fetchData" :loading="refreshing" />
+                      </a-tooltip>
+                    </a-space>
+                  </template>
+
+                  <div class="filter-row">
+                    <a-select v-model="hours" size="small" @change="fetchData"
+                      :dropdown-class-name="themeSwitcher.currentTheme">
+                      <a-select-option :value="24">{{ i18n "pages.networkInsights.hours24" }}</a-select-option>
+                      <a-select-option :value="168">{{ i18n "pages.networkInsights.hours168" }}</a-select-option>
+                      <a-select-option :value="720">{{ i18n "pages.networkInsights.hours720" }}</a-select-option>
+                      <a-select-option :value="0">{{ i18n "pages.networkInsights.allTime" }}</a-select-option>
+                    </a-select>
+                  </div>
+
+                  <a-alert v-if="loadError" type="error" show-icon closable @close="loadError = ''"
+                    :message="loadError" style="margin-bottom:12px"></a-alert>
+                  <a-alert type="info" show-icon
+                    message="{{ i18n "pages.networkInsights.dataNote" }}"
+                    style="font-size:12px;margin-bottom:16px"></a-alert>
+
+                  <div class="section-label">{{ i18n "pages.networkInsights.topByTraffic" }}</div>
+                  <p class="section-hint">{{ i18n "pages.networkInsights.trafficHint" }}</p>
+                  <a-table v-if="(overview.topUsersByTraffic || []).length" :columns="colsTraffic"
+                    :data-source="overview.topUsersByTraffic" :pagination="trafficPagination" size="small" row-key="email"
+                    :scroll="isMobile ? { x: 420 } : {}">
+                  </a-table>
+                  <div v-else class="empty-box" style="padding:24px 12px">
+                    <div class="empty-box-icon"><a-icon type="pie-chart"></a-icon></div>
+                    <div class="empty-box-title">{{ i18n "pages.networkInsights.noTrafficYet" }}</div>
+                  </div>
+
+                  <a-divider style="margin:20px 0 12px"></a-divider>
+                  <div class="section-label">{{ i18n "pages.networkInsights.sectionActivity" }}</div>
+                  <p class="section-hint">{{ i18n "pages.networkInsights.activityWindowHint" }}</p>
+
+                  <a-row :gutter="[isMobile ? 8 : 12, 12]">
+                    <a-col :xs="24" :lg="12">
+                      <div style="font-size:12px;font-weight:600;margin-bottom:8px;opacity:0.75">{{ i18n "pages.networkInsights.topHostnames" }}</div>
+                      <a-table v-if="(overview.topDestHostnames || []).length" :columns="colsHost"
+                        :data-source="overview.topDestHostnames" :pagination="false" size="small" row-key="name"
+                        :scroll="isMobile ? { x: 280 } : {}">
+                      </a-table>
+                      <div v-else class="empty-box" style="padding:20px 8px">
+                        <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
+                      </div>
+                    </a-col>
+                    <a-col :xs="24" :lg="12">
+                      <div style="font-size:12px;font-weight:600;margin-bottom:8px;opacity:0.75">{{ i18n "pages.networkInsights.topDestIps" }}</div>
+                      <a-table v-if="(overview.topDestIps || []).length" :columns="colsHost"
+                        :data-source="overview.topDestIps" :pagination="false" size="small" row-key="name"
+                        :scroll="isMobile ? { x: 280 } : {}">
+                      </a-table>
+                      <div v-else class="empty-box" style="padding:20px 8px">
+                        <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
+                      </div>
+                    </a-col>
+                    <a-col :xs="24" :lg="12">
+                      <div style="font-size:12px;font-weight:600;margin-bottom:8px;opacity:0.75">{{ i18n "pages.networkInsights.topSourceIps" }}</div>
+                      <a-table v-if="(overview.topClientSourceIps || []).length" :columns="colsHost"
+                        :data-source="overview.topClientSourceIps" :pagination="false" size="small" row-key="name"
+                        :scroll="isMobile ? { x: 280 } : {}">
+                      </a-table>
+                      <div v-else class="empty-box" style="padding:20px 8px">
+                        <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
+                      </div>
+                    </a-col>
+                    <a-col :xs="24" :lg="12">
+                      <div style="font-size:12px;font-weight:600;margin-bottom:8px;opacity:0.75">{{ i18n "pages.networkInsights.topByActivity" }}</div>
+                      <a-table v-if="(overview.topUsersByActivity || []).length" :columns="colsUserAct"
+                        :data-source="overview.topUsersByActivity" :pagination="false" size="small" row-key="email"
+                        :scroll="isMobile ? { x: 320 } : {}">
+                      </a-table>
+                      <div v-else class="empty-box" style="padding:20px 8px">
+                        <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
+                      </div>
+                    </a-col>
+                  </a-row>
+                </a-card>
+              </a-col>
+            </a-row>
+          </template>
+        </transition>
+      </a-spin>
+    </a-layout-content>
+  </a-layout>
+</a-layout>
+{{template "page/body_scripts" .}}
+{{template "component/aThemeSwitch" .}}
+{{template "component/aSidebar" .}}
+<script>
+  (function () {
+    function niFmtBytes(t) {
+      var n = Number(t);
+      if (!isFinite(n) || n < 0) n = 0;
+      if (typeof SizeFormatter !== 'undefined' && SizeFormatter.sizeFormat) {
+        return SizeFormatter.sizeFormat(n);
+      }
+      if (!n) return '0 B';
+      var u = ['B', 'KB', 'MB', 'GB', 'TB'];
+      var i = 0;
+      var v = n;
+      while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+      return v.toFixed(i > 0 ? 2 : 0) + ' ' + u[i];
+    }
+
+    var colsTraffic = [
+      { title: '{{ i18n "pages.networkInsights.email" }}', dataIndex: 'email', key: 'email', ellipsis: true, className: 'mono-cell' },
+      {
+        title: '{{ i18n "pages.networkInsights.upload" }}',
+        dataIndex: 'up',
+        key: 'up',
+        width: 110,
+        align: 'right',
+        customRender: function (text) { return niFmtBytes(text); },
+      },
+      {
+        title: '{{ i18n "pages.networkInsights.download" }}',
+        dataIndex: 'down',
+        key: 'down',
+        width: 110,
+        align: 'right',
+        customRender: function (text) { return niFmtBytes(text); },
+      },
+      {
+        title: '{{ i18n "pages.networkInsights.traffic" }}',
+        dataIndex: 'total',
+        key: 'total',
+        width: 120,
+        align: 'right',
+        customRender: function (text) { return niFmtBytes(text); },
+      },
+    ];
+
+    const app = new Vue({
+      delimiters: ['[[', ']]'],
+      el: '#app',
+      mixins: [MediaQueryMixin],
+      data: {
+        themeSwitcher,
+        loading: true,
+        fetched: false,
+        refreshing: false,
+        loadError: '',
+        hours: 168,
+        overview: {},
+        colsHost: [
+          { title: '{{ i18n "pages.inbounds.address" }}', dataIndex: 'name', key: 'name', ellipsis: true, className: 'mono-cell' },
+          { title: '{{ i18n "pages.networkInsights.count" }}', dataIndex: 'count', key: 'count', width: 100 },
+        ],
+        colsUserAct: [
+          { title: '{{ i18n "pages.networkInsights.email" }}', dataIndex: 'email', key: 'email', ellipsis: true, className: 'mono-cell' },
+          { title: '{{ i18n "pages.networkInsights.count" }}', dataIndex: 'activityCount', key: 'activityCount', width: 100 },
+        ],
+        colsTraffic: colsTraffic,
+        trafficPagination: { pageSize: 15, hideOnSinglePage: true, size: 'small' },
+      },
+      computed: {
+        trafficRankedCount() {
+          var a = this.overview.topUsersByTraffic;
+          return Array.isArray(a) ? a.length : 0;
+        },
+      },
+      methods: {
+        applyOverview(raw) {
+          var r = raw && typeof raw === 'object' ? raw : {};
+          this.overview = {
+            windowHours: r.windowHours != null ? r.windowHours : 0,
+            windowLabel: r.windowLabel || '',
+            totalActivityRows: r.totalActivityRows != null ? r.totalActivityRows : 0,
+            distinctClients: r.distinctClients != null ? r.distinctClients : 0,
+            topDestHostnames: Array.isArray(r.topDestHostnames) ? r.topDestHostnames : [],
+            topDestIps: Array.isArray(r.topDestIps) ? r.topDestIps : [],
+            topClientSourceIps: Array.isArray(r.topClientSourceIps) ? r.topClientSourceIps : [],
+            topUsersByActivity: Array.isArray(r.topUsersByActivity) ? r.topUsersByActivity : [],
+            topUsersByTraffic: Array.isArray(r.topUsersByTraffic) ? r.topUsersByTraffic : [],
+          };
+        },
+        apiActivityStatusURL() {
+          return 'panel/api/inbounds/activityStatus';
+        },
+        async fetchData() {
+          this.refreshing = true;
+          this.loadError = '';
+          try {
+            var resp = await axios.get(this.apiActivityStatusURL(), { params: { hours: this.hours } });
+            var body = resp && resp.data;
+            if (body && body.success) {
+              this.applyOverview(body.obj);
+            } else if (body && !body.success) {
+              this.loadError = (body.msg || '{{ i18n "somethingWentWrong" }}').toString();
+              this.applyOverview({});
+            } else {
+              this.loadError = '{{ i18n "somethingWentWrong" }}';
+              this.applyOverview({});
+            }
+          } catch (e) {
+            console.error(e);
+            this.loadError = (e && e.message) ? e.message : '{{ i18n "somethingWentWrong" }}';
+            this.applyOverview({});
+          }
+          this.loading = false;
+          this.fetched = true;
+          this.refreshing = false;
+        },
+      },
+      mounted() {
+        this.fetchData();
+      },
+    });
+  })();
+</script>
+{{ template "page/body_end" .}}

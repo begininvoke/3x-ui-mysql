@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"net/http"
+
 	"github.com/mhsanaei/3x-ui/v2/config"
 
 	"github.com/gin-gonic/gin"
@@ -29,7 +31,8 @@ func (a *XUIController) initRouter(g *gin.RouterGroup) {
 	g.GET("/", a.index)
 	g.GET("/inbounds", a.inbounds)
 	g.GET("/blocked-ips", a.blockedIps)
-	g.GET("/activity-status", a.activityStatus)
+	g.GET("/activity-status", a.redirectNetworkInsights)
+	g.GET("/network-insights", a.networkInsights)
 	g.GET("/settings", a.settings)
 	g.GET("/xray", a.xraySettings)
 
@@ -59,9 +62,14 @@ func (a *XUIController) blockedIps(c *gin.Context) {
 	html(c, "blocked_ips.html", "pages.blockedIps.title", nil)
 }
 
-// activityStatus renders the activity / network status overview page.
-func (a *XUIController) activityStatus(c *gin.Context) {
-	html(c, "activity_status.html", "pages.activityStatus.title", nil)
+// redirectNetworkInsights permanently redirects the old activity-status URL.
+func (a *XUIController) redirectNetworkInsights(c *gin.Context) {
+	c.Redirect(http.StatusMovedPermanently, "network-insights")
+}
+
+// networkInsights renders traffic and captured-activity overview (blocked-ips style UI).
+func (a *XUIController) networkInsights(c *gin.Context) {
+	html(c, "network_insights.html", "pages.networkInsights.title", nil)
 }
 
 // xraySettings renders the Xray settings page.

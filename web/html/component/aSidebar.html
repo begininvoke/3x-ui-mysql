@@ -60,9 +60,9 @@
                         title: 'Blocked IPs'
                     },
                     {
-                        key: '{{ .base_path }}panel/activity-status',
+                        key: '{{ .base_path }}panel/network-insights',
                         icon: 'line-chart',
-                        title: '{{ i18n "menu.activityStatus"}}'
+                        title: '{{ i18n "menu.networkInsights"}}'
                     },
                     {
                         key: '{{ .base_path }}panel/settings',
@@ -84,7 +84,8 @@
                     '{{ .request_uri }}'
                 ],
                 visible: false,
-                collapsed: JSON.parse(localStorage.getItem(SIDEBAR_COLLAPSED_KEY)),
+                collapsed: JSON.parse(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) || 'false'),
+                themeSwitcher,
             }
         },
         methods: {
@@ -103,7 +104,7 @@
                 if (type === "clickTrigger") {
                     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed);
 
-                    this.collapsed = JSON.parse(localStorage.getItem(SIDEBAR_COLLAPSED_KEY));
+                    this.collapsed = JSON.parse(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) || 'false');
                 }
             }
         },
