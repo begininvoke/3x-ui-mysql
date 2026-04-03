@@ -757,10 +757,14 @@ func (s *InboundService) DelInboundClient(inboundId int, clientId string) (bool,
 
 	if len(email) > 0 {
 		notDepleted := true
-		err = db.Model(xray.ClientTraffic{}).Select("enable").Where("email = ?", email).First(&notDepleted).Error
-		if err != nil {
+		statErr := db.Model(xray.ClientTraffic{}).Select("enable").Where("email = ?", email).First(&notDepleted).Error
+		if statErr != nil && statErr != gorm.ErrRecordNotFound {
 			logger.Error("Get stats error")
-			return false, err
+			return false, statErr
+		}
+		// Client can exist in inbound JSON without a ClientTraffic row (import, external API, DB drift).
+		if statErr == gorm.ErrRecordNotFound {
+			notDepleted = true
 		}
 		err = s.DelClientStat(db, email)
 		if err != nil {
