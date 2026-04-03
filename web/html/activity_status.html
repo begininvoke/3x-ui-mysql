@@ -1,0 +1,219 @@
+{{ template "page/head_start" .}}
+{{ template "page/head_end" .}}
+<style>
+  .activity-status-page .ant-card { margin-bottom: 0 !important; }
+  .activity-status-page .ant-col { display: flex; }
+  .activity-status-page .ant-col > .ant-card { width: 100%; flex: 1; }
+  .activity-status-page .stat-box { display: flex; align-items: center; gap: 12px; padding: 4px 0; }
+  .activity-status-page .stat-val { font-size: 20px; font-weight: 700; }
+  .activity-status-page .stat-lbl { font-size: 12px; opacity: 0.55; }
+  .activity-status-page .mono { font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace; font-size: 12px; }
+  @media (min-width: 769px) {
+    .activity-status-page .ant-layout-content { margin: 24px 16px; }
+  }
+</style>
+{{ template "page/body_start" .}}
+<a-layout id="app" v-cloak :class="themeSwitcher.currentTheme + ' activity-status-page'">
+  <a-sidebar></a-sidebar>
+  <a-layout id="content-layout">
+    <a-layout-content>
+      <a-spin :spinning="loading" :delay="200" tip='{{ i18n "loading" }}'>
+        <a-row :gutter="[isMobile ? 8 : 16, 12]">
+          <a-col :span="24">
+            <a-card hoverable>
+              <template slot="title">
+                <a-icon type="line-chart" style="margin-right:8px"></a-icon>
+                {{ i18n "pages.activityStatus.title" }}
+              </template>
+              <template slot="extra">
+                <a-space>
+                  <span style="font-size:12px;opacity:0.65">{{ i18n "pages.activityStatus.timeWindow" }}:</span>
+                  <a-select v-model="hours" size="small" style="width:120px"
+                    :dropdown-class-name="themeSwitcher.currentTheme" @change="fetchData">
+                    <a-select-option :value="24">{{ i18n "pages.activityStatus.hours24" }}</a-select-option>
+                    <a-select-option :value="168">{{ i18n "pages.activityStatus.hours168" }}</a-select-option>
+                    <a-select-option :value="720">{{ i18n "pages.activityStatus.hours720" }}</a-select-option>
+                    <a-select-option :value="0">{{ i18n "pages.activityStatus.allTime" }}</a-select-option>
+                  </a-select>
+                  <a-button size="small" icon="sync" @click="fetchData" :loading="refreshing">
+                    {{ i18n "pages.activityStatus.refresh" }}
+                  </a-button>
+                </a-space>
+              </template>
+              <p style="margin:0 0 12px;font-size:13px;opacity:0.7">{{ i18n "pages.activityStatus.subtitle" }}</p>
+              <a-alert type="info" show-icon :message='{{ i18n "pages.activityStatus.dataNote" }}'
+                :style="{ fontSize: '12px', marginBottom: '14px' }"></a-alert>
+              <a-alert v-if="loadError" type="error" show-icon closable @close="loadError = ''"
+                :message="loadError" :style="{ marginBottom: '12px' }"></a-alert>
+            </a-card>
+          </a-col>
+
+          <a-col :xs="24" :sm="12" :md="6">
+            <a-card hoverable>
+              <div class="stat-box">
+                <a-icon type="database" style="font-size:28px;color:#1890ff"></a-icon>
+                <div>
+                  <div class="stat-val">[[ overview.totalActivityRows != null ? overview.totalActivityRows : '—' ]]</div>
+                  <div class="stat-lbl">{{ i18n "pages.activityStatus.totalRows" }}</div>
+                  <div class="stat-lbl" v-if="overview.windowLabel">([[ overview.windowLabel ]])</div>
+                </div>
+              </div>
+            </a-card>
+          </a-col>
+          <a-col :xs="24" :sm="12" :md="6">
+            <a-card hoverable>
+              <div class="stat-box">
+                <a-icon type="team" style="font-size:28px;color:#52c41a"></a-icon>
+                <div>
+                  <div class="stat-val">[[ overview.distinctClients != null ? overview.distinctClients : '—' ]]</div>
+                  <div class="stat-lbl">{{ i18n "pages.activityStatus.distinctClients" }}</div>
+                </div>
+              </div>
+            </a-card>
+          </a-col>
+        </a-row>
+
+        <a-row :gutter="[isMobile ? 8 : 16, 12]" style="margin-top:12px">
+          <a-col :xs="24" :lg="12">
+            <a-card :title='{{ i18n "pages.activityStatus.topHostnames" }}' hoverable>
+              <a-table v-if="(overview.topDestHostnames || []).length" :columns="colsHost"
+                :data-source="overview.topDestHostnames" :pagination="false" size="small" row-key="name"
+                :scroll="isMobile ? { x: 280 } : {}">
+              </a-table>
+              <div v-else style="padding:16px;opacity:0.5;font-size:13px">{{ i18n "pages.activityStatus.emptyHint" }}</div>
+            </a-card>
+          </a-col>
+          <a-col :xs="24" :lg="12">
+            <a-card :title='{{ i18n "pages.activityStatus.topDestIps" }}' hoverable>
+              <a-table v-if="(overview.topDestIps || []).length" :columns="colsHost"
+                :data-source="overview.topDestIps" :pagination="false" size="small" row-key="name"
+                :scroll="isMobile ? { x: 280 } : {}">
+              </a-table>
+              <div v-else style="padding:16px;opacity:0.5;font-size:13px">{{ i18n "pages.activityStatus.emptyHint" }}</div>
+            </a-card>
+          </a-col>
+          <a-col :xs="24" :lg="12">
+            <a-card :title='{{ i18n "pages.activityStatus.topSourceIps" }}' hoverable>
+              <a-table v-if="(overview.topClientSourceIps || []).length" :columns="colsHost"
+                :data-source="overview.topClientSourceIps" :pagination="false" size="small" row-key="name"
+                :scroll="isMobile ? { x: 280 } : {}">
+              </a-table>
+              <div v-else style="padding:16px;opacity:0.5;font-size:13px">{{ i18n "pages.activityStatus.emptyHint" }}</div>
+            </a-card>
+          </a-col>
+          <a-col :xs="24" :lg="12">
+            <a-card :title='{{ i18n "pages.activityStatus.topByActivity" }}' hoverable>
+              <a-table v-if="(overview.topUsersByActivity || []).length" :columns="colsUserAct"
+                :data-source="overview.topUsersByActivity" :pagination="false" size="small" row-key="email"
+                :scroll="isMobile ? { x: 320 } : {}">
+              </a-table>
+              <div v-else style="padding:16px;opacity:0.5;font-size:13px">{{ i18n "pages.activityStatus.emptyHint" }}</div>
+            </a-card>
+          </a-col>
+          <a-col :xs="24" :lg="12">
+            <a-card :title='{{ i18n "pages.activityStatus.topByTraffic" }}' hoverable>
+              <a-table v-if="(overview.topUsersByTraffic || []).length" :columns="colsTraffic"
+                :data-source="overview.topUsersByTraffic" :pagination="false" size="small" row-key="email"
+                :scroll="isMobile ? { x: 360 } : {}">
+                <template slot="trafficFmt" slot-scope="text">
+                  <span class="mono">[[ formatTraffic(text) ]]</span>
+                </template>
+              </a-table>
+              <div v-else style="padding:16px;opacity:0.5;font-size:13px">—</div>
+            </a-card>
+          </a-col>
+        </a-row>
+      </a-spin>
+    </a-layout-content>
+  </a-layout>
+</a-layout>
+{{template "page/body_scripts" .}}
+{{template "component/aSidebar" .}}
+{{template "component/aThemeSwitch" .}}
+<script>
+  const app = new Vue({
+    delimiters: ['[[', ']]'],
+    el: '#app',
+    mixins: [MediaQueryMixin],
+    data: {
+      themeSwitcher,
+      loading: true,
+      refreshing: false,
+      loadError: '',
+      hours: 168,
+      overview: {},
+      colsHost: [
+        { title: '{{ i18n "pages.inbounds.address" }}', dataIndex: 'name', key: 'name', ellipsis: true, className: 'mono' },
+        { title: '{{ i18n "pages.activityStatus.count" }}', dataIndex: 'count', key: 'count', width: 100 },
+      ],
+      colsUserAct: [
+        { title: '{{ i18n "pages.activityStatus.email" }}', dataIndex: 'email', key: 'email', ellipsis: true, className: 'mono' },
+        { title: '{{ i18n "pages.activityStatus.count" }}', dataIndex: 'activityCount', key: 'activityCount', width: 100 },
+      ],
+      colsTraffic: [
+        { title: '{{ i18n "pages.activityStatus.email" }}', dataIndex: 'email', key: 'email', ellipsis: true, className: 'mono' },
+        {
+          title: '{{ i18n "pages.activityStatus.traffic" }}',
+          dataIndex: 'total',
+          key: 'total',
+          width: 140,
+          scopedSlots: { customRender: 'trafficFmt' },
+        },
+      ],
+    },
+    methods: {
+      formatTraffic(n) {
+        if (typeof SizeFormatter !== 'undefined' && SizeFormatter.sizeFormat) {
+          return SizeFormatter.sizeFormat(n || 0);
+        }
+        if (!n) return '0 B';
+        const u = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let i = 0;
+        let v = n;
+        while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+        return v.toFixed(i > 0 ? 2 : 0) + ' ' + u[i];
+      },
+      applyOverview(raw) {
+        const r = raw && typeof raw === 'object' ? raw : {};
+        this.overview = {
+          windowHours: r.windowHours != null ? r.windowHours : 0,
+          windowLabel: r.windowLabel || '',
+          totalActivityRows: r.totalActivityRows != null ? r.totalActivityRows : 0,
+          distinctClients: r.distinctClients != null ? r.distinctClients : 0,
+          topDestHostnames: Array.isArray(r.topDestHostnames) ? r.topDestHostnames : [],
+          topDestIps: Array.isArray(r.topDestIps) ? r.topDestIps : [],
+          topClientSourceIPs: Array.isArray(r.topClientSourceIPs) ? r.topClientSourceIPs : [],
+          topUsersByActivity: Array.isArray(r.topUsersByActivity) ? r.topUsersByActivity : [],
+          topUsersByTraffic: Array.isArray(r.topUsersByTraffic) ? r.topUsersByTraffic : [],
+        };
+      },
+      // Relative to axios baseURL (see page/body_scripts). Do not start with "/" or subpath deployments break.
+      apiActivityStatusURL() {
+        return 'panel/api/inbounds/activityStatus';
+      },
+      async fetchData() {
+        this.refreshing = true;
+        this.loadError = '';
+        try {
+          const msg = await HttpUtil.get(this.apiActivityStatusURL(), { hours: this.hours });
+          if (msg.success) {
+            this.applyOverview(msg.obj);
+          } else {
+            this.loadError = msg.msg || '{{ i18n "somethingWentWrong" }}';
+            this.applyOverview({});
+          }
+        } catch (e) {
+          console.error(e);
+          this.loadError = (e && e.message) ? e.message : '{{ i18n "somethingWentWrong" }}';
+          this.applyOverview({});
+        }
+        this.loading = false;
+        this.refreshing = false;
+      },
+    },
+    mounted() {
+      this.fetchData();
+    },
+  });
+</script>
+{{ template "page/body_end" .}}

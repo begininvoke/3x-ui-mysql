@@ -64,6 +64,8 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.POST("/fail2banUnbanAll", a.fail2banUnbanAll)
 	g.GET("/ipWhitelist", a.getIpWhitelist)
 	g.POST("/ipWhitelist", a.saveIpWhitelist)
+
+	g.GET("/activityStatus", a.getActivityStatus)
 }
 
 // getInbounds retrieves the list of inbounds for the logged-in user.
@@ -277,6 +279,20 @@ func (a *InboundController) clearClientActivities(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.activityLogClearSuccess"), nil)
+}
+
+// getActivityStatus returns aggregated hosts, IPs, and top users for the activity status page.
+func (a *InboundController) getActivityStatus(c *gin.Context) {
+	hours, err := strconv.Atoi(c.DefaultQuery("hours", "168"))
+	if err != nil {
+		hours = 168
+	}
+	overview, err := a.inboundService.GetActivityStatusOverview(hours)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	jsonObj(c, overview, nil)
 }
 
 // addInboundClient adds a new client to an existing inbound.
