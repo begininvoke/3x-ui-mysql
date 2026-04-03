@@ -89,7 +89,7 @@ type AllSetting struct {
 	MySQLHost     string `json:"mysqlHost" form:"mysqlHost"`
 	MySQLPort     int    `json:"mysqlPort" form:"mysqlPort"`
 	MySQLUser     string `json:"mysqlUser" form:"mysqlUser"`
-	MySQLPassword string `json:"mysqlPassword" form:"mysqlPassword"`
+	MySQLPassword string `json:"mysqlPassword,omitempty" form:"mysqlPassword"`
 	MySQLDBName   string `json:"mysqlDBName" form:"mysqlDBName"`
 
 	// LDAP settings

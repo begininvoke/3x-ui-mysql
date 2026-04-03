@@ -148,7 +148,15 @@
         maxIdleTimeClosed: 0,
         pingLatency: '-',
         pingError: '',
+        recentQueries: [],
       },
+      dbQueryLogColumns: [
+        { title: 'Time', dataIndex: 'at', key: 'at', width: 156, scopedSlots: { customRender: 'dbQtime' } },
+        { title: 'Duration', dataIndex: 'durationMs', key: 'durationMs', scopedSlots: { customRender: 'dbQdur' }, width: 96, align: 'right' },
+        { title: 'Rows', dataIndex: 'rows', key: 'rows', width: 64, align: 'right' },
+        { title: 'SQL', dataIndex: 'sql', key: 'sql', scopedSlots: { customRender: 'dbQsql' }, width: 320 },
+        { title: 'Status', dataIndex: 'err', key: 'err', width: 92, align: 'center', scopedSlots: { customRender: 'dbQerr' } },
+      ],
       dbStatusLoading: false,
       dbAutoRefresh: true,
       dbAutoRefreshTimer: null,
@@ -270,7 +278,11 @@
         try {
           const msg = await HttpUtil.get("/panel/api/server/dbStatus");
           if (msg.success && msg.obj) {
-            this.dbStatus = msg.obj;
+            const d = msg.obj;
+            if (!Array.isArray(d.recentQueries)) {
+              d.recentQueries = [];
+            }
+            this.dbStatus = d;
           }
         } catch (e) {
           this.dbStatus.healthy = false;
@@ -289,6 +301,40 @@
           clearInterval(this.dbAutoRefreshTimer);
           this.dbAutoRefreshTimer = null;
         }
+      },
+      dbQueryRowKey(rec, idx) {
+        return String(idx) + "-" + String(rec && rec.at ? rec.at : "") + "-" + String(rec && rec.sql ? rec.sql.length : 0);
+      },
+      formatQueryLogTime(iso) {
+        if (!iso) return "—";
+        try {
+          const d = new Date(iso);
+          if (isNaN(d.getTime())) return String(iso);
+          return d.toLocaleString(undefined, {
+            month: "short",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+          });
+        } catch (e) {
+          return String(iso);
+        }
+      },
+      queryLogDurationColor(ms) {
+        const n = Number(ms);
+        if (isNaN(n)) return "#8c8c8c";
+        if (n < 5) return "#237804";
+        if (n < 50) return "#d48806";
+        return "#cf1322";
+      },
+      formatQueryDuration(ms) {
+        if (ms === null || ms === undefined || ms === "") {
+          return "—";
+        }
+        const n = Number(ms);
+        return isNaN(n) ? "—" : n.toFixed(2);
       },
       _isIp(h) {
         if (typeof h !== "string") return false;
@@ -509,6 +555,27 @@
       },
       isMysqlDatabase() {
         return this.resolvedDbType === "mysql";
+      },
+      dbQuerySqlCellStyle() {
+        const dark = this.themeSwitcher && this.themeSwitcher.currentTheme === "dark";
+        return {
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+          fontSize: "12px",
+          lineHeight: 1.5,
+          maxHeight: "96px",
+          overflowY: "auto",
+          padding: "10px 12px",
+          borderRadius: "8px",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          boxSizing: "border-box",
+          background: dark ? "rgba(255,255,255,0.06)" : "#fafafa",
+          border: dark ? "1px solid rgba(255,255,255,0.12)" : "1px solid #f0f0f0",
+        };
+      },
+      dbQueryLogCount() {
+        const q = this.dbStatus && this.dbStatus.recentQueries;
+        return Array.isArray(q) ? q.length : 0;
       },
       ldapInboundTagList: {
         get: function () {

@@ -31,12 +31,6 @@
                 </template>
             </a-setting-list-item>
             <a-setting-list-item paddings="small">
-                <template #title>{{ i18nf "pages.settings.mysqlPassword" "MySQL Password" }}</template>
-                <template #control>
-                    <a-input type="password" v-model="allSetting.mysqlPassword" disabled></a-input>
-                </template>
-            </a-setting-list-item>
-            <a-setting-list-item paddings="small">
                 <template #title>{{ i18nf "pages.settings.mysqlDBName" "MySQL Database Name" }}</template>
                 <template #control>
                     <a-input type="text" v-model="allSetting.mysqlDBName" disabled></a-input>
@@ -114,6 +108,73 @@
                 </a-statistic>
             </a-col>
         </a-row>
+
+        <a-divider :style="{ margin: '16px 0' }" />
+
+        <a-card size="small" bordered :body-style="{ padding: '12px 16px 16px' }" class="db-query-log-card">
+            <template slot="title">
+                <span :style="{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }">
+                    <a-icon type="code" :style="{ fontSize: '18px', opacity: 0.85 }" />
+                    <span :style="{ fontWeight: 600, fontSize: '15px' }">{{ i18nf "pages.settings.dbQueryLogTitle" "Recent SQL (panel queries)" }}</span>
+                    <a-tag v-if="dbQueryLogCount > 0" color="blue">[[ dbQueryLogCount ]] {{ i18nf "pages.settings.dbQueryLogEntries" "entries" }}</a-tag>
+                    <a-tag v-else color="default">{{ i18nf "pages.settings.dbQueryLogNoEntries" "No entries yet" }}</a-tag>
+                </span>
+            </template>
+            <a-alert type="warning" show-icon
+                :style="{ marginBottom: '14px', borderRadius: '8px' }">
+                <template slot="message">
+                    <span :style="{ fontWeight: 600 }">{{ i18nf "pages.settings.dbQueryLogPrivacyTitle" "Admin-only query log" }}</span>
+                </template>
+                <template slot="description">
+                    <span :style="{ fontSize: '13px', lineHeight: 1.6, opacity: 0.95 }">
+                        {{ i18nf "pages.settings.dbQueryLogWarn" "SQL may contain sensitive values. Only logged-in admins see this list. Each statement is truncated to 4000 characters." }}
+                    </span>
+                </template>
+            </a-alert>
+            <a-table
+                :columns="dbQueryLogColumns"
+                :data-source="dbStatus.recentQueries || []"
+                :row-key="dbQueryRowKey"
+                :pagination="false"
+                bordered
+                size="middle"
+                :scroll="{ x: 860 }"
+                :locale="{ emptyText: '{{ i18nf "pages.settings.dbQueryLogEmpty" "No queries recorded yet. Use the panel to generate traffic." }}' }">
+                <template slot="dbQtime" slot-scope="text">
+                    <a-tooltip v-if="text" :title="text" placement="topLeft">
+                        <span :style="{
+                          cursor: 'help',
+                          borderBottom: themeSwitcher.currentTheme === 'dark' ? '1px dashed rgba(255,255,255,0.35)' : '1px dashed rgba(0,0,0,0.22)',
+                          fontVariantNumeric: 'tabular-nums',
+                          fontSize: '13px'
+                        }">[[ formatQueryLogTime(text) ]]</span>
+                    </a-tooltip>
+                    <span v-else :style="{ color: '#8c8c8c' }">—</span>
+                </template>
+                <template slot="dbQdur" slot-scope="ms">
+                    <span :style="{
+                      color: queryLogDurationColor(ms),
+                      fontWeight: 600,
+                      fontVariantNumeric: 'tabular-nums',
+                      fontSize: '13px'
+                    }">
+                        [[ formatQueryDuration(ms) ]]
+                    </span>
+                    <span :style="{ fontSize: '12px', color: '#8c8c8c', marginLeft: '2px' }">ms</span>
+                </template>
+                <template slot="dbQsql" slot-scope="text">
+                    <div :style="dbQuerySqlCellStyle">[[ text || '—' ]]</div>
+                </template>
+                <template slot="dbQerr" slot-scope="text">
+                    <a-tooltip v-if="text && String(text).trim()" :title="text" placement="left">
+                        <a-tag color="red" :style="{ margin: 0, cursor: 'help', maxWidth: '100%' }">
+                            {{ i18nf "pages.settings.dbQueryLogFailed" "Failed" }}
+                        </a-tag>
+                    </a-tooltip>
+                    <a-tag v-else color="green" :style="{ margin: 0 }">OK</a-tag>
+                </template>
+            </a-table>
+        </a-card>
 
         <a-divider :style="{ margin: '16px 0' }" />
 

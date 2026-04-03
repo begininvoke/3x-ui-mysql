@@ -63,7 +63,6 @@ class AllSetting {
         this.mysqlHost = "";
         this.mysqlPort = 3306;
         this.mysqlUser = "";
-        this.mysqlPassword = "";
         this.mysqlDBName = "";
 
         // LDAP settings

@@ -179,6 +179,18 @@ func GetMySQLWriteTimeoutSec() int {
 	return getEnvInt("XUI_MYSQL_WRITE_TIMEOUT", 30)
 }
 
+// GetMySQLQueryLogMax returns max SQL entries kept for the panel query log (1–500, default 100).
+func GetMySQLQueryLogMax() int {
+	v := getEnvInt("XUI_MYSQL_QUERY_LOG_MAX", 100)
+	if v < 1 {
+		return 1
+	}
+	if v > 500 {
+		return 500
+	}
+	return v
+}
+
 func getEnvInt(key string, fallback int) int {
 	s := os.Getenv(key)
 	if s == "" {

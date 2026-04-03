@@ -205,7 +205,7 @@ func (s *SettingService) GetAllSetting() (*entity.AllSetting, error) {
 	allSetting.MySQLHost = config.GetMySQLHost()
 	allSetting.MySQLPort = config.GetMySQLPort()
 	allSetting.MySQLUser = config.GetMySQLUser()
-	allSetting.MySQLPassword = config.GetMySQLPassword()
+	allSetting.MySQLPassword = ""
 	allSetting.MySQLDBName = config.GetMySQLDBName()
 
 	return allSetting, nil
@@ -779,6 +779,12 @@ func (s *SettingService) GetMySQLDBName() (string, error) {
 	return config.GetMySQLDBName(), nil
 }
 
+// envBackedSettingKeys are never persisted from the panel; they come from the process environment.
+var envBackedSettingKeys = map[string]struct{}{
+	"dbType": {}, "mysqlHost": {}, "mysqlPort": {}, "mysqlUser": {},
+	"mysqlPassword": {}, "mysqlDBName": {},
+}
+
 func (s *SettingService) UpdateAllSetting(allSetting *entity.AllSetting) error {
 	if err := allSetting.CheckValid(); err != nil {
 		return err
@@ -790,6 +796,9 @@ func (s *SettingService) UpdateAllSetting(allSetting *entity.AllSetting) error {
 	errs := make([]error, 0)
 	for _, field := range fields {
 		key := field.Tag.Get("json")
+		if _, skip := envBackedSettingKeys[key]; skip {
+			continue
+		}
 		fieldV := v.FieldByName(field.Name)
 		value := fmt.Sprint(fieldV.Interface())
 		err := s.saveSetting(key, value)

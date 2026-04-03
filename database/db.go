@@ -132,15 +132,27 @@ func isTableEmpty(tableName string) (bool, error) {
 func InitDB(dbPath string) error {
 	dbType = config.GetDBType()
 
-	var gormLogger logger.Interface
-	if config.IsDebug() {
-		gormLogger = logger.Default
-	} else {
-		gormLogger = logger.Discard
-	}
+	var c *gorm.Config
 
-	c := &gorm.Config{
-		Logger: gormLogger,
+	switch dbType {
+	case "mysql":
+		InitMySQLQueryLog(config.GetMySQLQueryLogMax())
+		inner := logger.Discard
+		if config.IsDebug() {
+			inner = logger.Default.LogMode(logger.Info)
+		}
+		rec := newQueryRecordingLogger(inner)
+		c = &gorm.Config{
+			Logger: rec.LogMode(logger.Info),
+		}
+	default:
+		var gormLogger logger.Interface
+		if config.IsDebug() {
+			gormLogger = logger.Default
+		} else {
+			gormLogger = logger.Discard
+		}
+		c = &gorm.Config{Logger: gormLogger}
 	}
 
 	var err error
@@ -220,22 +232,23 @@ func IsMySQL() bool {
 }
 
 type PoolStats struct {
-	DBType            string `json:"dbType"`
-	Host              string `json:"host"`
-	Port              int    `json:"port"`
-	DBName            string `json:"dbName"`
-	MaxOpenConns      int    `json:"maxOpenConns"`
-	OpenConnections   int    `json:"openConnections"`
-	InUse             int    `json:"inUse"`
-	Idle              int    `json:"idle"`
-	WaitCount         int64  `json:"waitCount"`
-	WaitDuration      string `json:"waitDuration"`
-	MaxIdleClosed     int64  `json:"maxIdleClosed"`
-	MaxIdleTimeClosed int64  `json:"maxIdleTimeClosed"`
-	MaxLifetimeClosed int64  `json:"maxLifetimeClosed"`
-	Healthy           bool   `json:"healthy"`
-	PingLatency       string `json:"pingLatency"`
-	PingError         string `json:"pingError,omitempty"`
+	DBType            string          `json:"dbType"`
+	Host              string          `json:"host"`
+	Port              int             `json:"port"`
+	DBName            string          `json:"dbName"`
+	MaxOpenConns      int             `json:"maxOpenConns"`
+	OpenConnections   int             `json:"openConnections"`
+	InUse             int             `json:"inUse"`
+	Idle              int             `json:"idle"`
+	WaitCount         int64           `json:"waitCount"`
+	WaitDuration      string          `json:"waitDuration"`
+	MaxIdleClosed     int64           `json:"maxIdleClosed"`
+	MaxIdleTimeClosed int64           `json:"maxIdleTimeClosed"`
+	MaxLifetimeClosed int64           `json:"maxLifetimeClosed"`
+	Healthy           bool            `json:"healthy"`
+	PingLatency       string          `json:"pingLatency"`
+	PingError         string          `json:"pingError,omitempty"`
+	RecentQueries     []QueryLogEntry `json:"recentQueries,omitempty"`
 }
 
 func GetPoolStats() (*PoolStats, error) {
@@ -277,6 +290,10 @@ func GetPoolStats() (*PoolStats, error) {
 		stats.PingError = pingErr.Error()
 	} else {
 		stats.Healthy = true
+	}
+
+	if IsMySQL() {
+		stats.RecentQueries = QueryLogSnapshot(config.GetMySQLQueryLogMax())
 	}
 
 	return stats, nil

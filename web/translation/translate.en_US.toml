@@ -429,7 +429,7 @@
 "language" = "Language"
 "telegramBotLanguage" = "Telegram Bot Language"
 "dbSettings" = "Database"
-"dbSettingsDesc" = "Database settings are configured via environment variables. To switch to MySQL, set XUI_DB_TYPE=mysql and configure XUI_MYSQL_* variables, then restart the panel."
+"dbSettingsDesc" = "Database settings are configured via environment variables. To switch to MySQL, set XUI_DB_TYPE=mysql and configure XUI_MYSQL_* variables, then restart the panel. The MySQL password is never shown or stored by the panel; use XUI_MYSQL_PASSWORD on the server only."
 "dbType" = "Database Type"
 "dbTypeDesc" = "Current database backend (sqlite or mysql). Set via XUI_DB_TYPE environment variable."
 "mysqlHost" = "MySQL Host"
@@ -452,6 +452,13 @@
 "dbHealthy" = "Healthy"
 "dbUnhealthy" = "Unhealthy"
 "dbRefresh" = "Refresh"
+"dbQueryLogTitle" = "Recent SQL (panel queries)"
+"dbQueryLogEntries" = "entries"
+"dbQueryLogNoEntries" = "No entries yet"
+"dbQueryLogPrivacyTitle" = "Admin-only query log"
+"dbQueryLogWarn" = "SQL may contain sensitive values. Only logged-in admins see this list. Each statement is truncated to 4000 characters."
+"dbQueryLogEmpty" = "No queries recorded yet. Use the panel to generate database traffic."
+"dbQueryLogFailed" = "Failed"
 
 [pages.blockedIps]
 "title" = "Blocked IPs"
