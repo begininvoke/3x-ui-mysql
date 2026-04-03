@@ -358,6 +358,8 @@
 "tgNotifyBackupDesc" = "傳送帶有報告的資料庫備份檔案"
 "tgNotifyLogin" = "登入通知"
 "tgNotifyLoginDesc" = "當有人試圖登入你的面板時顯示使用者名稱、IP 地址和時間"
+"tgOutboundPingNotify" = "出站 ping 告警"
+"tgOutboundPingNotifyDesc" = "每 20 分鐘檢測所有出站（第一次失敗會再試一次）。與上次相比狀態變化時透過 Telegram 通知。"
 "sessionMaxAge" = "會話時長"
 "sessionMaxAgeDesc" = "保持登入狀態的時長（單位：分鐘）"
 "expireTimeDiff" = "到期通知閾值"
@@ -667,6 +669,8 @@
 "idDesc" = "顯示您的 Telegram ID"
 
 [tgbot.messages]
+"outboundPingHeader" = "📶 <b>出站 ping 狀態變化</b>\r\n⏰ {{ .Time }}\r\n\r\n"
+"outboundPingLine" = "• <code>{{ .Tag }}</code>: {{ .Old }} → {{ .New }}\r\n"
 "cpuThreshold" = "🔴 CPU 使用率為 {{ .Percent }}%，超過閾值 {{ .Threshold }}%"
 "selectUserFailed" = "❌ 使用者選擇錯誤！"
 "userSaved" = "✅ 電報使用者已儲存。"

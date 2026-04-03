@@ -358,6 +358,8 @@
 "tgNotifyBackupDesc" = "Kirim berkas cadangan database dengan laporan."
 "tgNotifyLogin" = "Notifikasi Login"
 "tgNotifyLoginDesc" = "Dapatkan notifikasi tentang username, alamat IP, dan waktu setiap kali seseorang mencoba masuk ke panel web Anda."
+"tgOutboundPingNotify" = "Peringatan ping outbound"
+"tgOutboundPingNotifyDesc" = "Setiap 20 menit menguji semua outbound (percobaan kedua jika yang pertama gagal). Pesan Telegram saat status berubah dibandingkan run sebelumnya."
 "sessionMaxAge" = "Durasi Sesi"
 "sessionMaxAgeDesc" = "Durasi di mana Anda dapat tetap masuk. (unit: menit)"
 "expireTimeDiff" = "Notifikasi Tanggal Kedaluwarsa"
@@ -667,6 +669,8 @@
 "idDesc" = "Tampilkan ID Telegram Anda"
 
 [tgbot.messages]
+"outboundPingHeader" = "📶 <b>Outbound ping status changed</b>\r\n⏰ {{ .Time }}\r\n\r\n"
+"outboundPingLine" = "• <code>{{ .Tag }}</code>: {{ .Old }} → {{ .New }}\r\n"
 "cpuThreshold" = "🔴 Beban CPU {{ .Percent }}% melebihi batas {{ .Threshold }}%"
 "selectUserFailed" = "❌ Kesalahan dalam pemilihan pengguna!"
 "userSaved" = "✅ Pengguna Telegram tersimpan."

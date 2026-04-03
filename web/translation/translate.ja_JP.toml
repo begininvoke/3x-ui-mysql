@@ -358,6 +358,8 @@
 "tgNotifyBackupDesc" = "レポート付きのデータベースバックアップファイルを送信"
 "tgNotifyLogin" = "ログイン通知"
 "tgNotifyLoginDesc" = "誰かがパネルにログインしようとしたときに、ユーザー名、IPアドレス、時間を表示する"
+"tgOutboundPingNotify" = "Outbound ping アラート"
+"tgOutboundPingNotifyDesc" = "20分ごとに全アウトバウンドをテスト（最初が失敗したら2回目）。前回実行から状態が変わったら Telegram で通知。"
 "sessionMaxAge" = "セッション期間"
 "sessionMaxAgeDesc" = "ログイン状態を保持する期間（単位：分）"
 "expireTimeDiff" = "有効期限通知のしきい値"
@@ -667,6 +669,8 @@
 "idDesc" = "Telegram IDを表示"
 
 [tgbot.messages]
+"outboundPingHeader" = "📶 <b>Outbound ping status changed</b>\r\n⏰ {{ .Time }}\r\n\r\n"
+"outboundPingLine" = "• <code>{{ .Tag }}</code>: {{ .Old }} → {{ .New }}\r\n"
 "cpuThreshold" = "🔴 CPU使用率は{{ .Percent }}%、しきい値{{ .Threshold }}%を超えました"
 "selectUserFailed" = "❌ ユーザーの選択に失敗しました！"
 "userSaved" = "✅ Telegramユーザーが保存されました。"

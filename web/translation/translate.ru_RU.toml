@@ -358,6 +358,8 @@
 "tgNotifyBackupDesc" = "Отправлять уведомление с файлом резервной копии базы данных"
 "tgNotifyLogin" = "Уведомление о входе"
 "tgNotifyLoginDesc" = "Отображает имя пользователя, IP-адрес и время, когда кто-то пытается войти в вашу панель."
+"tgOutboundPingNotify" = "Уведомления о ping исходящих"
+"tgOutboundPingNotifyDesc" = "Каждые 20 минут проверять все исходящие (вторая попытка, если первая не удалась). Сообщение в Telegram при смене статуса относительно прошлого запуска."
 "sessionMaxAge" = "Продолжительность сессии"
 "sessionMaxAgeDesc" = "Продолжительность сессии в системе (значение: минута)"
 "expireTimeDiff" = "Задержка уведомления об истечении сессии"
@@ -667,6 +669,8 @@
 "idDesc" = "Показать ваш Telegram ID"
 
 [tgbot.messages]
+"outboundPingHeader" = "📶 <b>Изменился статус ping исходящих</b>\r\n⏰ {{ .Time }}\r\n\r\n"
+"outboundPingLine" = "• <code>{{ .Tag }}</code>: {{ .Old }} → {{ .New }}\r\n"
 "cpuThreshold" = "🔴 Загрузка процессора составляет {{ .Percent }}%, что превышает пороговое значение {{ .Threshold }}%"
 "selectUserFailed" = "❌ Ошибка при выборе пользователя."
 "userSaved" = "✅ Пользователь Telegram сохранен."

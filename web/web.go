@@ -383,6 +383,13 @@ func (s *Server) startTask() {
 		if (err == nil) && (cpuThreshold > 0) {
 			s.cron.AddJob("@every 10s", job.NewCheckCpuJob())
 		}
+
+		// Outbound connectivity check every 20 minutes; Telegram alert when status changes (after baseline)
+		if pingNotify, _ := s.settingService.GetTgOutboundPingNotify(); pingNotify {
+			if _, err := s.cron.AddJob("@every 20m", job.NewOutboundPingNotifyJob()); err != nil {
+				logger.Warning("Add OutboundPingNotifyJob error", err)
+			}
+		}
 	} else {
 		s.cron.Remove(entry)
 	}

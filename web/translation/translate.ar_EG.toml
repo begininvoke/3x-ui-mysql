@@ -358,6 +358,8 @@
 "tgNotifyBackupDesc" = "ابعت ملف النسخة الاحتياطية لقاعدة البيانات مع التقرير."
 "tgNotifyLogin" = "إشعار بتسجيل الدخول"
 "tgNotifyLoginDesc" = "استقبل إشعار بكل محاولة تسجيل دخول للبانل مع اسم المستخدم، الـ IP، والوقت."
+"tgOutboundPingNotify" = "تنبيهات ping للمخرجات"
+"tgOutboundPingNotifyDesc" = "كل 20 دقيقة يختبر جميع المخرجات (محاولة ثانية إذا فشلت الأولى). رسالة تيليجرام عند تغيّر الحالة مقارنة بالتشغيل السابق."
 "sessionMaxAge" = "مدة الجلسة"
 "sessionMaxAgeDesc" = "المدة اللي تفضل فيها مسجل دخول. (الوحدة: دقيقة)"
 "expireTimeDiff" = "تنبيه بتاريخ الانتهاء"
@@ -667,6 +669,8 @@
 "idDesc" = "عرض معرف Telegram الخاص بك"
 
 [tgbot.messages]
+"outboundPingHeader" = "📶 <b>Outbound ping status changed</b>\r\n⏰ {{ .Time }}\r\n\r\n"
+"outboundPingLine" = "• <code>{{ .Tag }}</code>: {{ .Old }} → {{ .New }}\r\n"
 "cpuThreshold" = "🔴 حمل المعالج {{ .Percent }}% عدى الحد المسموح ({{ .Threshold }}%)"
 "selectUserFailed" = "❌ حصل خطأ في اختيار المستخدم!"
 "userSaved" = "✅ حفظت بيانات مستخدم Telegram."

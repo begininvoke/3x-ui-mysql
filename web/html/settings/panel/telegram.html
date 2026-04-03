@@ -58,6 +58,13 @@
             </template>
         </a-setting-list-item>
         <a-setting-list-item paddings="small">
+            <template #title>{{ i18n "pages.settings.tgOutboundPingNotify" }}</template>
+            <template #description>{{ i18n "pages.settings.tgOutboundPingNotifyDesc" }}</template>
+            <template #control>
+                <a-switch v-model="allSetting.tgOutboundPingNotify"></a-switch>
+            </template>
+        </a-setting-list-item>
+        <a-setting-list-item paddings="small">
             <template #title>{{ i18n "pages.settings.tgNotifyCpu" }}</template>
             <template #description>{{ i18n "pages.settings.tgNotifyCpuDesc" }}</template>
             <template #control>

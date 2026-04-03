@@ -84,6 +84,8 @@ var defaultValueMap = map[string]string{
 	"externalTrafficInformEnable": "false",
 	"externalTrafficInformURI":    "",
 	"xrayOutboundTestUrl":         "https://www.google.com/generate_204",
+	"tgOutboundPingNotify":        "false",
+	"outboundPingLastStatus":      "{}",
 
 	// Database defaults
 	"dbType":        "sqlite",
@@ -299,6 +301,37 @@ func (s *SettingService) GetXrayOutboundTestUrl() (string, error) {
 
 func (s *SettingService) SetXrayOutboundTestUrl(url string) error {
 	return s.setString("xrayOutboundTestUrl", url)
+}
+
+func (s *SettingService) GetTgOutboundPingNotify() (bool, error) {
+	return s.getBool("tgOutboundPingNotify")
+}
+
+// GetOutboundPingLastStatus returns persisted up/down state per outbound tag (not exposed in AllSetting).
+func (s *SettingService) GetOutboundPingLastStatus() (map[string]bool, error) {
+	raw, err := s.getString("outboundPingLastStatus")
+	if err != nil || strings.TrimSpace(raw) == "" {
+		return map[string]bool{}, nil
+	}
+	var m map[string]bool
+	if err := json.Unmarshal([]byte(raw), &m); err != nil {
+		return map[string]bool{}, nil
+	}
+	if m == nil {
+		return map[string]bool{}, nil
+	}
+	return m, nil
+}
+
+func (s *SettingService) SetOutboundPingLastStatus(m map[string]bool) error {
+	if m == nil {
+		m = map[string]bool{}
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	return s.setString("outboundPingLastStatus", string(b))
 }
 
 func (s *SettingService) GetListen() (string, error) {

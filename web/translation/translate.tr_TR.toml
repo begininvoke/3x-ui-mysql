@@ -358,6 +358,8 @@
 "tgNotifyBackupDesc" = "Bir rapor ile birlikte veritabanı yedek dosyasını gönder."
 "tgNotifyLogin" = "Giriş Bildirimi"
 "tgNotifyLoginDesc" = "Birisi web panelinize giriş yapmaya çalıştığında kullanıcı adı, IP adresi ve zaman hakkında bildirim alın."
+"tgOutboundPingNotify" = "Giden ping uyarıları"
+"tgOutboundPingNotifyDesc" = "Her 20 dakikada tüm gidenleri test eder (ilki başarısızsa ikinci deneme). Önceki çalıştırmaya göre durum değişince Telegram bildirimi."
 "sessionMaxAge" = "Oturum Süresi"
 "sessionMaxAgeDesc" = "Giriş yaptıktan sonra oturum süresi. (birim: dakika)"
 "expireTimeDiff" = "Son Kullanma Tarihi Bildirimi"
@@ -667,6 +669,8 @@
 "idDesc" = "Telegram ID'nizi göster"
 
 [tgbot.messages]
+"outboundPingHeader" = "📶 <b>Outbound ping status changed</b>\r\n⏰ {{ .Time }}\r\n\r\n"
+"outboundPingLine" = "• <code>{{ .Tag }}</code>: {{ .Old }} → {{ .New }}\r\n"
 "cpuThreshold" = "🔴 CPU Yükü {{ .Percent }}% eşiği {{ .Threshold }}%'yi aşıyor"
 "selectUserFailed" = "❌ Kullanıcı seçiminde hata!"
 "userSaved" = "✅ Telegram Kullanıcısı kaydedildi."

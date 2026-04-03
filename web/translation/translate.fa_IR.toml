@@ -358,6 +358,8 @@
 "tgNotifyBackupDesc" = "فایل پشتیبان‌دیتابیس را به‌همراه گزارش ارسال می‌کند"
 "tgNotifyLogin" = "اعلان ورود"
 "tgNotifyLoginDesc" = "نام‌کاربری، آدرس آی‌پی، و زمان ورود، فردی که سعی می‌کند وارد پنل شود را نمایش می‌دهد"
+"tgOutboundPingNotify" = "هشدار ping خروجی"
+"tgOutboundPingNotifyDesc" = "هر ۲۰ دقیقه همه خروجی‌ها را آزمایش می‌کند (در صورت شکست اول، دوباره تلاش می‌کند). در تلگرام هنگام تغییر وضعیت نسبت به اجرای قبل اطلاع می‌دهد."
 "sessionMaxAge" = "بیشینه زمان جلسه وب"
 "sessionMaxAgeDesc" = "(بیشینه زمانی که می‌توانید لاگین بمانید. (واحد: دقیقه"
 "expireTimeDiff" = "آستانه زمان باقی مانده"
@@ -667,6 +669,8 @@
 "idDesc" = "نمایش شناسه تلگرام شما"
 
 [tgbot.messages]
+"outboundPingHeader" = "📶 <b>Outbound ping status changed</b>\r\n⏰ {{ .Time }}\r\n\r\n"
+"outboundPingLine" = "• <code>{{ .Tag }}</code>: {{ .Old }} → {{ .New }}\r\n"
 "cpuThreshold" = "🔴 بار ‌پردازنده {{ .Percent }}% بیشتر از آستانه است {{ .Threshold }}%"
 "selectUserFailed" = "❌ خطا در انتخاب کاربر!"
 "userSaved" = "✅ کاربر تلگرام ذخیره شد."

@@ -358,6 +358,8 @@
 "tgNotifyBackupDesc" = "Bao gồm tệp sao lưu cơ sở dữ liệu với thông báo báo cáo."
 "tgNotifyLogin" = "Thông báo Đăng nhập"
 "tgNotifyLoginDesc" = "Hiển thị tên người dùng, địa chỉ IP và thời gian khi ai đó cố gắng đăng nhập vào bảng điều khiển của bạn."
+"tgOutboundPingNotify" = "Cảnh báo ping outbound"
+"tgOutboundPingNotifyDesc" = "Mỗi 20 phút kiểm tra mọi outbound (thử lại lần 2 nếu lần 1 thất bại). Gửi Telegram khi trạng thái đổi so với lần chạy trước."
 "sessionMaxAge" = "Thời gian tối đa của phiên"
 "sessionMaxAgeDesc" = "Thời gian của phiên đăng nhập (đơn vị: phút)"
 "expireTimeDiff" = "Ngưỡng hết hạn cho thông báo"
@@ -667,6 +669,8 @@
 "idDesc" = "Hiển thị ID Telegram của bạn"
 
 [tgbot.messages]
+"outboundPingHeader" = "📶 <b>Outbound ping status changed</b>\r\n⏰ {{ .Time }}\r\n\r\n"
+"outboundPingLine" = "• <code>{{ .Tag }}</code>: {{ .Old }} → {{ .New }}\r\n"
 "cpuThreshold" = "🔴 Sử dụng CPU {{ .Percent }}% vượt quá ngưỡng {{ .Threshold }}%"
 "selectUserFailed" = "❌ Lỗi khi chọn người dùng!"
 "userSaved" = "✅ Người dùng Telegram đã được lưu."

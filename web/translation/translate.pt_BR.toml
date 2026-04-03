@@ -358,6 +358,8 @@
 "tgNotifyBackupDesc" = "Enviar arquivo de backup do banco de dados junto com o relatório."
 "tgNotifyLogin" = "Notificação de Login"
 "tgNotifyLoginDesc" = "Receba notificações sobre o nome de usuário, endereço IP e horário sempre que alguém tentar fazer login no seu painel web."
+"tgOutboundPingNotify" = "Alertas de ping de outbound"
+"tgOutboundPingNotifyDesc" = "A cada 20 minutos testa todos os outbounds (segunda tentativa se a primeira falhar). Mensagem no Telegram quando o status mudar em relação à execução anterior."
 "sessionMaxAge" = "Duração da Sessão"
 "sessionMaxAgeDesc" = "A duração pela qual você pode permanecer logado. (unidade: minuto)"
 "expireTimeDiff" = "Notificação de Expiração"
@@ -667,6 +669,8 @@
 "idDesc" = "Mostrar seu ID do Telegram"
 
 [tgbot.messages]
+"outboundPingHeader" = "📶 <b>Outbound ping status changed</b>\r\n⏰ {{ .Time }}\r\n\r\n"
+"outboundPingLine" = "• <code>{{ .Tag }}</code>: {{ .Old }} → {{ .New }}\r\n"
 "cpuThreshold" = "🔴 A carga da CPU {{ .Percent }}% excede o limite de {{ .Threshold }}%"
 "selectUserFailed" = "❌ Erro na seleção do usuário!"
 "userSaved" = "✅ Usuário do Telegram salvo."

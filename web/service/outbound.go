@@ -252,6 +252,29 @@ func (s *OutboundService) TestOutbound(outboundJSON string, testURL string, allO
 	}, nil
 }
 
+// CheckOutboundPingWithRetry runs up to two TestOutbound attempts (second after a short delay if the first fails).
+// Returns ok true if any attempt succeeds; otherwise false and the last error detail from the result.
+func (s *OutboundService) CheckOutboundPingWithRetry(outboundJSON, testURL, allOutboundsJSON string) (ok bool, lastDetail string) {
+	lastDetail = ""
+	for attempt := 0; attempt < 2; attempt++ {
+		if attempt > 0 {
+			time.Sleep(3 * time.Second)
+		}
+		res, err := s.TestOutbound(outboundJSON, testURL, allOutboundsJSON)
+		if err != nil {
+			lastDetail = err.Error()
+			continue
+		}
+		if res.Success {
+			return true, ""
+		}
+		if res.Error != "" {
+			lastDetail = res.Error
+		}
+	}
+	return false, lastDetail
+}
+
 // createTestConfig creates a test config by copying all outbounds unchanged and adding
 // only the test inbound (SOCKS) and a route rule that sends traffic to the given outbound tag.
 func (s *OutboundService) createTestConfig(outboundTag string, allOutbounds []any, testPort int) *xray.Config {
