@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mhsanaei/3x-ui/v2/database"
 	"github.com/mhsanaei/3x-ui/v2/logger"
 	"github.com/mhsanaei/3x-ui/v2/web/global"
 	"github.com/mhsanaei/3x-ui/v2/web/service"
@@ -69,6 +70,7 @@ func (a *ServerController) initRouter(g *gin.RouterGroup) {
 	g.POST("/xraylogs/:count", a.getXrayLogs)
 	g.POST("/importDB", a.importDB)
 	g.POST("/getNewEchCert", a.getNewEchCert)
+	g.GET("/dbStatus", a.dbStatus)
 }
 
 // refreshStatus updates the cached server status and collects CPU history.
@@ -460,4 +462,13 @@ func (a *ServerController) getNewmlkem768(c *gin.Context) {
 		return
 	}
 	jsonObj(c, out, nil)
+}
+
+func (a *ServerController) dbStatus(c *gin.Context) {
+	stats, err := database.GetPoolStats()
+	if err != nil {
+		jsonMsg(c, "Failed to get database status", err)
+		return
+	}
+	jsonObj(c, stats, nil)
 }

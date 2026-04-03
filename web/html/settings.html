@@ -132,6 +132,26 @@
       entryProtocol: null,
       entryIsIP: false,
       user: {},
+      dbStatus: {
+        healthy: false,
+        host: '',
+        port: 0,
+        dbName: '',
+        maxOpenConns: 0,
+        openConnections: 0,
+        inUse: 0,
+        idle: 0,
+        waitCount: 0,
+        waitDuration: '0s',
+        maxIdleClosed: 0,
+        maxLifetimeClosed: 0,
+        maxIdleTimeClosed: 0,
+        pingLatency: '-',
+        pingError: '',
+      },
+      dbStatusLoading: false,
+      dbAutoRefresh: true,
+      dbAutoRefreshTimer: null,
       lang: LanguageManager.getLanguage(),
       inboundOptions: [],
       remarkModels: { i: 'Inbound', e: 'Email', o: 'Other' },
@@ -243,6 +263,31 @@
     methods: {
       loading(spinning = true) {
         this.loadingStates.spinning = spinning;
+      },
+      async fetchDbStatus() {
+        this.dbStatusLoading = true;
+        try {
+          const msg = await HttpUtil.get("/panel/api/server/dbStatus");
+          if (msg.success && msg.obj) {
+            this.dbStatus = msg.obj;
+          }
+        } catch (e) {
+          this.dbStatus.healthy = false;
+          this.dbStatus.pingError = e.message || 'Request failed';
+        }
+        this.dbStatusLoading = false;
+      },
+      startDbAutoRefresh() {
+        this.stopDbAutoRefresh();
+        if (this.dbAutoRefresh && this.allSetting.dbType === 'mysql') {
+          this.dbAutoRefreshTimer = setInterval(() => this.fetchDbStatus(), 5000);
+        }
+      },
+      stopDbAutoRefresh() {
+        if (this.dbAutoRefreshTimer) {
+          clearInterval(this.dbAutoRefreshTimer);
+          this.dbAutoRefreshTimer = null;
+        }
       },
       _isIp(h) {
         if (typeof h !== "string") return false;
@@ -628,6 +673,15 @@
         }
       }
     },
+    watch: {
+      dbAutoRefresh(val) {
+        if (val) {
+          this.startDbAutoRefresh();
+        } else {
+          this.stopDbAutoRefresh();
+        }
+      }
+    },
     async mounted() {
       this.entryHost = window.location.hostname;
       this.entryPort = window.location.port;
@@ -635,10 +689,17 @@
       this.entryIsIP = this._isIp(this.entryHost);
       await this.getAllSetting();
       await this.loadInboundTags();
+      if (this.allSetting.dbType === 'mysql') {
+        await this.fetchDbStatus();
+        this.startDbAutoRefresh();
+      }
       while (true) {
         await PromiseUtil.sleep(1000);
         this.saveBtnDisable = this.oldAllSetting.equals(this.allSetting);
       }
+    },
+    beforeDestroy() {
+      this.stopDbAutoRefresh();
     }
   });
 </script>

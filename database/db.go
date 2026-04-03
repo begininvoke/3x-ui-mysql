@@ -219,6 +219,69 @@ func IsMySQL() bool {
 	return dbType == "mysql"
 }
 
+type PoolStats struct {
+	DBType          string `json:"dbType"`
+	Host            string `json:"host"`
+	Port            int    `json:"port"`
+	DBName          string `json:"dbName"`
+	MaxOpenConns    int    `json:"maxOpenConns"`
+	OpenConnections int    `json:"openConnections"`
+	InUse           int    `json:"inUse"`
+	Idle            int    `json:"idle"`
+	WaitCount       int64  `json:"waitCount"`
+	WaitDuration    string `json:"waitDuration"`
+	MaxIdleClosed   int64  `json:"maxIdleClosed"`
+	MaxIdleTimeClosed int64  `json:"maxIdleTimeClosed"`
+	MaxLifetimeClosed int64  `json:"maxLifetimeClosed"`
+	Healthy         bool   `json:"healthy"`
+	PingLatency     string `json:"pingLatency"`
+	PingError       string `json:"pingError,omitempty"`
+}
+
+func GetPoolStats() (*PoolStats, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+
+	stats := &PoolStats{
+		DBType: dbType,
+	}
+
+	if IsMySQL() {
+		stats.Host = config.GetMySQLHost()
+		stats.Port = config.GetMySQLPort()
+		stats.DBName = config.GetMySQLDBName()
+		stats.MaxOpenConns = config.GetMySQLMaxOpenConns()
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get underlying sql.DB: %w", err)
+	}
+
+	dbStats := sqlDB.Stats()
+	stats.OpenConnections = dbStats.OpenConnections
+	stats.InUse = dbStats.InUse
+	stats.Idle = dbStats.Idle
+	stats.WaitCount = dbStats.WaitCount
+	stats.WaitDuration = dbStats.WaitDuration.String()
+	stats.MaxIdleClosed = dbStats.MaxIdleClosed
+	stats.MaxIdleTimeClosed = dbStats.MaxIdleTimeClosed
+	stats.MaxLifetimeClosed = dbStats.MaxLifetimeClosed
+
+	start := time.Now()
+	pingErr := sqlDB.Ping()
+	stats.PingLatency = time.Since(start).String()
+	if pingErr != nil {
+		stats.Healthy = false
+		stats.PingError = pingErr.Error()
+	} else {
+		stats.Healthy = true
+	}
+
+	return stats, nil
+}
+
 // IsNotFound checks if the given error is a GORM record not found error.
 func IsNotFound(err error) bool {
 	return err == gorm.ErrRecordNotFound
