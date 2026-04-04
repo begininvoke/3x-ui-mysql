@@ -593,51 +593,51 @@ func (t *Tgbot) OnReceive() {
 						message_text, _ := t.BuildInboundClientDataMessage(inbound.Remark, inbound.Protocol)
 						t.addClient(message.Chat.ID, message_text)
 					}
-			case "awaiting_comment":
-				if client_Comment == strings.TrimSpace(message.Text) {
-					t.SendMsgToTgbotDeleteAfter(message.Chat.ID, t.I18nBot("tgbot.messages.using_default_value"), 3, tu.ReplyKeyboardRemove())
-					delete(userStates, message.Chat.ID)
-					return nil
-				}
+				case "awaiting_comment":
+					if client_Comment == strings.TrimSpace(message.Text) {
+						t.SendMsgToTgbotDeleteAfter(message.Chat.ID, t.I18nBot("tgbot.messages.using_default_value"), 3, tu.ReplyKeyboardRemove())
+						delete(userStates, message.Chat.ID)
+						return nil
+					}
 
-				client_Comment = strings.TrimSpace(message.Text)
-				t.SendMsgToTgbotDeleteAfter(message.Chat.ID, t.I18nBot("tgbot.messages.received_comment"), 3, tu.ReplyKeyboardRemove())
-				delete(userStates, message.Chat.ID)
-				inbound, _ := t.inboundService.GetInbound(receiver_inbound_ID)
-				message_text, _ := t.BuildInboundClientDataMessage(inbound.Remark, inbound.Protocol)
-				t.addClient(message.Chat.ID, message_text)
-			case "awaiting_balancer_tag":
-				newTag := strings.TrimSpace(message.Text)
-				delete(userStates, message.Chat.ID)
-				if newTag == "" || strings.Contains(newTag, " ") {
-					t.SendMsgToTgbot(message.Chat.ID, t.I18nBot("tgbot.messages.incorrect_input"))
-					return nil
+					client_Comment = strings.TrimSpace(message.Text)
+					t.SendMsgToTgbotDeleteAfter(message.Chat.ID, t.I18nBot("tgbot.messages.received_comment"), 3, tu.ReplyKeyboardRemove())
+					delete(userStates, message.Chat.ID)
+					inbound, _ := t.inboundService.GetInbound(receiver_inbound_ID)
+					message_text, _ := t.BuildInboundClientDataMessage(inbound.Remark, inbound.Protocol)
+					t.addClient(message.Chat.ID, message_text)
+				case "awaiting_balancer_tag":
+					newTag := strings.TrimSpace(message.Text)
+					delete(userStates, message.Chat.ID)
+					if newTag == "" || strings.Contains(newTag, " ") {
+						t.SendMsgToTgbot(message.Chat.ID, t.I18nBot("tgbot.messages.incorrect_input"))
+						return nil
+					}
+					config, err := t.getXrayConfigMap()
+					if err != nil {
+						t.SendMsgToTgbot(message.Chat.ID, t.I18nBot("tgbot.wentWrong"))
+						return nil
+					}
+					if existing, _ := t.findBalancerByTag(config, newTag); existing != nil {
+						t.SendMsgToTgbot(message.Chat.ID, t.I18nBot("tgbot.balancer.tagExists"))
+						return nil
+					}
+					newBalancer := map[string]interface{}{
+						"tag":         newTag,
+						"selector":    []interface{}{},
+						"fallbackTag": "",
+					}
+					balancers := t.getBalancersFromConfig(config)
+					balancers = append(balancers, newBalancer)
+					t.setBalancersInConfig(config, balancers)
+					if err := t.saveXrayConfigMap(config); err != nil {
+						t.SendMsgToTgbot(message.Chat.ID, t.I18nBot("tgbot.wentWrong"))
+						return nil
+					}
+					t.xrayService.SetToNeedRestart()
+					t.SendMsgToTgbotDeleteAfter(message.Chat.ID, t.I18nBot("tgbot.balancer.created", "Tag=="+newTag), 3, tu.ReplyKeyboardRemove())
+					t.sendBalancerDetail(message.Chat.ID, newTag)
 				}
-				config, err := t.getXrayConfigMap()
-				if err != nil {
-					t.SendMsgToTgbot(message.Chat.ID, t.I18nBot("tgbot.wentWrong"))
-					return nil
-				}
-				if existing, _ := t.findBalancerByTag(config, newTag); existing != nil {
-					t.SendMsgToTgbot(message.Chat.ID, t.I18nBot("tgbot.balancer.tagExists"))
-					return nil
-				}
-				newBalancer := map[string]interface{}{
-					"tag":         newTag,
-					"selector":    []interface{}{},
-					"fallbackTag": "",
-				}
-				balancers := t.getBalancersFromConfig(config)
-				balancers = append(balancers, newBalancer)
-				t.setBalancersInConfig(config, balancers)
-				if err := t.saveXrayConfigMap(config); err != nil {
-					t.SendMsgToTgbot(message.Chat.ID, t.I18nBot("tgbot.wentWrong"))
-					return nil
-				}
-				t.xrayService.SetToNeedRestart()
-				t.SendMsgToTgbotDeleteAfter(message.Chat.ID, t.I18nBot("tgbot.balancer.created", "Tag=="+newTag), 3, tu.ReplyKeyboardRemove())
-				t.sendBalancerDetail(message.Chat.ID, newTag)
-			}
 
 			} else {
 				if message.UsersShared != nil {

@@ -136,12 +136,12 @@ func (j *OutboundPingNotifyJob) Run() {
 	outboundPingState.mu.Lock()
 	prev := outboundPingState.last
 	type candidate struct {
-		tag         string
+		tag          string
 		outboundJSON string
-		prevOk      bool
-		prevDelay   int64
-		firstOk     bool
-		firstDelay  int64
+		prevOk       bool
+		prevDelay    int64
+		firstOk      bool
+		firstDelay   int64
 	}
 	var candidates []candidate
 	for tag, cur := range next {
