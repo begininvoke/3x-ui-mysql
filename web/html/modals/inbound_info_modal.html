@@ -298,11 +298,8 @@
                   <a-icon type="question-circle"></a-icon>
                 </a-tooltip>
               </td>
-              <td>
-                <a-alert type="info" show-icon
-                  :style="{ marginBottom: '8px', fontSize: '12px', textAlign: 'left' }"
-                  message='{{ i18n "pages.inbounds.activityCaptureNoDecrypt" }}'></a-alert>
-                <div style="max-height: 220px; overflow-y: auto; text-align: left;">
+              <td style="text-align: left;">
+                <div style="max-height: 240px; overflow-y: auto; text-align: left; margin-bottom: 8px;">
                   <div v-if="infoModal.clientActivities && infoModal.clientActivities.length > 0">
                     <div v-for="(row, idx) in infoModal.clientActivities" :key="idx"
                       style="margin: 4px 0; padding: 4px 6px; border-radius: 4px; background: rgba(0,0,0,0.04); font-family: monospace; font-size: 11px;">
@@ -316,9 +313,11 @@
                       </div>
                     </div>
                   </div>
-                  <a-tag v-else>—</a-tag>
+                  <div v-else style="font-size: 12px; opacity: 0.55; padding: 8px 4px; line-height: 1.45;">
+                    {{ i18n "pages.inbounds.activityLogEmpty" }}
+                  </div>
                 </div>
-                <div style="margin-top: 5px;">
+                <div style="margin-top: 4px;">
                   <a-icon type="sync" :spin="refreshingActivity" @click="refreshClientActivities"
                     :style="{ margin: '0 5px' }"></a-icon>
                   <a-tooltip>
@@ -328,6 +327,19 @@
                     <a-icon type="delete" @click="clearClientActivities"></a-icon>
                   </a-tooltip>
                 </div>
+                <a-collapse :bordered="false" style="margin-top: 10px; background: transparent;">
+                  <a-collapse-panel key="https-note">
+                    <template slot="header">
+                      <span style="font-size: 12px;">
+                        <a-icon type="info-circle" style="margin-right: 6px;"></a-icon>
+                        {{ i18n "pages.inbounds.activityLogHttpsNoteTitle" }}
+                      </span>
+                    </template>
+                    <p style="font-size: 12px; margin: 0; line-height: 1.5; opacity: 0.9;">
+                      {{ i18n "pages.inbounds.activityCaptureNoDecrypt" }}
+                    </p>
+                  </a-collapse-panel>
+                </a-collapse>
               </td>
             </tr>
           </table>
@@ -600,16 +612,21 @@
       </a-modal>
       <script>
   function refreshClientActivities(email) {
-    return HttpUtil.post(`/panel/api/inbounds/clientActivities/${email}?limit=200`).then((msg) => {
-      if (!msg.success || msg.obj == null) {
+    const path = 'panel/api/inbounds/clientActivities/' + encodeURIComponent(email) + '?limit=200';
+    return HttpUtil.post(path).then((msg) => {
+      if (!msg || msg.success === false) {
         return [];
       }
-      return Array.isArray(msg.obj) ? msg.obj : [];
+      const o = msg.obj;
+      if (o == null) {
+        return [];
+      }
+      return Array.isArray(o) ? o : [];
     });
   }
 
   function refreshIPs(email) {
-    return HttpUtil.post(`/panel/api/inbounds/clientIps/${email}`).then((msg) => {
+    return HttpUtil.post('panel/api/inbounds/clientIps/' + encodeURIComponent(email)).then((msg) => {
       if (!msg.success) {
         return { text: 'No IP Record', array: [] };
       }
@@ -850,7 +867,7 @@
           });
       },
       clearClientIps() {
-        HttpUtil.post(`/panel/api/inbounds/clearClientIps/${this.infoModal.clientStats.email}`)
+        HttpUtil.post('panel/api/inbounds/clearClientIps/' + encodeURIComponent(this.infoModal.clientStats.email))
           .then((msg) => {
             if (!msg.success) {
               return;
@@ -896,7 +913,7 @@
         if (!email) {
           return;
         }
-        HttpUtil.post(`/panel/api/inbounds/clearClientActivities/${email}`)
+        HttpUtil.post('panel/api/inbounds/clearClientActivities/' + encodeURIComponent(email))
           .then((msg) => {
             if (!msg.success) {
               return;

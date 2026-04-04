@@ -270,6 +270,8 @@
 "activityLog" = "Activity log"
 "activityLogDesc" = "Recent destinations from the access log (sniffed host/SNI for HTTPS where possible). Paths inside TLS are not visible. Click refresh to load."
 "activityLogClear" = "Clear activity log"
+"activityLogEmpty" = "No activity rows yet. Click refresh after this client generates traffic. Rows load from stored history and the live access log tail."
+"activityLogHttpsNoteTitle" = "Why HTTPS URLs are not shown"
 "activityCaptureNoDecrypt" = "Decrypted HTTPS (full URLs, paths, and response bodies) is not available in this panel or in Xray for normal VPN clients. Only hostnames (e.g. TLS SNI) can appear in logs. True HTTPS inspection needs a TLS MITM proxy and your own CA certificate installed on every user device—that is a separate architecture, not something we can enable per captured user here."
 "setDefaultCert" = "Set Cert from Panel"
 "telegramDesc" = "Please provide Telegram Chat ID. (use '/id' command in the bot) or (@userinfobot)"
