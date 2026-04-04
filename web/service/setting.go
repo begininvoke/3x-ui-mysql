@@ -84,7 +84,7 @@ var defaultValueMap = map[string]string{
 	"externalTrafficInformEnable": "false",
 	"externalTrafficInformURI":    "",
 	"xrayOutboundTestUrl":         "https://www.google.com/generate_204",
-	"tgOutboundPingNotify": "false",
+	"tgOutboundPingNotify":        "false",
 
 	// Database defaults
 	"dbType":        "sqlite",
