@@ -394,45 +394,6 @@
               </td>
             </tr>
           </table>
-          <template
-            v-if="app.subSettings.enable && infoModal.clientSettings.subId">
-            <a-divider>Subscription URL</a-divider>
-            <tr-info-row class="tr-info-row">
-              <tr-info-title class="tr-info-title">
-                <a-tag color="purple">Subscription Link</a-tag>
-                <a-tooltip title='{{ i18n "copy" }}'>
-                  <a-button size="small" icon="snippets"
-                    @click="copy(infoModal.subLink)"></a-button>
-                </a-tooltip>
-              </tr-info-title>
-              <a :href="[[ infoModal.subLink ]]" target="_blank">[[
-                infoModal.subLink ]]</a>
-            </tr-info-row>
-            <tr-info-row class="tr-info-row"
-              v-if="app.subSettings.subJsonEnable">
-              <tr-info-title class="tr-info-title">
-                <a-tag color="purple">Json Link</a-tag>
-                <a-tooltip title='{{ i18n "copy" }}'>
-                  <a-button size="small" icon="snippets"
-                    @click="copy(infoModal.subJsonLink)"></a-button>
-                </a-tooltip>
-              </tr-info-title>
-              <a :href="[[ infoModal.subJsonLink ]]" target="_blank">[[
-                infoModal.subJsonLink ]]</a>
-            </tr-info-row>
-          </template>
-          <template v-if="app.tgBotEnable && infoModal.clientSettings.tgId">
-            <a-divider>Telegram ChatID</a-divider>
-            <tr-info-row class="tr-info-row">
-              <tr-info-title class="tr-info-title">
-                <a-tag color="blue">[[ infoModal.clientSettings.tgId ]]</a-tag>
-                <a-tooltip title='{{ i18n "copy" }}'>
-                  <a-button size="small" icon="snippets"
-                    @click="copy(infoModal.clientSettings.tgId)"></a-button>
-                </a-tooltip>
-              </tr-info-title>
-            </tr-info-row>
-          </template>
           <template v-if="dbInbound.hasLink()">
             <a-divider>URL</a-divider>
             <tr-info-row v-for="(link,index) in infoModal.links"
@@ -446,6 +407,47 @@
                 </a-tooltip>
               </tr-info-title>
               <code>[[ link.link ]]</code>
+            </tr-info-row>
+          </template>
+          <template
+            v-if="app.subSettings.enable && infoModal.clientSettings.subId">
+            <a-divider>{{ i18n "pages.settings.subSettings" }}</a-divider>
+            <tr-info-row class="tr-info-row">
+              <tr-info-title class="tr-info-title">
+                <a-tag color="purple">Subscription</a-tag>
+                <a-tooltip title='{{ i18n "copy" }}'>
+                  <a-button size="small" icon="snippets"
+                    @click="copy(infoModal.subLink)"></a-button>
+                </a-tooltip>
+              </tr-info-title>
+              <a :href="[[ infoModal.subLink ]]" target="_blank"
+                style="word-break: break-all; font-size: 12px;">[[
+                infoModal.subLink ]]</a>
+            </tr-info-row>
+            <tr-info-row class="tr-info-row"
+              v-if="app.subSettings.subJsonEnable">
+              <tr-info-title class="tr-info-title">
+                <a-tag color="blue">JSON</a-tag>
+                <a-tooltip title='{{ i18n "copy" }}'>
+                  <a-button size="small" icon="snippets"
+                    @click="copy(infoModal.subJsonLink)"></a-button>
+                </a-tooltip>
+              </tr-info-title>
+              <a :href="[[ infoModal.subJsonLink ]]" target="_blank"
+                style="word-break: break-all; font-size: 12px;">[[
+                infoModal.subJsonLink ]]</a>
+            </tr-info-row>
+          </template>
+          <template v-if="app.tgBotEnable && infoModal.clientSettings.tgId">
+            <a-divider>Telegram ChatID</a-divider>
+            <tr-info-row class="tr-info-row">
+              <tr-info-title class="tr-info-title">
+                <a-tag color="blue">[[ infoModal.clientSettings.tgId ]]</a-tag>
+                <a-tooltip title='{{ i18n "copy" }}'>
+                  <a-button size="small" icon="snippets"
+                    @click="copy(infoModal.clientSettings.tgId)"></a-button>
+                </a-tooltip>
+              </tr-info-title>
             </tr-info-row>
           </template>
         </template>

@@ -1,0 +1,77 @@
+{{define "modals/subLinksModal"}}
+<a-modal id="sub-links-modal" v-model="subLinksModal.visible" :title="subLinksModal.title" :closable="true"
+    :class="themeSwitcher.currentTheme" width="680px">
+    <div v-if="subLinksModal.entries.length === 0"
+        style="text-align: center; padding: 20px; opacity: 0.5;">
+        No subscription links found
+    </div>
+    <div v-else>
+        <div v-for="(entry, idx) in subLinksModal.entries" :key="idx"
+            style="margin-bottom: 14px; padding: 12px 14px; border-radius: 8px; background: rgba(0,0,0,0.02); border: 1px solid rgba(0,0,0,0.06);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-weight: 600; font-size: 14px; color: rgba(0,0,0,0.85);">[[ entry.name ]]</span>
+                <a-tooltip title='{{ i18n "copy" }}'>
+                    <a-button size="small" icon="snippets" @click="subLinksModal.copyOne(entry)"></a-button>
+                </a-tooltip>
+            </div>
+            <div style="word-break: break-all; font-family: monospace; font-size: 12px; line-height: 1.6; padding: 6px 8px; background: rgba(0,0,0,0.04); border-radius: 4px; user-select: all;">
+                [[ entry.link ]]
+            </div>
+        </div>
+    </div>
+    <template slot="footer">
+        <a-button v-if="!ObjectUtil.isEmpty(subLinksModal.fileName)" icon="download"
+            @click="FileManager.downloadTextFile(subLinksModal.allText(), subLinksModal.fileName)">
+            <span>[[ subLinksModal.fileName ]]</span>
+        </a-button>
+        <a-button type="primary" icon="copy" @click="subLinksModal.copyAll()">
+            <span>{{ i18n "copy" }} All</span>
+        </a-button>
+    </template>
+</a-modal>
+
+<script>
+    const subLinksModal = {
+        title: '',
+        entries: [],
+        fileName: '',
+        visible: false,
+        show: function (title = '', entries = [], fileName = '') {
+            this.title = title;
+            this.entries = entries;
+            this.fileName = fileName;
+            this.visible = true;
+        },
+        allText: function () {
+            return this.entries.map(e => e.name + '\r\n' + e.link).join('\r\n\r\n');
+        },
+        copyOne: function (entry) {
+            const text = entry.name + '\r\n' + entry.link;
+            ClipboardManager
+                .copyText(text)
+                .then(() => {
+                    app.$message.success('{{ i18n "copied" }}')
+                })
+        },
+        copyAll: function () {
+            ClipboardManager
+                .copyText(this.allText())
+                .then(() => {
+                    app.$message.success('{{ i18n "copied" }}')
+                    this.close();
+                })
+        },
+        close: function () {
+            this.visible = false;
+        },
+    };
+
+    const subLinksModalApp = new Vue({
+        delimiters: ['[[', ']]'],
+        el: '#sub-links-modal',
+        data: {
+            subLinksModal: subLinksModal,
+        },
+    });
+</script>
+{{end}}

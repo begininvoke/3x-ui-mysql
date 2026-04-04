@@ -608,6 +608,7 @@
 {{template "modals/inboundInfoModal"}}
 {{template "modals/clientsModal"}}
 {{template "modals/clientsBulkModal"}}
+{{template "modals/subLinksModal"}}
 <script>
   /** Inbounds UI: always append the browser hostname as the last path segment (127.0.0.1, localhost, or any domain — same rule). If hostname is missing, use subAppendRequestHost + subscription URL host. */
   function formatPanelSubscriptionLink(subUri, subId, subAppendRequestHost) {
@@ -1423,6 +1424,17 @@
         clientStats = dbInbound.clientStats.find(stats => stats.email === email);
         return ColorUtils.clientUsageColor(clientStats, app.trafficDiff)
       },
+      getUsageTier(dbInbound, email) {
+        if (email.length == 0) return '';
+        clientStats = dbInbound.clientStats.find(stats => stats.email === email);
+        if (!clientStats || clientStats.total == 0) return '';
+        const pct = (clientStats.up + clientStats.down) / clientStats.total;
+        if (pct >= 1)   return 'usage-full';
+        if (pct >= 0.8) return 'usage-critical';
+        if (pct >= 0.6) return 'usage-high';
+        if (pct >= 0.4) return 'usage-medium';
+        return 'usage-low';
+      },
       statsProgress(dbInbound, email) {
         if (email.length == 0) return 100;
         clientStats = dbInbound.clientStats.find(stats => stats.email === email);
@@ -1441,18 +1453,16 @@
         if (email.length == 0) return '#7a316f';
         clientStats = dbInbound.clientStats.find(stats => stats.email === email);
         if (!clientStats) return '#7a316f';
-        statsColor = ColorUtils.usageColor(clientStats.down + clientStats.up, this.trafficDiff, clientStats.total);
+        const trafficColor = ColorUtils.clientUsageColor(clientStats, this.trafficDiff);
         expColor = ColorUtils.usageColor(new Date().getTime(), this.expireDiff, clientStats.expiryTime);
-        switch (true) {
-          case statsColor == "red" || expColor == "red":
-            return "#cf3c3c"; // Red
-          case statsColor == "orange" || expColor == "orange":
-            return "#f37b24"; // Orange
-          case statsColor == "green" || expColor == "green":
-            return "#008771"; // Green
-          default:
-            return "#7a316f"; // purple
-        }
+        const colorPriority = {
+          "#f5222d": 5, "#fa541c": 4, "#fa8c16": 3, "#a0d911": 2, "#52c41a": 1, "#7a316f": 0,
+          "red": 5, "orange": 3, "green": 1, "purple": 0,
+        };
+        const expHex = { "red": "#f5222d", "orange": "#fa8c16", "green": "#52c41a", "purple": "#7a316f" };
+        const tp = colorPriority[trafficColor] || 0;
+        const ep = colorPriority[expColor] || 0;
+        return tp >= ep ? trafficColor : (expHex[expColor] || trafficColor);
       },
       isClientEnabled(dbInbound, email) {
         clientStats = dbInbound.clientStats ? dbInbound.clientStats.find(stats => stats.email === email) : null;
@@ -1499,18 +1509,22 @@
       exportSubs(dbInboundId) {
         const dbInbound = this.dbInbounds.find(row => row.id === dbInboundId);
         const clients = this.getInboundClients(dbInbound);
-        let subLinks = []
+        let subEntries = [];
+        const seen = new Set();
         if (clients != null) {
           clients.forEach(c => {
-            if (c.subId && c.subId.length > 0) {
-              subLinks.push(formatPanelSubscriptionLink(this.subSettings.subURI, c.subId, this.subSettings.subAppendRequestHost))
+            if (c.subId && c.subId.length > 0 && !seen.has(c.subId)) {
+              seen.add(c.subId);
+              const link = formatPanelSubscriptionLink(this.subSettings.subURI, c.subId, this.subSettings.subAppendRequestHost);
+              const name = c.email || c.subId;
+              subEntries.push({ name, link });
             }
           })
         }
-        txtModal.show(
+        subLinksModal.show(
           '{{ i18n "pages.inbounds.export"}} - {{ i18n "pages.settings.subSettings" }}',
-          [...new Set(subLinks)].join('\n'),
-          dbInbound.remark + "-Subs");
+          subEntries,
+          dbInbound.remark + '-Subs');
       },
       importInbound() {
         promptModal.open({
@@ -1524,20 +1538,24 @@
         });
       },
       exportAllSubs() {
-        let subLinks = []
+        let subEntries = [];
+        const seen = new Set();
         for (const dbInbound of this.dbInbounds) {
           const clients = this.getInboundClients(dbInbound);
           if (clients != null) {
             clients.forEach(c => {
-              if (c.subId && c.subId.length > 0) {
-                subLinks.push(formatPanelSubscriptionLink(this.subSettings.subURI, c.subId, this.subSettings.subAppendRequestHost))
+              if (c.subId && c.subId.length > 0 && !seen.has(c.subId)) {
+                seen.add(c.subId);
+                const link = formatPanelSubscriptionLink(this.subSettings.subURI, c.subId, this.subSettings.subAppendRequestHost);
+                const name = c.email || c.subId;
+                subEntries.push({ name, link });
               }
             })
           }
         }
-        txtModal.show(
+        subLinksModal.show(
           '{{ i18n "pages.inbounds.export"}} - {{ i18n "pages.settings.subSettings" }}',
-          [...new Set(subLinks)].join('\r\n'),
+          subEntries,
           'All-Inbounds-Subs');
       },
       exportAllLinks() {
@@ -1720,4 +1738,16 @@
     },
   });
 </script>
+<style>
+  .usage-low .ant-progress-bg    { background: #52c41a !important; }
+  .usage-medium .ant-progress-bg { background: #a0d911 !important; }
+  .usage-high .ant-progress-bg   { background: #fa8c16 !important; }
+  .usage-critical .ant-progress-bg { background: #fa541c !important; }
+  .usage-full .ant-progress-bg   { background: #f5222d !important; }
+  .dark .usage-low .ant-progress-bg    { background: #52c41a !important; }
+  .dark .usage-medium .ant-progress-bg { background: #a0d911 !important; }
+  .dark .usage-high .ant-progress-bg   { background: #fa8c16 !important; }
+  .dark .usage-critical .ant-progress-bg { background: #fa541c !important; }
+  .dark .usage-full .ant-progress-bg   { background: #f5222d !important; }
+</style>
 {{ template "page/body_end" .}}

@@ -89,8 +89,8 @@
         <td class="tr-table-bar" v-if="!client.enable">
           <a-progress :stroke-color="themeSwitcher.isDarkTheme ? 'rgb(72 84 105)' : '#bcbcbc'" :show-info="false" :percent="statsProgress(record, client.email)" />
         </td>
-        <td class="tr-table-bar" v-else-if="client.totalGB > 0">
-          <a-progress :stroke-color="clientStatsColor(record, client.email)" :show-info="false" :status="isClientDepleted(record, client.email)? 'exception' : ''" :percent="statsProgress(record, client.email)" />
+        <td class="tr-table-bar" v-else-if="client.totalGB > 0" :class="getUsageTier(record, client.email)">
+          <a-progress :stroke-color="clientStatsColor(record, client.email)" :show-info="false" :status="isClientDepleted(record, client.email)? 'exception' : 'normal'" :percent="statsProgress(record, client.email)" />
         </td>
         <td v-else class="infinite-bar tr-table-bar">
           <a-progress :show-info="false" :percent="100"></a-progress>
@@ -183,7 +183,7 @@
           <td width="120px" v-if="!client.enable">
             <a-progress :stroke-color="themeSwitcher.isDarkTheme ? 'rgb(72 84 105)' : '#bcbcbc'" :show-info="false" :percent="statsProgress(record, client.email)" />
           </td>
-          <td width="120px" v-else-if="client.totalGB > 0">
+          <td width="120px" v-else-if="client.totalGB > 0" :class="getUsageTier(record, client.email)">
             <a-popover :overlay-class-name="themeSwitcher.currentTheme">
               <template slot="content" v-if="client.email">
                 <table cellpadding="2" width="100%">
@@ -197,7 +197,7 @@
                   </tr>
                 </table>
               </template>
-              <a-progress :stroke-color="clientStatsColor(record, client.email)" :show-info="false" :status="isClientDepleted(record, client.email)? 'exception' : ''" :percent="statsProgress(record, client.email)" />
+              <a-progress :stroke-color="clientStatsColor(record, client.email)" :show-info="false" :status="isClientDepleted(record, client.email)? 'exception' : 'normal'" :percent="statsProgress(record, client.email)" />
             </a-popover>
           </td>
           <td width="120px" v-else class="infinite-bar">

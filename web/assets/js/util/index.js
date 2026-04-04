@@ -671,12 +671,14 @@ class ColorUtils {
     }
 
     static clientUsageColor(clientStats, trafficDiff) {
-        switch (true) {
-            case !clientStats || clientStats.total == 0: return "#7a316f";
-            case clientStats.up + clientStats.down < clientStats.total - trafficDiff: return "#008771";
-            case clientStats.up + clientStats.down < clientStats.total: return "#f37b24";
-            default: return "#cf3c3c";
-        }
+        if (!clientStats || clientStats.total == 0) return "#7a316f";
+        const used = clientStats.up + clientStats.down;
+        const pct = used / clientStats.total;
+        if (pct >= 1)   return "#f5222d";
+        if (pct >= 0.8) return "#fa541c";
+        if (pct >= 0.6) return "#fa8c16";
+        if (pct >= 0.4) return "#a0d911";
+        return "#52c41a";
     }
 
     static userExpiryColor(threshold, client, isDark = false) {
