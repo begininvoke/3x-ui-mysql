@@ -132,8 +132,18 @@ func (j *OutboundPingNotifyJob) Run() {
 		next[tag] = pingOutcome{ok: okPing, delayMs: delayMs}
 	}
 
+	// First pass: identify tags whose status changed from the previous run.
 	outboundPingState.mu.Lock()
 	prev := outboundPingState.last
+	type candidate struct {
+		tag         string
+		outboundJSON string
+		prevOk      bool
+		prevDelay   int64
+		firstOk     bool
+		firstDelay  int64
+	}
+	var candidates []candidate
 	for tag, cur := range next {
 		p, had := prev[tag]
 		if !had {
@@ -142,14 +152,77 @@ func (j *OutboundPingNotifyJob) Run() {
 		if p.ok == cur.ok {
 			continue
 		}
-		changeTags = append(changeTags, tag)
-		changeOld = append(changeOld, formatPingValue(p.ok, p.delayMs))
-		changeNew = append(changeNew, formatPingValue(cur.ok, cur.delayMs))
+		candidates = append(candidates, candidate{
+			tag: tag, prevOk: p.ok, prevDelay: p.delayMs,
+			firstOk: cur.ok, firstDelay: cur.delayMs,
+		})
 	}
+	outboundPingState.mu.Unlock()
+
+	if len(candidates) == 0 {
+		outboundPingState.mu.Lock()
+		outboundPingState.last = next
+		outboundPingState.mu.Unlock()
+		return
+	}
+
+	// Populate outbound JSON for each candidate so the confirmation pass can re-test them.
+	for _, ob := range rawOutbounds {
+		obMap, ok := ob.(map[string]any)
+		if !ok {
+			continue
+		}
+		tag, _ := obMap["tag"].(string)
+		if tag == "" {
+			continue
+		}
+		for i := range candidates {
+			if candidates[i].tag == tag {
+				oneJSON, err := json.Marshal(obMap)
+				if err == nil {
+					candidates[i].outboundJSON = string(oneJSON)
+				}
+				break
+			}
+		}
+	}
+
+	// Second pass (confirmation): re-check only the changed tags after a delay.
+	logger.Info("outbound ping job: confirming ", len(candidates), " changed tag(s)…")
+	time.Sleep(5 * time.Second)
+
+	for i := range candidates {
+		c := &candidates[i]
+		if c.outboundJSON == "" {
+			continue
+		}
+		okPing, delayMs, _ := j.outboundService.CheckOutboundPingWithRetry(c.outboundJSON, testURL, allStr)
+		// Update next with the confirmation result so stored state reflects the latest.
+		next[c.tag] = pingOutcome{ok: okPing, delayMs: delayMs}
+		// If the confirmation disagrees with the first check (transient blip), drop this candidate.
+		if okPing != c.firstOk {
+			logger.Info("outbound ping job: tag ", c.tag, " reverted on confirmation, skipping alert")
+			c.tag = "" // mark as dropped
+		}
+	}
+
+	// Build final change lists from confirmed candidates only.
+	for _, c := range candidates {
+		if c.tag == "" {
+			continue
+		}
+		confirmed := next[c.tag]
+		changeTags = append(changeTags, c.tag)
+		changeOld = append(changeOld, formatPingValue(c.prevOk, c.prevDelay))
+		changeNew = append(changeNew, formatPingValue(confirmed.ok, confirmed.delayMs))
+	}
+
+	outboundPingState.mu.Lock()
 	outboundPingState.last = next
 	outboundPingState.mu.Unlock()
 
 	if len(changeTags) == 0 {
+		logger.Info("outbound ping job: all changes reverted on confirmation, no alert sent")
 		return
 	}
 

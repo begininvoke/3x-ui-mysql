@@ -31,17 +31,29 @@ type ActivityTrafficRank struct {
 	Total int64  `json:"total"`
 }
 
+// ActivityAccessLogEntry is a single parsed access-log line for the recent access list.
+type ActivityAccessLogEntry struct {
+	Ts       int64  `json:"ts"`
+	From     string `json:"from"`
+	To       string `json:"to"`
+	Email    string `json:"email"`
+	Inbound  string `json:"inbound"`
+	Outbound string `json:"outbound"`
+	Event    string `json:"event"`
+}
+
 // ActivityStatusOverview aggregates captured access-log rows for the status dashboard.
 type ActivityStatusOverview struct {
-	WindowHours        int                   `json:"windowHours"`
-	WindowLabel        string                `json:"windowLabel"`
-	TotalActivityRows  int64                 `json:"totalActivityRows"`
-	DistinctClients    int                   `json:"distinctClients"`
-	TopDestHostnames   []ActivityNamedCount  `json:"topDestHostnames"`
-	TopDestIPs         []ActivityNamedCount  `json:"topDestIps"`
-	TopClientSourceIPs []ActivityNamedCount  `json:"topClientSourceIps"`
-	TopUsersByActivity []ActivityUserRank    `json:"topUsersByActivity"`
-	TopUsersByTraffic  []ActivityTrafficRank `json:"topUsersByTraffic"`
+	WindowHours        int                      `json:"windowHours"`
+	WindowLabel        string                   `json:"windowLabel"`
+	TotalActivityRows  int64                    `json:"totalActivityRows"`
+	DistinctClients    int                      `json:"distinctClients"`
+	TopDestHostnames   []ActivityNamedCount     `json:"topDestHostnames"`
+	TopDestIPs         []ActivityNamedCount     `json:"topDestIps"`
+	TopClientSourceIPs []ActivityNamedCount     `json:"topClientSourceIps"`
+	TopUsersByActivity []ActivityUserRank       `json:"topUsersByActivity"`
+	TopUsersByTraffic  []ActivityTrafficRank    `json:"topUsersByTraffic"`
+	RecentAccessLog    []ActivityAccessLogEntry `json:"recentAccessLog"`
 }
 
 // hostFromActivityAddr extracts host or IP from Xray access "to" / "from" style strings.
@@ -142,6 +154,7 @@ func (s *InboundService) GetActivityStatusOverview(hours int) (*ActivityStatusOv
 		TopClientSourceIPs: []ActivityNamedCount{},
 		TopUsersByActivity: []ActivityUserRank{},
 		TopUsersByTraffic:  []ActivityTrafficRank{},
+		RecentAccessLog:    []ActivityAccessLogEntry{},
 	}
 
 	// Prefer live access-log tail so Network insights reflects all clients in the log, not only
@@ -232,6 +245,25 @@ func (s *InboundService) GetActivityStatusOverview(hours int) (*ActivityStatusOv
 				Email:         r.Email,
 				ActivityCount: r.Cnt,
 			})
+		}
+
+		var dbRows []model.ClientActivity
+		qRecent := db.Model(&model.ClientActivity{}).Order("ts DESC").Limit(500)
+		if since > 0 {
+			qRecent = qRecent.Where("ts >= ?", since)
+		}
+		if err := qRecent.Find(&dbRows).Error; err == nil {
+			for _, r := range dbRows {
+				out.RecentAccessLog = append(out.RecentAccessLog, ActivityAccessLogEntry{
+					Ts:       r.Ts,
+					From:     r.FromAddr,
+					To:       r.ToAddr,
+					Email:    r.ClientEmail,
+					Inbound:  r.InboundTag,
+					Outbound: r.OutboundTag,
+					Event:    r.Event,
+				})
+			}
 		}
 	}
 

@@ -29,7 +29,16 @@ func TryFillActivityOverviewFromAccessLog(out *ActivityStatusOverview, sinceUnix
 	if _, err := os.Stat(path); err != nil {
 		return false
 	}
-	total, distinct, hostAgg, ipAgg, fromAgg, userAgg, err := aggregateAccessLogOverview(path, accessLogOverviewMaxTail, sinceUnix)
+
+	var settingService SettingService
+	tpl, terr := settingService.GetXrayConfigTemplate()
+	var cfgMap map[string]any
+	if terr == nil && tpl != "" {
+		_ = json.Unmarshal([]byte(tpl), &cfgMap)
+	}
+	freedoms, blackholes := FreedomBlackholeTagsFromDefaultXrayConfig(cfgMap)
+
+	total, distinct, hostAgg, ipAgg, fromAgg, userAgg, recentEntries, err := aggregateAccessLogOverview(path, accessLogOverviewMaxTail, sinceUnix, freedoms, blackholes)
 	if err != nil {
 		return false
 	}
@@ -38,6 +47,7 @@ func TryFillActivityOverviewFromAccessLog(out *ActivityStatusOverview, sinceUnix
 	out.TopDestHostnames = topNamedCounts(hostAgg, 30)
 	out.TopDestIPs = topNamedCounts(ipAgg, 30)
 	out.TopClientSourceIPs = topNamedCounts(fromAgg, 30)
+	out.RecentAccessLog = recentEntries
 
 	type rank struct {
 		email string
@@ -69,13 +79,16 @@ func TryFillActivityOverviewFromAccessLog(out *ActivityStatusOverview, sinceUnix
 	return true
 }
 
-func aggregateAccessLogOverview(path string, maxTail int64, sinceUnix int64) (
+const recentAccessLogLimit = 500
+
+func aggregateAccessLogOverview(path string, maxTail int64, sinceUnix int64, freedoms, blackholes []string) (
 	total int64,
 	distinct int,
 	hostAgg map[string]int64,
 	ipAgg map[string]int64,
 	fromAgg map[string]int64,
 	userAgg map[string]int64,
+	recentEntries []ActivityAccessLogEntry,
 	err error,
 ) {
 	hostAgg = make(map[string]int64)
@@ -83,15 +96,16 @@ func aggregateAccessLogOverview(path string, maxTail int64, sinceUnix int64) (
 	fromAgg = make(map[string]int64)
 	userAgg = make(map[string]int64)
 	uniqueEmails := make(map[string]struct{})
+	recentEntries = make([]ActivityAccessLogEntry, 0, recentAccessLogLimit)
 
 	f, err := os.Open(path)
 	if err != nil {
-		return 0, 0, nil, nil, nil, nil, err
+		return 0, 0, nil, nil, nil, nil, nil, err
 	}
 	defer f.Close()
 	st, err := f.Stat()
 	if err != nil {
-		return 0, 0, nil, nil, nil, nil, err
+		return 0, 0, nil, nil, nil, nil, nil, err
 	}
 	size := st.Size()
 	start := int64(0)
@@ -99,7 +113,7 @@ func aggregateAccessLogOverview(path string, maxTail int64, sinceUnix int64) (
 		start = size - maxTail
 	}
 	if _, err = f.Seek(start, io.SeekStart); err != nil {
-		return 0, 0, nil, nil, nil, nil, err
+		return 0, 0, nil, nil, nil, nil, nil, err
 	}
 	br := bufio.NewReader(f)
 	if start > 0 {
@@ -128,6 +142,15 @@ func aggregateAccessLogOverview(path string, maxTail int64, sinceUnix int64) (
 						userAgg[entry.Email]++
 						uniqueEmails[entry.Email] = struct{}{}
 					}
+					recentEntries = append(recentEntries, ActivityAccessLogEntry{
+						Ts:       ts,
+						From:     entry.FromAddress,
+						To:       entry.ToAddress,
+						Email:    entry.Email,
+						Inbound:  entry.Inbound,
+						Outbound: entry.Outbound,
+						Event:    AccessLogEventKind(line, freedoms, blackholes),
+					})
 				}
 			}
 		}
@@ -135,10 +158,18 @@ func aggregateAccessLogOverview(path string, maxTail int64, sinceUnix int64) (
 			break
 		}
 		if rerr != nil {
-			return total, len(uniqueEmails), hostAgg, ipAgg, fromAgg, userAgg, rerr
+			return total, len(uniqueEmails), hostAgg, ipAgg, fromAgg, userAgg, recentEntries, rerr
 		}
 	}
-	return total, len(uniqueEmails), hostAgg, ipAgg, fromAgg, userAgg, nil
+	// Keep only the most recent entries (tail)
+	if len(recentEntries) > recentAccessLogLimit {
+		recentEntries = recentEntries[len(recentEntries)-recentAccessLogLimit:]
+	}
+	// Reverse so newest entries come first
+	for i, j := 0, len(recentEntries)-1; i < j; i, j = i+1, j-1 {
+		recentEntries[i], recentEntries[j] = recentEntries[j], recentEntries[i]
+	}
+	return total, len(uniqueEmails), hostAgg, ipAgg, fromAgg, userAgg, recentEntries, nil
 }
 
 // ClientActivitiesFromAccessLogTail returns recent access-log rows for one email by scanning

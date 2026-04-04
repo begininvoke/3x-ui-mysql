@@ -17,19 +17,21 @@
     display: flex; align-items: center; gap: 14px; padding: 4px 0;
   }
   .network-insights-page .stat-icon-wrap {
-    width: 44px; height: 44px; border-radius: 12px;
+    width: 48px; height: 48px; border-radius: 14px;
     display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0; font-size: 20px;
+    flex-shrink: 0; font-size: 22px;
   }
   .network-insights-page .stat-icon-wrap.blue { background: rgba(24,144,255,0.1); color: #1890ff; }
   .network-insights-page .stat-icon-wrap.green { background: rgba(82,196,26,0.1); color: #52c41a; }
   .network-insights-page .stat-icon-wrap.orange { background: rgba(250,140,22,0.12); color: #fa8c16; }
+  .network-insights-page .stat-icon-wrap.purple { background: rgba(114,46,209,0.1); color: #722ed1; }
   .network-insights-page.dark .stat-icon-wrap.blue { background: rgba(24,144,255,0.15); color: #40a9ff; }
   .network-insights-page.dark .stat-icon-wrap.green { background: rgba(82,196,26,0.15); color: #73d13d; }
   .network-insights-page.dark .stat-icon-wrap.orange { background: rgba(250,140,22,0.15); color: #ffc069; }
+  .network-insights-page.dark .stat-icon-wrap.purple { background: rgba(114,46,209,0.15); color: #b37feb; }
 
   .network-insights-page .stat-val {
-    font-size: 22px; font-weight: 700; line-height: 1.2;
+    font-size: 24px; font-weight: 700; line-height: 1.2;
     color: rgba(0,0,0,0.85);
   }
   .network-insights-page.dark .stat-val { color: rgba(255,255,255,0.85); }
@@ -43,15 +45,14 @@
   .network-insights-page.dark .stat-sub { color: rgba(255,255,255,0.3); }
 
   .network-insights-page .filter-row {
-    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
   }
-  .network-insights-page .filter-row > * { flex: 1; min-width: 140px; }
-  @media (max-width: 576px) {
-    .network-insights-page .filter-row > * { min-width: 100px; }
-  }
+  .network-insights-page .filter-row > .ant-select { min-width: 140px; }
+  .network-insights-page .filter-row > .ant-input-search { flex: 1; min-width: 180px; max-width: 320px; }
 
   .network-insights-page .section-label {
-    font-size: 13px; font-weight: 600; color: rgba(0,0,0,0.75); margin: 16px 0 10px;
+    font-size: 14px; font-weight: 600; color: rgba(0,0,0,0.75); margin: 18px 0 10px;
+    display: flex; align-items: center; gap: 8px;
   }
   .network-insights-page.dark .section-label { color: rgba(255,255,255,0.75); }
   .network-insights-page .section-hint {
@@ -113,6 +114,27 @@
     color: #40a9ff !important;
     border-color: #40a9ff !important;
   }
+
+  .network-insights-page .event-tag-proxied { color: #1890ff; }
+  .network-insights-page .event-tag-direct { color: #52c41a; }
+  .network-insights-page .event-tag-blocked { color: #f5222d; }
+
+  .network-insights-page .tab-bar {
+    display: flex; gap: 0; border-bottom: 1px solid rgba(0,0,0,0.06); margin-bottom: 16px;
+  }
+  .network-insights-page.dark .tab-bar { border-bottom-color: rgba(255,255,255,0.08); }
+  .network-insights-page .tab-bar-item {
+    padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 500;
+    color: rgba(0,0,0,0.45); border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .network-insights-page.dark .tab-bar-item { color: rgba(255,255,255,0.4); }
+  .network-insights-page .tab-bar-item:hover { color: rgba(0,0,0,0.75); }
+  .network-insights-page.dark .tab-bar-item:hover { color: rgba(255,255,255,0.7); }
+  .network-insights-page .tab-bar-item.active {
+    color: #1890ff; border-bottom-color: #1890ff;
+  }
+  .network-insights-page.dark .tab-bar-item.active { color: #40a9ff; border-bottom-color: #40a9ff; }
 </style>
 {{ template "page/body_start" .}}
 <a-layout id="app" v-cloak :class="themeSwitcher.currentTheme + ' network-insights-page'">
@@ -128,19 +150,20 @@
               </a-card>
             </a-row>
             <a-row key="network-insights-main" :gutter="[isMobile ? 8 : 16, isMobile ? 8 : 12]" v-else>
-              <a-col :xs="24" :sm="8">
+              <!-- Stat cards -->
+              <a-col :xs="12" :sm="6">
                 <a-card hoverable>
                   <div class="stat-box">
                     <div class="stat-icon-wrap blue"><a-icon type="database"></a-icon></div>
                     <div>
-                      <div class="stat-val">[[ overview.totalActivityRows != null ? overview.totalActivityRows : '—' ]]</div>
+                      <div class="stat-val">[[ overview.totalActivityRows != null ? overview.totalActivityRows.toLocaleString() : '—' ]]</div>
                       <div class="stat-lbl">{{ i18n "pages.networkInsights.totalRows" }}</div>
                       <div class="stat-sub" v-if="overview.windowLabel">[[ overview.windowLabel ]]</div>
                     </div>
                   </div>
                 </a-card>
               </a-col>
-              <a-col :xs="12" :sm="8">
+              <a-col :xs="12" :sm="6">
                 <a-card hoverable>
                   <div class="stat-box">
                     <div class="stat-icon-wrap green"><a-icon type="team"></a-icon></div>
@@ -151,7 +174,7 @@
                   </div>
                 </a-card>
               </a-col>
-              <a-col :xs="12" :sm="8">
+              <a-col :xs="12" :sm="6">
                 <a-card hoverable>
                   <div class="stat-box">
                     <div class="stat-icon-wrap orange"><a-icon type="line-chart"></a-icon></div>
@@ -162,7 +185,19 @@
                   </div>
                 </a-card>
               </a-col>
+              <a-col :xs="12" :sm="6">
+                <a-card hoverable>
+                  <div class="stat-box">
+                    <div class="stat-icon-wrap purple"><a-icon type="file-text"></a-icon></div>
+                    <div>
+                      <div class="stat-val">[[ recentLogCount ]]</div>
+                      <div class="stat-lbl">{{ i18n "pages.networkInsights.recentLogEntries" }}</div>
+                    </div>
+                  </div>
+                </a-card>
+              </a-col>
 
+              <!-- Main card with tabs -->
               <a-col :xs="24">
                 <a-card hoverable>
                   <template slot="title">
@@ -173,6 +208,13 @@
                   </template>
                   <template slot="extra">
                     <a-space>
+                      <a-select v-model="hours" size="small" @change="fetchData" style="min-width:110px"
+                        :dropdown-class-name="themeSwitcher.currentTheme">
+                        <a-select-option :value="24">{{ i18n "pages.networkInsights.hours24" }}</a-select-option>
+                        <a-select-option :value="168">{{ i18n "pages.networkInsights.hours168" }}</a-select-option>
+                        <a-select-option :value="720">{{ i18n "pages.networkInsights.hours720" }}</a-select-option>
+                        <a-select-option :value="0">{{ i18n "pages.networkInsights.allTime" }}</a-select-option>
+                      </a-select>
                       <a-tooltip title="{{ i18n "pages.networkInsights.refresh" }}">
                         <a-button size="small" shape="circle" icon="sync"
                           @click="fetchData" :loading="refreshing" />
@@ -180,79 +222,136 @@
                     </a-space>
                   </template>
 
-                  <div class="filter-row">
-                    <a-select v-model="hours" size="small" @change="fetchData"
-                      :dropdown-class-name="themeSwitcher.currentTheme">
-                      <a-select-option :value="24">{{ i18n "pages.networkInsights.hours24" }}</a-select-option>
-                      <a-select-option :value="168">{{ i18n "pages.networkInsights.hours168" }}</a-select-option>
-                      <a-select-option :value="720">{{ i18n "pages.networkInsights.hours720" }}</a-select-option>
-                      <a-select-option :value="0">{{ i18n "pages.networkInsights.allTime" }}</a-select-option>
-                    </a-select>
-                  </div>
-
                   <a-alert v-if="loadError" type="error" show-icon closable @close="loadError = ''"
                     :message="loadError" style="margin-bottom:12px"></a-alert>
-                  <a-alert type="info" show-icon
-                    message="{{ i18n "pages.networkInsights.dataNote" }}"
-                    style="font-size:12px;margin-bottom:16px"></a-alert>
 
-                  <div class="section-label">{{ i18n "pages.networkInsights.topByTraffic" }}</div>
-                  <p class="section-hint">{{ i18n "pages.networkInsights.trafficHint" }}</p>
-                  <a-table v-if="(overview.topUsersByTraffic || []).length" :columns="colsTraffic"
-                    :data-source="overview.topUsersByTraffic" :pagination="trafficPagination" size="small" row-key="email"
-                    :scroll="isMobile ? { x: 420 } : {}">
-                  </a-table>
-                  <div v-else class="empty-box" style="padding:24px 12px">
-                    <div class="empty-box-icon"><a-icon type="pie-chart"></a-icon></div>
-                    <div class="empty-box-title">{{ i18n "pages.networkInsights.noTrafficYet" }}</div>
+                  <!-- Tab bar -->
+                  <div class="tab-bar">
+                    <div class="tab-bar-item" :class="{ active: activeTab === 'accessLog' }"
+                      @click="activeTab = 'accessLog'">
+                      <a-icon type="unordered-list" /> {{ i18n "pages.networkInsights.tabAccessLog" }}
+                    </div>
+                    <div class="tab-bar-item" :class="{ active: activeTab === 'traffic' }"
+                      @click="activeTab = 'traffic'">
+                      <a-icon type="bar-chart" /> {{ i18n "pages.networkInsights.topByTraffic" }}
+                    </div>
+                    <div class="tab-bar-item" :class="{ active: activeTab === 'activity' }"
+                      @click="activeTab = 'activity'">
+                      <a-icon type="cluster" /> {{ i18n "pages.networkInsights.sectionActivity" }}
+                    </div>
                   </div>
 
-                  <a-divider style="margin:20px 0 12px"></a-divider>
-                  <div class="section-label">{{ i18n "pages.networkInsights.sectionActivity" }}</div>
-                  <p class="section-hint">{{ i18n "pages.networkInsights.activityWindowHint" }}</p>
+                  <!-- Tab: Access Log -->
+                  <div v-show="activeTab === 'accessLog'">
+                    <div class="filter-row" style="margin-bottom:14px">
+                      <a-input-search
+                        v-model="logSearch"
+                        :placeholder="'{{ i18n "pages.networkInsights.searchAccessLog" }}'"
+                        size="small"
+                        allow-clear />
+                      <a-select v-model="logEventFilter" size="small" style="min-width:120px"
+                        :dropdown-class-name="themeSwitcher.currentTheme">
+                        <a-select-option value="all">{{ i18n "pages.networkInsights.allEvents" }}</a-select-option>
+                        <a-select-option value="proxied">{{ i18n "pages.networkInsights.eventProxied" }}</a-select-option>
+                        <a-select-option value="direct">{{ i18n "pages.networkInsights.eventDirect" }}</a-select-option>
+                        <a-select-option value="blocked">{{ i18n "pages.networkInsights.eventBlocked" }}</a-select-option>
+                      </a-select>
+                    </div>
 
-                  <a-row :gutter="[isMobile ? 8 : 12, 12]">
-                    <a-col :xs="24" :lg="12">
-                      <div style="font-size:12px;font-weight:600;margin-bottom:8px;opacity:0.75">{{ i18n "pages.networkInsights.topHostnames" }}</div>
-                      <a-table v-if="(overview.topDestHostnames || []).length" :columns="colsHost"
-                        :data-source="overview.topDestHostnames" :pagination="false" size="small" row-key="name"
-                        :scroll="isMobile ? { x: 280 } : {}">
-                      </a-table>
-                      <div v-else class="empty-box" style="padding:20px 8px">
-                        <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
-                      </div>
-                    </a-col>
-                    <a-col :xs="24" :lg="12">
-                      <div style="font-size:12px;font-weight:600;margin-bottom:8px;opacity:0.75">{{ i18n "pages.networkInsights.topDestIps" }}</div>
-                      <a-table v-if="(overview.topDestIps || []).length" :columns="colsHost"
-                        :data-source="overview.topDestIps" :pagination="false" size="small" row-key="name"
-                        :scroll="isMobile ? { x: 280 } : {}">
-                      </a-table>
-                      <div v-else class="empty-box" style="padding:20px 8px">
-                        <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
-                      </div>
-                    </a-col>
-                    <a-col :xs="24" :lg="12">
-                      <div style="font-size:12px;font-weight:600;margin-bottom:8px;opacity:0.75">{{ i18n "pages.networkInsights.topSourceIps" }}</div>
-                      <a-table v-if="(overview.topClientSourceIps || []).length" :columns="colsHost"
-                        :data-source="overview.topClientSourceIps" :pagination="false" size="small" row-key="name"
-                        :scroll="isMobile ? { x: 280 } : {}">
-                      </a-table>
-                      <div v-else class="empty-box" style="padding:20px 8px">
-                        <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
-                      </div>
-                    </a-col>
-                    <a-col :xs="24" :lg="12">
-                      <div style="font-size:12px;font-weight:600;margin-bottom:8px;opacity:0.75">{{ i18n "pages.networkInsights.topByActivity" }}</div>
-                      <a-table v-if="(overview.topUsersByActivity || []).length" :columns="colsUserAct"
-                        :data-source="overview.topUsersByActivity" :pagination="false" size="small" row-key="email"
-                        :scroll="isMobile ? { x: 320 } : {}">
-                      </a-table>
-                      <div v-else class="empty-box" style="padding:20px 8px">
-                        <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
-                      </div>
-                    </a-col>
-                  </a-row>
+                    <a-alert type="info" show-icon
+                      message="{{ i18n "pages.networkInsights.accessLogNote" }}"
+                      style="font-size:12px;margin-bottom:14px"></a-alert>
+
+                    <a-table v-if="filteredAccessLog.length" :columns="colsAccessLog"
+                      :data-source="filteredAccessLog" :pagination="accessLogPagination" size="small"
+                      row-key="_idx"
+                      :scroll="isMobile ? { x: 700 } : {}">
+                      <template slot="ts" slot-scope="text">
+                        <span class="mono-cell">[[ formatLogTs(text) ]]</span>
+                      </template>
+                      <template slot="event" slot-scope="text">
+                        <a-tag v-if="text === 'proxied'" color="blue" style="margin:0">Proxied</a-tag>
+                        <a-tag v-else-if="text === 'direct'" color="green" style="margin:0">Direct</a-tag>
+                        <a-tag v-else-if="text === 'blocked'" color="red" style="margin:0">Blocked</a-tag>
+                        <a-tag v-else style="margin:0">[[ text || '—' ]]</a-tag>
+                      </template>
+                      <template slot="from" slot-scope="text">
+                        <span class="mono-cell">[[ text || '—' ]]</span>
+                      </template>
+                      <template slot="to" slot-scope="text">
+                        <span class="mono-cell">[[ text || '—' ]]</span>
+                      </template>
+                      <template slot="email" slot-scope="text">
+                        <span class="mono-cell">[[ text || '—' ]]</span>
+                      </template>
+                    </a-table>
+                    <div v-else class="empty-box">
+                      <div class="empty-box-icon"><a-icon type="file-search"></a-icon></div>
+                      <div class="empty-box-title">{{ i18n "pages.networkInsights.noAccessLogEntries" }}</div>
+                      <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
+                    </div>
+                  </div>
+
+                  <!-- Tab: Traffic -->
+                  <div v-show="activeTab === 'traffic'">
+                    <p class="section-hint">{{ i18n "pages.networkInsights.trafficHint" }}</p>
+                    <a-table v-if="(overview.topUsersByTraffic || []).length" :columns="colsTraffic"
+                      :data-source="overview.topUsersByTraffic" :pagination="trafficPagination" size="small" row-key="email"
+                      :scroll="isMobile ? { x: 420 } : {}">
+                    </a-table>
+                    <div v-else class="empty-box" style="padding:24px 12px">
+                      <div class="empty-box-icon"><a-icon type="pie-chart"></a-icon></div>
+                      <div class="empty-box-title">{{ i18n "pages.networkInsights.noTrafficYet" }}</div>
+                    </div>
+                  </div>
+
+                  <!-- Tab: Activity -->
+                  <div v-show="activeTab === 'activity'">
+                    <p class="section-hint">{{ i18n "pages.networkInsights.activityWindowHint" }}</p>
+
+                    <a-row :gutter="[isMobile ? 8 : 12, 12]">
+                      <a-col :xs="24" :lg="12">
+                        <div class="section-label"><a-icon type="cloud" /> {{ i18n "pages.networkInsights.topHostnames" }}</div>
+                        <a-table v-if="(overview.topDestHostnames || []).length" :columns="colsHost"
+                          :data-source="overview.topDestHostnames" :pagination="false" size="small" row-key="name"
+                          :scroll="isMobile ? { x: 280 } : {}">
+                        </a-table>
+                        <div v-else class="empty-box" style="padding:20px 8px">
+                          <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
+                        </div>
+                      </a-col>
+                      <a-col :xs="24" :lg="12">
+                        <div class="section-label"><a-icon type="api" /> {{ i18n "pages.networkInsights.topDestIps" }}</div>
+                        <a-table v-if="(overview.topDestIps || []).length" :columns="colsHost"
+                          :data-source="overview.topDestIps" :pagination="false" size="small" row-key="name"
+                          :scroll="isMobile ? { x: 280 } : {}">
+                        </a-table>
+                        <div v-else class="empty-box" style="padding:20px 8px">
+                          <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
+                        </div>
+                      </a-col>
+                      <a-col :xs="24" :lg="12">
+                        <div class="section-label"><a-icon type="laptop" /> {{ i18n "pages.networkInsights.topSourceIps" }}</div>
+                        <a-table v-if="(overview.topClientSourceIps || []).length" :columns="colsHost"
+                          :data-source="overview.topClientSourceIps" :pagination="false" size="small" row-key="name"
+                          :scroll="isMobile ? { x: 280 } : {}">
+                        </a-table>
+                        <div v-else class="empty-box" style="padding:20px 8px">
+                          <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
+                        </div>
+                      </a-col>
+                      <a-col :xs="24" :lg="12">
+                        <div class="section-label"><a-icon type="user" /> {{ i18n "pages.networkInsights.topByActivity" }}</div>
+                        <a-table v-if="(overview.topUsersByActivity || []).length" :columns="colsUserAct"
+                          :data-source="overview.topUsersByActivity" :pagination="false" size="small" row-key="email"
+                          :scroll="isMobile ? { x: 320 } : {}">
+                        </a-table>
+                        <div v-else class="empty-box" style="padding:20px 8px">
+                          <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
+                        </div>
+                      </a-col>
+                    </a-row>
+                  </div>
                 </a-card>
               </a-col>
             </a-row>
@@ -285,27 +384,54 @@
       { title: '{{ i18n "pages.networkInsights.email" }}', dataIndex: 'email', key: 'email', ellipsis: true, className: 'mono-cell' },
       {
         title: '{{ i18n "pages.networkInsights.upload" }}',
-        dataIndex: 'up',
-        key: 'up',
-        width: 110,
-        align: 'right',
+        dataIndex: 'up', key: 'up', width: 110, align: 'right',
         customRender: function (text) { return niFmtBytes(text); },
       },
       {
         title: '{{ i18n "pages.networkInsights.download" }}',
-        dataIndex: 'down',
-        key: 'down',
-        width: 110,
-        align: 'right',
+        dataIndex: 'down', key: 'down', width: 110, align: 'right',
         customRender: function (text) { return niFmtBytes(text); },
       },
       {
         title: '{{ i18n "pages.networkInsights.traffic" }}',
-        dataIndex: 'total',
-        key: 'total',
-        width: 120,
-        align: 'right',
+        dataIndex: 'total', key: 'total', width: 120, align: 'right',
         customRender: function (text) { return niFmtBytes(text); },
+      },
+    ];
+
+    var colsAccessLog = [
+      {
+        title: '{{ i18n "pages.networkInsights.colTime" }}',
+        dataIndex: 'ts', key: 'ts', width: 160,
+        scopedSlots: { customRender: 'ts' },
+        sorter: function (a, b) { return a.ts - b.ts; },
+        defaultSortOrder: 'descend',
+      },
+      {
+        title: '{{ i18n "pages.networkInsights.colEvent" }}',
+        dataIndex: 'event', key: 'event', width: 90,
+        scopedSlots: { customRender: 'event' },
+        filters: [
+          { text: 'Proxied', value: 'proxied' },
+          { text: 'Direct', value: 'direct' },
+          { text: 'Blocked', value: 'blocked' },
+        ],
+        onFilter: function (value, record) { return record.event === value; },
+      },
+      {
+        title: '{{ i18n "pages.networkInsights.email" }}',
+        dataIndex: 'email', key: 'email', ellipsis: true,
+        scopedSlots: { customRender: 'email' },
+      },
+      {
+        title: '{{ i18n "pages.networkInsights.colFrom" }}',
+        dataIndex: 'from', key: 'from', ellipsis: true,
+        scopedSlots: { customRender: 'from' },
+      },
+      {
+        title: '{{ i18n "pages.networkInsights.colTo" }}',
+        dataIndex: 'to', key: 'to', ellipsis: true,
+        scopedSlots: { customRender: 'to' },
       },
     ];
 
@@ -319,7 +445,10 @@
         fetched: false,
         refreshing: false,
         loadError: '',
-        hours: 168,
+        hours: 24,
+        activeTab: 'accessLog',
+        logSearch: '',
+        logEventFilter: 'all',
         overview: {},
         colsHost: [
           { title: '{{ i18n "pages.inbounds.address" }}', dataIndex: 'name', key: 'name', ellipsis: true, className: 'mono-cell' },
@@ -330,15 +459,48 @@
           { title: '{{ i18n "pages.networkInsights.count" }}', dataIndex: 'activityCount', key: 'activityCount', width: 100 },
         ],
         colsTraffic: colsTraffic,
+        colsAccessLog: colsAccessLog,
         trafficPagination: { pageSize: 15, hideOnSinglePage: true, size: 'small' },
+        accessLogPagination: { pageSize: 50, hideOnSinglePage: true, size: 'small', showSizeChanger: true, pageSizeOptions: ['25', '50', '100', '200'] },
       },
       computed: {
         trafficRankedCount() {
           var a = this.overview.topUsersByTraffic;
           return Array.isArray(a) ? a.length : 0;
         },
+        recentLogCount() {
+          var a = this.overview.recentAccessLog;
+          return Array.isArray(a) ? a.length : 0;
+        },
+        filteredAccessLog() {
+          var entries = this.overview.recentAccessLog || [];
+          if (this.logEventFilter !== 'all') {
+            var ef = this.logEventFilter;
+            entries = entries.filter(function (e) { return e.event === ef; });
+          }
+          var q = (this.logSearch || '').trim().toLowerCase();
+          if (q) {
+            entries = entries.filter(function (e) {
+              return (e.email || '').toLowerCase().indexOf(q) !== -1
+                || (e.from || '').toLowerCase().indexOf(q) !== -1
+                || (e.to || '').toLowerCase().indexOf(q) !== -1
+                || (e.inbound || '').toLowerCase().indexOf(q) !== -1
+                || (e.outbound || '').toLowerCase().indexOf(q) !== -1;
+            });
+          }
+          return entries.map(function (e, i) {
+            return Object.assign({}, e, { _idx: i });
+          });
+        },
       },
       methods: {
+        formatLogTs(ts) {
+          if (!ts) return '—';
+          var d = new Date(ts * 1000);
+          var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+          return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+            + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+        },
         applyOverview(raw) {
           var r = raw && typeof raw === 'object' ? raw : {};
           this.overview = {
@@ -351,6 +513,7 @@
             topClientSourceIps: Array.isArray(r.topClientSourceIps) ? r.topClientSourceIps : [],
             topUsersByActivity: Array.isArray(r.topUsersByActivity) ? r.topUsersByActivity : [],
             topUsersByTraffic: Array.isArray(r.topUsersByTraffic) ? r.topUsersByTraffic : [],
+            recentAccessLog: Array.isArray(r.recentAccessLog) ? r.recentAccessLog : [],
           };
         },
         apiActivityStatusURL() {

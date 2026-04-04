@@ -107,11 +107,12 @@ const (
 // Tgbot provides business logic for Telegram bot integration.
 // It handles bot commands, user interactions, and status reporting via Telegram.
 type Tgbot struct {
-	inboundService InboundService
-	settingService SettingService
-	serverService  ServerService
-	xrayService    XrayService
-	lastStatus     *Status
+	inboundService  InboundService
+	settingService  SettingService
+	serverService   ServerService
+	xrayService     XrayService
+	outboundService OutboundService
+	lastStatus      *Status
 }
 
 // NewTgbot creates a new Tgbot instance.
@@ -592,20 +593,51 @@ func (t *Tgbot) OnReceive() {
 						message_text, _ := t.BuildInboundClientDataMessage(inbound.Remark, inbound.Protocol)
 						t.addClient(message.Chat.ID, message_text)
 					}
-				case "awaiting_comment":
-					if client_Comment == strings.TrimSpace(message.Text) {
-						t.SendMsgToTgbotDeleteAfter(message.Chat.ID, t.I18nBot("tgbot.messages.using_default_value"), 3, tu.ReplyKeyboardRemove())
-						delete(userStates, message.Chat.ID)
-						return nil
-					}
-
-					client_Comment = strings.TrimSpace(message.Text)
-					t.SendMsgToTgbotDeleteAfter(message.Chat.ID, t.I18nBot("tgbot.messages.received_comment"), 3, tu.ReplyKeyboardRemove())
+			case "awaiting_comment":
+				if client_Comment == strings.TrimSpace(message.Text) {
+					t.SendMsgToTgbotDeleteAfter(message.Chat.ID, t.I18nBot("tgbot.messages.using_default_value"), 3, tu.ReplyKeyboardRemove())
 					delete(userStates, message.Chat.ID)
-					inbound, _ := t.inboundService.GetInbound(receiver_inbound_ID)
-					message_text, _ := t.BuildInboundClientDataMessage(inbound.Remark, inbound.Protocol)
-					t.addClient(message.Chat.ID, message_text)
+					return nil
 				}
+
+				client_Comment = strings.TrimSpace(message.Text)
+				t.SendMsgToTgbotDeleteAfter(message.Chat.ID, t.I18nBot("tgbot.messages.received_comment"), 3, tu.ReplyKeyboardRemove())
+				delete(userStates, message.Chat.ID)
+				inbound, _ := t.inboundService.GetInbound(receiver_inbound_ID)
+				message_text, _ := t.BuildInboundClientDataMessage(inbound.Remark, inbound.Protocol)
+				t.addClient(message.Chat.ID, message_text)
+			case "awaiting_balancer_tag":
+				newTag := strings.TrimSpace(message.Text)
+				delete(userStates, message.Chat.ID)
+				if newTag == "" || strings.Contains(newTag, " ") {
+					t.SendMsgToTgbot(message.Chat.ID, t.I18nBot("tgbot.messages.incorrect_input"))
+					return nil
+				}
+				config, err := t.getXrayConfigMap()
+				if err != nil {
+					t.SendMsgToTgbot(message.Chat.ID, t.I18nBot("tgbot.wentWrong"))
+					return nil
+				}
+				if existing, _ := t.findBalancerByTag(config, newTag); existing != nil {
+					t.SendMsgToTgbot(message.Chat.ID, t.I18nBot("tgbot.balancer.tagExists"))
+					return nil
+				}
+				newBalancer := map[string]interface{}{
+					"tag":         newTag,
+					"selector":    []interface{}{},
+					"fallbackTag": "",
+				}
+				balancers := t.getBalancersFromConfig(config)
+				balancers = append(balancers, newBalancer)
+				t.setBalancersInConfig(config, balancers)
+				if err := t.saveXrayConfigMap(config); err != nil {
+					t.SendMsgToTgbot(message.Chat.ID, t.I18nBot("tgbot.wentWrong"))
+					return nil
+				}
+				t.xrayService.SetToNeedRestart()
+				t.SendMsgToTgbotDeleteAfter(message.Chat.ID, t.I18nBot("tgbot.balancer.created", "Tag=="+newTag), 3, tu.ReplyKeyboardRemove())
+				t.sendBalancerDetail(message.Chat.ID, newTag)
+			}
 
 			} else {
 				if message.UsersShared != nil {
@@ -1575,6 +1607,359 @@ func (t *Tgbot) answerCallback(callbackQuery *telego.CallbackQuery, isAdmin bool
 				}
 
 				t.addClient(callbackQuery.Message.GetChat().ID, message_text)
+
+			// --- Balancer management callbacks ---
+			case "bal_view":
+				balTag := dataArray[1]
+				t.sendCallbackAnswerTgBot(callbackQuery.ID, balTag)
+				t.sendBalancerDetail(chatId, balTag)
+			case "bal_detail_refresh":
+				balTag := dataArray[1]
+				t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.buttons.refresh"))
+				t.sendBalancerDetail(chatId, balTag, callbackQuery.Message.GetMessageID())
+			case "bal_strategy":
+				balTag := dataArray[1]
+				strategies := []string{"random", "roundRobin", "leastLoad", "leastPing"}
+				var rows [][]telego.InlineKeyboardButton
+				for _, s := range strategies {
+					rows = append(rows, tu.InlineKeyboardRow(
+						tu.InlineKeyboardButton(s).WithCallbackData(t.encodeQuery("bal_set_strat "+balTag+" "+s)),
+					))
+				}
+				rows = append(rows, tu.InlineKeyboardRow(
+					tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.backToList")).WithCallbackData(t.encodeQuery("bal_view "+balTag)),
+				))
+				keyboard := tu.InlineKeyboard(rows...)
+				msg := t.I18nBot("tgbot.balancer.selectStrategy", "Tag=="+balTag)
+				t.editMessageTgBot(chatId, callbackQuery.Message.GetMessageID(), msg, keyboard)
+			case "bal_set_strat":
+				if len(dataArray) >= 3 {
+					balTag := dataArray[1]
+					newStrategy := dataArray[2]
+					config, err := t.getXrayConfigMap()
+					if err != nil {
+						t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.wentWrong"))
+						return
+					}
+					balancer, _ := t.findBalancerByTag(config, balTag)
+					if balancer == nil {
+						t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.noResult"))
+						return
+					}
+					if newStrategy == "random" {
+						delete(balancer, "strategy")
+					} else {
+						balancer["strategy"] = map[string]interface{}{"type": newStrategy}
+					}
+					if err := t.saveXrayConfigMap(config); err != nil {
+						t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.wentWrong"))
+						return
+					}
+					t.xrayService.SetToNeedRestart()
+					t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.balancer.strategySet", "Strategy=="+newStrategy))
+					t.sendBalancerDetail(chatId, balTag, callbackQuery.Message.GetMessageID())
+				}
+			case "bal_selectors":
+				balTag := dataArray[1]
+				config, err := t.getXrayConfigMap()
+				if err != nil {
+					t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.wentWrong"))
+					return
+				}
+				balancer, _ := t.findBalancerByTag(config, balTag)
+				if balancer == nil {
+					t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.noResult"))
+					return
+				}
+				currentSelectors := t.getBalancerSelectors(balancer)
+				outboundTags := t.getOutboundTagsFromConfig(config)
+
+				currentStr := "-"
+				if len(currentSelectors) > 0 {
+					currentStr = strings.Join(currentSelectors, ", ")
+				}
+				msg := t.I18nBot("tgbot.balancer.selectSelector", "Tag=="+balTag, "Current=="+currentStr)
+
+				var rows [][]telego.InlineKeyboardButton
+				for _, sel := range currentSelectors {
+					rows = append(rows, tu.InlineKeyboardRow(
+						tu.InlineKeyboardButton("❌ "+sel).WithCallbackData(t.encodeQuery("bal_rm_sel "+balTag+" "+sel)),
+					))
+				}
+				for _, tag := range outboundTags {
+					if !slices.Contains(currentSelectors, tag) {
+						rows = append(rows, tu.InlineKeyboardRow(
+							tu.InlineKeyboardButton("➕ "+tag).WithCallbackData(t.encodeQuery("bal_add_sel "+balTag+" "+tag)),
+						))
+					}
+				}
+				rows = append(rows, tu.InlineKeyboardRow(
+					tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.backToList")).WithCallbackData(t.encodeQuery("bal_view "+balTag)),
+				))
+				keyboard := tu.InlineKeyboard(rows...)
+				t.editMessageTgBot(chatId, callbackQuery.Message.GetMessageID(), msg, keyboard)
+			case "bal_add_sel":
+				if len(dataArray) >= 3 {
+					balTag := dataArray[1]
+					outTag := strings.Join(dataArray[2:], " ")
+					config, err := t.getXrayConfigMap()
+					if err != nil {
+						t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.wentWrong"))
+						return
+					}
+					balancer, _ := t.findBalancerByTag(config, balTag)
+					if balancer == nil {
+						t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.noResult"))
+						return
+					}
+					selectors := t.getBalancerSelectors(balancer)
+					if !slices.Contains(selectors, outTag) {
+						selectors = append(selectors, outTag)
+						raw := make([]interface{}, len(selectors))
+						for i, s := range selectors {
+							raw[i] = s
+						}
+						balancer["selector"] = raw
+						if err := t.saveXrayConfigMap(config); err != nil {
+							t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.wentWrong"))
+							return
+						}
+						t.xrayService.SetToNeedRestart()
+					}
+					t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.balancer.selectorAdded"))
+					// Re-render the selectors view
+					t.answerBalancerSelectorsView(chatId, balTag, callbackQuery.Message.GetMessageID())
+				}
+			case "bal_rm_sel":
+				if len(dataArray) >= 3 {
+					balTag := dataArray[1]
+					outTag := strings.Join(dataArray[2:], " ")
+					config, err := t.getXrayConfigMap()
+					if err != nil {
+						t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.wentWrong"))
+						return
+					}
+					balancer, _ := t.findBalancerByTag(config, balTag)
+					if balancer == nil {
+						t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.noResult"))
+						return
+					}
+					selectors := t.getBalancerSelectors(balancer)
+					var newSelectors []interface{}
+					for _, s := range selectors {
+						if s != outTag {
+							newSelectors = append(newSelectors, s)
+						}
+					}
+					balancer["selector"] = newSelectors
+					if err := t.saveXrayConfigMap(config); err != nil {
+						t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.wentWrong"))
+						return
+					}
+					t.xrayService.SetToNeedRestart()
+					t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.balancer.selectorRemoved"))
+					t.answerBalancerSelectorsView(chatId, balTag, callbackQuery.Message.GetMessageID())
+				}
+			case "bal_fallback":
+				balTag := dataArray[1]
+				config, err := t.getXrayConfigMap()
+				if err != nil {
+					t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.wentWrong"))
+					return
+				}
+				balancer, _ := t.findBalancerByTag(config, balTag)
+				if balancer == nil {
+					t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.noResult"))
+					return
+				}
+				outboundTags := t.getOutboundTagsFromConfig(config)
+				currentFb := t.getBalancerFallback(balancer)
+				currentStr := "-"
+				if currentFb != "" {
+					currentStr = currentFb
+				}
+				msg := t.I18nBot("tgbot.balancer.selectFallback", "Tag=="+balTag, "Current=="+currentStr)
+
+				var rows [][]telego.InlineKeyboardButton
+				rows = append(rows, tu.InlineKeyboardRow(
+					tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.noFallback")).WithCallbackData(t.encodeQuery("bal_clr_fb "+balTag)),
+				))
+				for _, tag := range outboundTags {
+					label := tag
+					if tag == currentFb {
+						label = "✅ " + tag
+					}
+					rows = append(rows, tu.InlineKeyboardRow(
+						tu.InlineKeyboardButton(label).WithCallbackData(t.encodeQuery("bal_set_fb "+balTag+" "+tag)),
+					))
+				}
+				rows = append(rows, tu.InlineKeyboardRow(
+					tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.backToList")).WithCallbackData(t.encodeQuery("bal_view "+balTag)),
+				))
+				keyboard := tu.InlineKeyboard(rows...)
+				t.editMessageTgBot(chatId, callbackQuery.Message.GetMessageID(), msg, keyboard)
+			case "bal_set_fb":
+				if len(dataArray) >= 3 {
+					balTag := dataArray[1]
+					fbTag := strings.Join(dataArray[2:], " ")
+					config, err := t.getXrayConfigMap()
+					if err != nil {
+						t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.wentWrong"))
+						return
+					}
+					balancer, _ := t.findBalancerByTag(config, balTag)
+					if balancer == nil {
+						t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.noResult"))
+						return
+					}
+					balancer["fallbackTag"] = fbTag
+					if err := t.saveXrayConfigMap(config); err != nil {
+						t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.wentWrong"))
+						return
+					}
+					t.xrayService.SetToNeedRestart()
+					t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.balancer.fallbackSet"))
+					t.sendBalancerDetail(chatId, balTag, callbackQuery.Message.GetMessageID())
+				}
+			case "bal_clr_fb":
+				balTag := dataArray[1]
+				config, err := t.getXrayConfigMap()
+				if err != nil {
+					t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.wentWrong"))
+					return
+				}
+				balancer, _ := t.findBalancerByTag(config, balTag)
+				if balancer == nil {
+					t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.noResult"))
+					return
+				}
+				balancer["fallbackTag"] = ""
+				if err := t.saveXrayConfigMap(config); err != nil {
+					t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.wentWrong"))
+					return
+				}
+				t.xrayService.SetToNeedRestart()
+				t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.balancer.fallbackCleared"))
+				t.sendBalancerDetail(chatId, balTag, callbackQuery.Message.GetMessageID())
+			case "bal_delete":
+				balTag := dataArray[1]
+				inlineKeyboard := tu.InlineKeyboard(
+					tu.InlineKeyboardRow(
+						tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.cancelDeleteBalancer")).WithCallbackData(t.encodeQuery("bal_view "+balTag)),
+					),
+					tu.InlineKeyboardRow(
+						tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.confirmDeleteBalancer")).WithCallbackData(t.encodeQuery("bal_delete_c "+balTag)),
+					),
+				)
+				t.editMessageCallbackTgBot(chatId, callbackQuery.Message.GetMessageID(), inlineKeyboard)
+			case "bal_delete_c":
+				balTag := dataArray[1]
+				config, err := t.getXrayConfigMap()
+				if err != nil {
+					t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.wentWrong"))
+					return
+				}
+				balancers := t.getBalancersFromConfig(config)
+				var remaining []map[string]interface{}
+				for _, b := range balancers {
+					if t.getBalancerTag(b) != balTag {
+						remaining = append(remaining, b)
+					}
+				}
+				t.setBalancersInConfig(config, remaining)
+				if err := t.saveXrayConfigMap(config); err != nil {
+					t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.wentWrong"))
+					return
+				}
+				t.xrayService.SetToNeedRestart()
+				t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.balancer.deleted", "Tag=="+balTag))
+				t.sendBalancerList(chatId, callbackQuery.Message.GetMessageID())
+
+			// --- Outbound server management callbacks ---
+			case "srv_view":
+				srvTag := dataArray[1]
+				t.sendCallbackAnswerTgBot(callbackQuery.ID, srvTag)
+				t.sendServerDetail(chatId, srvTag)
+			case "srv_detail_refresh":
+				srvTag := dataArray[1]
+				t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.buttons.refresh"))
+				t.sendServerDetail(chatId, srvTag, callbackQuery.Message.GetMessageID())
+			case "srv_test":
+				srvTag := dataArray[1]
+				t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.servers.testRunning", "Tag=="+srvTag))
+				config, err := t.getXrayConfigMap()
+				if err != nil {
+					t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.wentWrong"))
+					return
+				}
+				outboundsRaw, _ := config["outbounds"].([]interface{})
+				var targetJSON string
+				allOutboundsJSON := "[]"
+				if data, err := json.Marshal(outboundsRaw); err == nil {
+					allOutboundsJSON = string(data)
+				}
+				for _, ob := range outboundsRaw {
+					obMap, ok := ob.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					if tag, _ := obMap["tag"].(string); tag == srvTag {
+						if data, err := json.Marshal(obMap); err == nil {
+							targetJSON = string(data)
+						}
+						break
+					}
+				}
+				if targetJSON == "" {
+					t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.noResult"))
+					return
+				}
+				testURL, _ := t.settingService.GetXrayOutboundTestUrl()
+				if testURL == "" {
+					testURL = "https://www.google.com/generate_204"
+				}
+				result, err := t.outboundService.TestOutbound(targetJSON, testURL, allOutboundsJSON)
+				var testMsg string
+				if err != nil || !result.Success {
+					errMsg := "unknown error"
+					if err != nil {
+						errMsg = err.Error()
+					} else if result.Error != "" {
+						errMsg = result.Error
+					}
+					testMsg = t.I18nBot("tgbot.servers.testFailed", "Tag=="+srvTag, "Error=="+errMsg)
+				} else {
+					testMsg = t.I18nBot("tgbot.servers.testSuccess", "Tag=="+srvTag, "Delay=="+strconv.FormatInt(result.Delay, 10))
+				}
+				keyboard := tu.InlineKeyboard(
+					tu.InlineKeyboardRow(
+						tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.testServer")+" "+srvTag).WithCallbackData(t.encodeQuery("srv_test "+srvTag)),
+					),
+					tu.InlineKeyboardRow(
+						tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.backToList")).WithCallbackData(t.encodeQuery("srv_view "+srvTag)),
+					),
+				)
+				t.editMessageTgBot(chatId, callbackQuery.Message.GetMessageID(), testMsg, keyboard)
+			case "srv_reset_traffic":
+				srvTag := dataArray[1]
+				inlineKeyboard := tu.InlineKeyboard(
+					tu.InlineKeyboardRow(
+						tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.cancelRestart")).WithCallbackData(t.encodeQuery("srv_view "+srvTag)),
+					),
+					tu.InlineKeyboardRow(
+						tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.confirmResetOutTraffic")).WithCallbackData(t.encodeQuery("srv_reset_traffic_c "+srvTag)),
+					),
+				)
+				t.editMessageCallbackTgBot(chatId, callbackQuery.Message.GetMessageID(), inlineKeyboard)
+			case "srv_reset_traffic_c":
+				srvTag := dataArray[1]
+				err := t.outboundService.ResetOutboundTraffic(srvTag)
+				if err != nil {
+					t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.answers.errorOperation"))
+				} else {
+					t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.servers.trafficReset", "Tag=="+srvTag))
+				}
+				t.sendServerDetail(chatId, srvTag, callbackQuery.Message.GetMessageID())
 			}
 			return
 		} else {
@@ -1609,6 +1994,51 @@ func (t *Tgbot) answerCallback(callbackQuery *telego.CallbackQuery, isAdmin bool
 					return
 				}
 				t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.chooseInbound"), inbounds)
+			case "balancers":
+				t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.buttons.balancers"))
+				t.sendBalancerList(chatId)
+			case "bal_refresh":
+				t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.buttons.refresh"))
+				t.sendBalancerList(chatId, callbackQuery.Message.GetMessageID())
+			case "bal_add":
+				userStates[chatId] = "awaiting_balancer_tag"
+				cancelKB := tu.InlineKeyboard(
+					tu.InlineKeyboardRow(
+						tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.cancel")).WithCallbackData(t.encodeQuery("bal_refresh")),
+					),
+				)
+				t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.balancer.enterTag"), cancelKB)
+			case "servers":
+				t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.buttons.servers"))
+				t.sendServerList(chatId)
+			case "srv_refresh":
+				t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.buttons.refresh"))
+				t.sendServerList(chatId, callbackQuery.Message.GetMessageID())
+			case "restart_xray":
+				inlineKeyboard := tu.InlineKeyboard(
+					tu.InlineKeyboardRow(
+						tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.cancelRestart")).WithCallbackData(t.encodeQuery("restart_xray_cancel")),
+					),
+					tu.InlineKeyboardRow(
+						tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.confirmRestart")).WithCallbackData(t.encodeQuery("restart_xray_c")),
+					),
+				)
+				t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.messages.AreYouSure"), inlineKeyboard)
+			case "restart_xray_cancel":
+				t.deleteMessageTgBot(chatId, callbackQuery.Message.GetMessageID())
+				t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.answers.successfulOperation"))
+			case "restart_xray_c":
+				t.deleteMessageTgBot(chatId, callbackQuery.Message.GetMessageID())
+				if t.xrayService.IsXrayRunning() {
+					err := t.xrayService.RestartXray(true)
+					if err != nil {
+						t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.servers.restartFailed", "Error=="+err.Error()))
+					} else {
+						t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.servers.restartSuccess"))
+					}
+				} else {
+					t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.servers.xrayNotRunning"))
+				}
 			}
 
 		}
@@ -2222,7 +2652,13 @@ func (t *Tgbot) SendAnswer(chatId int64, msg string, isAdmin bool) {
 			tu.InlineKeyboardButton(t.I18nBot("subscription.individualLinks")).WithCallbackData(t.encodeQuery("admin_client_individual_links")),
 			tu.InlineKeyboardButton(t.I18nBot("qrCode")).WithCallbackData(t.encodeQuery("admin_client_qr_links")),
 		),
-		// TODOOOOOOOOOOOOOO: Add restart button here.
+		tu.InlineKeyboardRow(
+			tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.balancers")).WithCallbackData(t.encodeQuery("balancers")),
+			tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.servers")).WithCallbackData(t.encodeQuery("servers")),
+		),
+		tu.InlineKeyboardRow(
+			tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.restartXray")).WithCallbackData(t.encodeQuery("restart_xray")),
+		),
 	)
 	numericKeyboardClient := tu.InlineKeyboard(
 		tu.InlineKeyboardRow(
@@ -3769,6 +4205,402 @@ func (t *Tgbot) sendBanLogs(chatId int64, dt bool) {
 }
 
 // sendCallbackAnswerTgBot answers a callback query with a message.
+// getXrayConfigMap reads the stored Xray template and returns it as a generic map.
+func (t *Tgbot) getXrayConfigMap() (map[string]interface{}, error) {
+	configStr, err := t.settingService.GetXrayConfigTemplate()
+	if err != nil {
+		return nil, err
+	}
+	var config map[string]interface{}
+	if err := json.Unmarshal([]byte(configStr), &config); err != nil {
+		return nil, err
+	}
+	return config, nil
+}
+
+// getBalancersFromConfig extracts the routing.balancers array from the Xray config map.
+func (t *Tgbot) getBalancersFromConfig(config map[string]interface{}) []map[string]interface{} {
+	routing, ok := config["routing"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	balancersRaw, ok := routing["balancers"].([]interface{})
+	if !ok {
+		return nil
+	}
+	var balancers []map[string]interface{}
+	for _, b := range balancersRaw {
+		if bm, ok := b.(map[string]interface{}); ok {
+			balancers = append(balancers, bm)
+		}
+	}
+	return balancers
+}
+
+// getOutboundTagsFromConfig extracts all outbound tags from the Xray config map.
+func (t *Tgbot) getOutboundTagsFromConfig(config map[string]interface{}) []string {
+	outboundsRaw, ok := config["outbounds"].([]interface{})
+	if !ok {
+		return nil
+	}
+	var tags []string
+	for _, o := range outboundsRaw {
+		if om, ok := o.(map[string]interface{}); ok {
+			if tag, ok := om["tag"].(string); ok && tag != "" {
+				tags = append(tags, tag)
+			}
+		}
+	}
+	return tags
+}
+
+// getBalancerStrategy returns the human-readable strategy string from a balancer map.
+func (t *Tgbot) getBalancerStrategy(balancer map[string]interface{}) string {
+	strategyObj, ok := balancer["strategy"].(map[string]interface{})
+	if !ok {
+		return "random"
+	}
+	stratType, ok := strategyObj["type"].(string)
+	if !ok || stratType == "" {
+		return "random"
+	}
+	return stratType
+}
+
+// getBalancerSelectors returns the selector slice from a balancer map.
+func (t *Tgbot) getBalancerSelectors(balancer map[string]interface{}) []string {
+	selectorsRaw, ok := balancer["selector"].([]interface{})
+	if !ok {
+		return nil
+	}
+	var selectors []string
+	for _, s := range selectorsRaw {
+		if str, ok := s.(string); ok {
+			selectors = append(selectors, str)
+		}
+	}
+	return selectors
+}
+
+// getBalancerFallback returns the fallbackTag from a balancer map.
+func (t *Tgbot) getBalancerFallback(balancer map[string]interface{}) string {
+	fb, _ := balancer["fallbackTag"].(string)
+	return fb
+}
+
+// getBalancerTag returns the tag from a balancer map.
+func (t *Tgbot) getBalancerTag(balancer map[string]interface{}) string {
+	tag, _ := balancer["tag"].(string)
+	return tag
+}
+
+// findBalancerByTag finds a balancer by its tag in the config. Returns the balancer map and its index.
+func (t *Tgbot) findBalancerByTag(config map[string]interface{}, tag string) (map[string]interface{}, int) {
+	balancers := t.getBalancersFromConfig(config)
+	for i, b := range balancers {
+		if t.getBalancerTag(b) == tag {
+			return b, i
+		}
+	}
+	return nil, -1
+}
+
+// saveXrayConfigMap marshals the config map back to JSON and saves it.
+func (t *Tgbot) saveXrayConfigMap(config map[string]interface{}) error {
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+	configStr := string(data)
+	xrayConfig := &xray.Config{}
+	if err := json.Unmarshal(data, xrayConfig); err != nil {
+		return err
+	}
+	return t.settingService.saveSetting("xrayTemplateConfig", configStr)
+}
+
+// setBalancersInConfig sets the routing.balancers array in the config map.
+func (t *Tgbot) setBalancersInConfig(config map[string]interface{}, balancers []map[string]interface{}) {
+	routing, ok := config["routing"].(map[string]interface{})
+	if !ok {
+		routing = map[string]interface{}{}
+		config["routing"] = routing
+	}
+	if len(balancers) == 0 {
+		delete(routing, "balancers")
+	} else {
+		raw := make([]interface{}, len(balancers))
+		for i, b := range balancers {
+			raw[i] = b
+		}
+		routing["balancers"] = raw
+	}
+}
+
+// sendBalancerList sends the list of balancers as inline keyboard buttons.
+func (t *Tgbot) sendBalancerList(chatId int64, messageID ...int) {
+	config, err := t.getXrayConfigMap()
+	if err != nil {
+		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.wentWrong"))
+		return
+	}
+	balancers := t.getBalancersFromConfig(config)
+
+	var msg string
+	var rows [][]telego.InlineKeyboardButton
+
+	if len(balancers) == 0 {
+		msg = t.I18nBot("tgbot.balancer.title") + t.I18nBot("tgbot.balancer.noBalancers")
+	} else {
+		msg = t.I18nBot("tgbot.balancer.title")
+		for _, b := range balancers {
+			tag := t.getBalancerTag(b)
+			strategy := t.getBalancerStrategy(b)
+			msg += t.I18nBot("tgbot.balancer.listItem", "Tag=="+tag, "Strategy=="+strategy)
+			rows = append(rows, tu.InlineKeyboardRow(
+				tu.InlineKeyboardButton(tag+" ("+strategy+")").WithCallbackData(t.encodeQuery("bal_view "+tag)),
+			))
+		}
+	}
+
+	rows = append(rows, tu.InlineKeyboardRow(
+		tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.addBalancer")).WithCallbackData(t.encodeQuery("bal_add")),
+	))
+	rows = append(rows, tu.InlineKeyboardRow(
+		tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.refresh")).WithCallbackData(t.encodeQuery("bal_refresh")),
+	))
+
+	keyboard := tu.InlineKeyboard(rows...)
+
+	if len(messageID) > 0 {
+		t.editMessageTgBot(chatId, messageID[0], msg, keyboard)
+	} else {
+		t.SendMsgToTgbot(chatId, msg, keyboard)
+	}
+}
+
+// sendBalancerDetail sends the details of a single balancer with action buttons.
+func (t *Tgbot) sendBalancerDetail(chatId int64, tag string, messageID ...int) {
+	config, err := t.getXrayConfigMap()
+	if err != nil {
+		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.wentWrong"))
+		return
+	}
+	balancer, _ := t.findBalancerByTag(config, tag)
+	if balancer == nil {
+		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.noResult"))
+		return
+	}
+
+	strategy := t.getBalancerStrategy(balancer)
+	selectors := t.getBalancerSelectors(balancer)
+	fallback := t.getBalancerFallback(balancer)
+
+	selectorsStr := "-"
+	if len(selectors) > 0 {
+		selectorsStr = strings.Join(selectors, ", ")
+	}
+	fallbackStr := "-"
+	if fallback != "" {
+		fallbackStr = fallback
+	}
+
+	msg := t.I18nBot("tgbot.balancer.detail",
+		"Tag=="+tag,
+		"Strategy=="+strategy,
+		"Selectors=="+selectorsStr,
+		"Fallback=="+fallbackStr,
+	)
+
+	keyboard := tu.InlineKeyboard(
+		tu.InlineKeyboardRow(
+			tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.editStrategy")).WithCallbackData(t.encodeQuery("bal_strategy "+tag)),
+			tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.editSelectors")).WithCallbackData(t.encodeQuery("bal_selectors "+tag)),
+		),
+		tu.InlineKeyboardRow(
+			tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.editFallback")).WithCallbackData(t.encodeQuery("bal_fallback "+tag)),
+			tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.deleteBalancer")).WithCallbackData(t.encodeQuery("bal_delete "+tag)),
+		),
+		tu.InlineKeyboardRow(
+			tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.refresh")).WithCallbackData(t.encodeQuery("bal_detail_refresh "+tag)),
+			tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.backToList")).WithCallbackData(t.encodeQuery("bal_refresh")),
+		),
+	)
+
+	if len(messageID) > 0 {
+		t.editMessageTgBot(chatId, messageID[0], msg, keyboard)
+	} else {
+		t.SendMsgToTgbot(chatId, msg, keyboard)
+	}
+}
+
+// sendServerList shows all outbound servers as inline keyboard buttons.
+func (t *Tgbot) sendServerList(chatId int64, messageID ...int) {
+	config, err := t.getXrayConfigMap()
+	if err != nil {
+		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.wentWrong"))
+		return
+	}
+	outboundsRaw, _ := config["outbounds"].([]interface{})
+
+	var msg string
+	var rows [][]telego.InlineKeyboardButton
+
+	xrayStatus := "🔴 Stopped"
+	if t.xrayService.IsXrayRunning() {
+		xrayStatus = "🟢 Running"
+	}
+	msg = t.I18nBot("tgbot.servers.title")
+	msg += t.I18nBot("tgbot.servers.xrayStatus", "Status=="+xrayStatus)
+
+	if len(outboundsRaw) == 0 {
+		msg += t.I18nBot("tgbot.servers.noServers")
+	} else {
+		for _, ob := range outboundsRaw {
+			obMap, ok := ob.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			tag, _ := obMap["tag"].(string)
+			protocol, _ := obMap["protocol"].(string)
+			if tag == "" {
+				continue
+			}
+			msg += t.I18nBot("tgbot.servers.listItem", "Tag=="+tag, "Protocol=="+protocol)
+			label := tag + " [" + protocol + "]"
+			rows = append(rows, tu.InlineKeyboardRow(
+				tu.InlineKeyboardButton(label).WithCallbackData(t.encodeQuery("srv_view "+tag)),
+			))
+		}
+	}
+
+	rows = append(rows, tu.InlineKeyboardRow(
+		tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.restartXray")).WithCallbackData(t.encodeQuery("restart_xray")),
+	))
+	rows = append(rows, tu.InlineKeyboardRow(
+		tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.refresh")).WithCallbackData(t.encodeQuery("srv_refresh")),
+	))
+
+	keyboard := tu.InlineKeyboard(rows...)
+	if len(messageID) > 0 {
+		t.editMessageTgBot(chatId, messageID[0], msg, keyboard)
+	} else {
+		t.SendMsgToTgbot(chatId, msg, keyboard)
+	}
+}
+
+// sendServerDetail shows details for a single outbound server.
+func (t *Tgbot) sendServerDetail(chatId int64, tag string, messageID ...int) {
+	config, err := t.getXrayConfigMap()
+	if err != nil {
+		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.wentWrong"))
+		return
+	}
+	outboundsRaw, _ := config["outbounds"].([]interface{})
+	var found map[string]interface{}
+	for _, ob := range outboundsRaw {
+		obMap, ok := ob.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if t, _ := obMap["tag"].(string); t == tag {
+			found = obMap
+			break
+		}
+	}
+	if found == nil {
+		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.noResult"))
+		return
+	}
+
+	protocol, _ := found["protocol"].(string)
+	upStr, downStr, totalStr := "0 B", "0 B", "0 B"
+
+	traffics, err := t.outboundService.GetOutboundsTraffic()
+	if err == nil {
+		for _, tr := range traffics {
+			if tr.Tag == tag {
+				upStr = common.FormatTraffic(tr.Up)
+				downStr = common.FormatTraffic(tr.Down)
+				totalStr = common.FormatTraffic(tr.Total)
+				break
+			}
+		}
+	}
+
+	msg := t.I18nBot("tgbot.servers.detail",
+		"Tag=="+tag,
+		"Protocol=="+protocol,
+		"Up=="+upStr,
+		"Down=="+downStr,
+		"Total=="+totalStr,
+	)
+
+	var actionRows [][]telego.InlineKeyboardButton
+	if protocol != "blackhole" && tag != "blocked" {
+		actionRows = append(actionRows, tu.InlineKeyboardRow(
+			tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.testServer")).WithCallbackData(t.encodeQuery("srv_test "+tag)),
+			tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.resetOutboundTraffic")).WithCallbackData(t.encodeQuery("srv_reset_traffic "+tag)),
+		))
+	} else {
+		actionRows = append(actionRows, tu.InlineKeyboardRow(
+			tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.resetOutboundTraffic")).WithCallbackData(t.encodeQuery("srv_reset_traffic "+tag)),
+		))
+	}
+	actionRows = append(actionRows, tu.InlineKeyboardRow(
+		tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.refresh")).WithCallbackData(t.encodeQuery("srv_detail_refresh "+tag)),
+		tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.backToList")).WithCallbackData(t.encodeQuery("srv_refresh")),
+	))
+
+	keyboard := tu.InlineKeyboard(actionRows...)
+	if len(messageID) > 0 {
+		t.editMessageTgBot(chatId, messageID[0], msg, keyboard)
+	} else {
+		t.SendMsgToTgbot(chatId, msg, keyboard)
+	}
+}
+
+// answerBalancerSelectorsView re-renders the selectors editing view for a balancer.
+func (t *Tgbot) answerBalancerSelectorsView(chatId int64, balTag string, messageID int) {
+	config, err := t.getXrayConfigMap()
+	if err != nil {
+		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.wentWrong"))
+		return
+	}
+	balancer, _ := t.findBalancerByTag(config, balTag)
+	if balancer == nil {
+		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.noResult"))
+		return
+	}
+	currentSelectors := t.getBalancerSelectors(balancer)
+	outboundTags := t.getOutboundTagsFromConfig(config)
+
+	currentStr := "-"
+	if len(currentSelectors) > 0 {
+		currentStr = strings.Join(currentSelectors, ", ")
+	}
+	msg := t.I18nBot("tgbot.balancer.selectSelector", "Tag=="+balTag, "Current=="+currentStr)
+
+	var rows [][]telego.InlineKeyboardButton
+	for _, sel := range currentSelectors {
+		rows = append(rows, tu.InlineKeyboardRow(
+			tu.InlineKeyboardButton("❌ "+sel).WithCallbackData(t.encodeQuery("bal_rm_sel "+balTag+" "+sel)),
+		))
+	}
+	for _, tag := range outboundTags {
+		if !slices.Contains(currentSelectors, tag) {
+			rows = append(rows, tu.InlineKeyboardRow(
+				tu.InlineKeyboardButton("➕ "+tag).WithCallbackData(t.encodeQuery("bal_add_sel "+balTag+" "+tag)),
+			))
+		}
+	}
+	rows = append(rows, tu.InlineKeyboardRow(
+		tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.backToList")).WithCallbackData(t.encodeQuery("bal_view "+balTag)),
+	))
+	keyboard := tu.InlineKeyboard(rows...)
+	t.editMessageTgBot(chatId, messageID, msg, keyboard)
+}
+
 func (t *Tgbot) sendCallbackAnswerTgBot(id string, message string) {
 	params := telego.AnswerCallbackQueryParams{
 		CallbackQueryID: id,
