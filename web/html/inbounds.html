@@ -609,6 +609,36 @@
 {{template "modals/clientsModal"}}
 {{template "modals/clientsBulkModal"}}
 <script>
+  function isLoopbackSubHost(h) {
+    if (!h) return true;
+    var x = String(h).toLowerCase();
+    if (x === 'localhost' || x === '::1' || x === '0.0.0.0') return true;
+    if (/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(x)) return true;
+    return false;
+  }
+
+  /** Match subscription server: when subAppendRequestHost, append public hostname as last path segment (not 127.0.0.1 when panel is opened on localhost). */
+  function formatPanelSubscriptionLink(subUri, subId, subAppendRequestHost) {
+    if (!subId) return (subUri || '');
+    var link = (subUri || '') + subId;
+    if (!subAppendRequestHost) return link;
+    var h = '';
+    try {
+      h = new URL(link).hostname;
+    } catch (e) {}
+    if (!h || isLoopbackSubHost(h)) {
+      try {
+        if (subUri) {
+          h = new URL(subUri).hostname;
+        }
+      } catch (e2) {}
+    }
+    if (!h || isLoopbackSubHost(h)) {
+      return link;
+    }
+    return link.replace(/\/+$/, '') + '/' + h;
+  }
+
   const columns = [{
     title: "ID",
     align: 'right',
@@ -734,6 +764,7 @@
         subURI: '',
         subJsonURI: '',
         subJsonEnable: false,
+        subAppendRequestHost: false,
       },
       remarkModel: '-ieo',
       datepicker: 'gregorian',
@@ -791,6 +822,7 @@
             subURI: subURI,
             subJsonURI: subJsonURI,
             subJsonEnable: subJsonEnable,
+            subAppendRequestHost: !!subAppendRequestHost,
           };
           this.pageSize = pageSize;
           this.remarkModel = remarkModel;
@@ -1480,7 +1512,7 @@
         if (clients != null) {
           clients.forEach(c => {
             if (c.subId && c.subId.length > 0) {
-              subLinks.push(this.subSettings.subURI + c.subId)
+              subLinks.push(formatPanelSubscriptionLink(this.subSettings.subURI, c.subId, this.subSettings.subAppendRequestHost))
             }
           })
         }
@@ -1507,7 +1539,7 @@
           if (clients != null) {
             clients.forEach(c => {
               if (c.subId && c.subId.length > 0) {
-                subLinks.push(this.subSettings.subURI + c.subId)
+                subLinks.push(formatPanelSubscriptionLink(this.subSettings.subURI, c.subId, this.subSettings.subAppendRequestHost))
               }
             })
           }

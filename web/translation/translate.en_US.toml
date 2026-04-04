@@ -443,6 +443,8 @@
 "subEncryptDesc" = "The returned content of subscription service will be Base64 encoded."
 "subShowInfo" = "Show Usage Info"
 "subShowInfoDesc" = "The remaining traffic and date will be displayed in the client apps."
+"subAppendRequestHost" = "Append request hostname to subscription link"
+"subAppendRequestHostDesc" = "When enabled, share links and the subscription page URL use the hostname from the request (e.g. your CDN domain) as the last path segment, unless you override with …/subid/your.domain or ?host=. Turn off to keep plain …/subid only."
 "subURI" = "Reverse Proxy URI"
 "subURIDesc" = "The URI path of the subscription URL for use behind proxies."
 "externalTrafficInformEnable" = "External Traffic Inform"

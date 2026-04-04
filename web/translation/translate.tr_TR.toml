@@ -404,6 +404,8 @@
 "subEncryptDesc" = "Abonelik hizmetinin döndürülen içeriği Base64 ile şifrelenir."
 "subShowInfo" = "Kullanım Bilgisini Göster"
 "subShowInfoDesc" = "Kalan trafik ve tarih müşteri uygulamalarında görüntülenir."
+"subAppendRequestHost" = "Append request hostname to subscription link"
+"subAppendRequestHostDesc" = "When enabled, share links and the subscription page URL use the hostname from the request (e.g. your CDN domain) as the last path segment, unless you override with …/subid/your.domain or ?host=. Turn off to keep plain …/subid only."
 "subURI" = "Ters Proxy URI"
 "subURIDesc" = "Proxy arkasında kullanılacak abonelik URL'sinin URI yolu."
 "externalTrafficInformEnable" = "Harici Trafik Bilgisi"

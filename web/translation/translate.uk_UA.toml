@@ -404,6 +404,8 @@
 "subEncryptDesc" = "Повернений вміст послуги підписки матиме кодування Base64."
 "subShowInfo" = "Показати інформацію про використання"
 "subShowInfoDesc" = "Залишок трафіку та дата відображатимуться в клієнтських програмах."
+"subAppendRequestHost" = "Append request hostname to subscription link"
+"subAppendRequestHostDesc" = "When enabled, share links and the subscription page URL use the hostname from the request (e.g. your CDN domain) as the last path segment, unless you override with …/subid/your.domain or ?host=. Turn off to keep plain …/subid only."
 "subURI" = "URI зворотного проксі"
 "subURIDesc" = "URI до URL-адреси підписки для використання за проксі."
 "externalTrafficInformEnable" = "Інформація про зовнішній трафік"

@@ -72,6 +72,7 @@ var defaultValueMap = map[string]string{
 	"subUpdates":                  "12",
 	"subEncrypt":                  "true",
 	"subShowInfo":                 "true",
+	"subAppendRequestHost":        "true",
 	"subURI":                      "",
 	"subJsonPath":                 "/json/",
 	"subJsonURI":                  "",
@@ -567,6 +568,11 @@ func (s *SettingService) GetSubShowInfo() (bool, error) {
 	return s.getBool("subShowInfo")
 }
 
+// GetSubAppendRequestHost returns whether subscription share links use the client request hostname when no explicit ?host= or /subid/{host} is given.
+func (s *SettingService) GetSubAppendRequestHost() (bool, error) {
+	return s.getBool("subAppendRequestHost")
+}
+
 func (s *SettingService) GetPageSize() (int, error) {
 	return s.getInt("pageSize")
 }
@@ -857,8 +863,9 @@ func (s *SettingService) GetDefaultSettings(host string) (any, error) {
 		"subEnable":     func() (any, error) { return s.GetSubEnable() },
 		"subJsonEnable": func() (any, error) { return s.GetSubJsonEnable() },
 		"subTitle":      func() (any, error) { return s.GetSubTitle() },
-		"subURI":        func() (any, error) { return s.GetSubURI() },
-		"subJsonURI":    func() (any, error) { return s.GetSubJsonURI() },
+		"subURI":                 func() (any, error) { return s.GetSubURI() },
+		"subJsonURI":             func() (any, error) { return s.GetSubJsonURI() },
+		"subAppendRequestHost":   func() (any, error) { return s.GetSubAppendRequestHost() },
 		"remarkModel":   func() (any, error) { return s.GetRemarkModel() },
 		"datepicker":    func() (any, error) { return s.GetDatepicker() },
 		"ipLimitEnable": func() (any, error) { return s.GetIpLimitEnable() },

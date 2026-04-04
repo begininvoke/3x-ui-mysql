@@ -404,6 +404,8 @@
 "subEncryptDesc" = "订阅服务返回的内容将采用 Base64 编码"
 "subShowInfo" = "显示使用信息"
 "subShowInfoDesc" = "客户端应用中将显示剩余流量和日期信息"
+"subAppendRequestHost" = "将请求主机名追加到订阅链接"
+"subAppendRequestHostDesc" = "开启后，分享链接与订阅页 URL 会使用请求中的主机名（如 CDN 域名）作为路径末尾一段；除非使用 …/subid/域名 或 ?host= 覆盖。关闭则仅保留 …/subid。"
 "subURI" = "反向代理 URI"
 "subURIDesc" = "用于代理后面的订阅 URL 的 URI 路径"
 "externalTrafficInformEnable" = "外部交通通知"

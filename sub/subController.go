@@ -75,9 +75,12 @@ func NewSUBController(
 // on the provided router group.
 func (a *SUBController) initRouter(g *gin.RouterGroup) {
 	gLink := g.Group(a.subPath)
+	// Two-segment route first: /{subPath}{subid}/{host} — optional outbound host for share links.
+	gLink.GET(":subid/:linkHost", a.subs)
 	gLink.GET(":subid", a.subs)
 	if a.jsonEnabled {
 		gJson := g.Group(a.subJsonPath)
+		gJson.GET(":subid/:linkHost", a.subJsons)
 		gJson.GET(":subid", a.subJsons)
 	}
 }
@@ -86,7 +89,15 @@ func (a *SUBController) initRouter(g *gin.RouterGroup) {
 func (a *SUBController) subs(c *gin.Context) {
 	subId := c.Param("subid")
 	scheme, host, hostWithPort, hostHeader := a.subService.ResolveRequest(c)
-	subs, lastOnline, traffic, err := a.subService.GetSubs(subId, host)
+	shareLinkHost, pathHasLinkHostSegment, usedQueryHost := resolveShareLinkHost(c)
+	if pathHasLinkHostSegment && shareLinkHost == "" {
+		c.String(400, "Error!")
+		return
+	}
+	if shareLinkHost == "" && a.subService.SubAppendRequestHostEnabled() {
+		shareLinkHost = a.subService.ResolveAutoShareLinkHost(host)
+	}
+	subs, lastOnline, traffic, err := a.subService.GetSubs(subId, host, shareLinkHost)
 	if err != nil || len(subs) == 0 {
 		c.String(400, "Error!")
 	} else {
@@ -100,6 +111,15 @@ func (a *SUBController) subs(c *gin.Context) {
 		if strings.Contains(strings.ToLower(accept), "text/html") || c.Query("html") == "1" || strings.EqualFold(c.Query("view"), "html") {
 			// Build page data in service
 			subURL, subJsonURL := a.subService.BuildURLs(scheme, hostWithPort, a.subPath, a.subJsonPath, subId)
+			if shareLinkHost != "" {
+				if usedQueryHost {
+					subURL = a.subService.AppendHostQueryParam(subURL, shareLinkHost)
+					subJsonURL = a.subService.AppendHostQueryParam(subJsonURL, shareLinkHost)
+				} else {
+					subURL = a.subService.AppendLinkHostSuffix(subURL, shareLinkHost)
+					subJsonURL = a.subService.AppendLinkHostSuffix(subJsonURL, shareLinkHost)
+				}
+			}
 			if !a.jsonEnabled {
 				subJsonURL = ""
 			}
@@ -115,6 +135,9 @@ func (a *SUBController) subs(c *gin.Context) {
 			} else {
 				// Remove trailing slash if exists, add subId, then add trailing slash
 				basePathStr = strings.TrimRight(basePathStr, "/") + "/" + subId + "/"
+			}
+			if pathHasLinkHostSegment && shareLinkHost != "" {
+				basePathStr = basePathStr + shareLinkHost + "/"
 			}
 			page := a.subService.BuildPageData(subId, hostHeader, traffic, lastOnline, subs, subURL, subJsonURL, basePathStr)
 			c.HTML(200, "subpage.html", gin.H{
@@ -161,7 +184,19 @@ func (a *SUBController) subs(c *gin.Context) {
 func (a *SUBController) subJsons(c *gin.Context) {
 	subId := c.Param("subid")
 	scheme, host, hostWithPort, _ := a.subService.ResolveRequest(c)
-	jsonSub, header, err := a.subJsonService.GetJson(subId, host)
+	shareLinkHost, pathHasLinkHostSegment, _ := resolveShareLinkHost(c)
+	if pathHasLinkHostSegment && shareLinkHost == "" {
+		c.String(400, "Error!")
+		return
+	}
+	if shareLinkHost == "" && a.subService.SubAppendRequestHostEnabled() {
+		shareLinkHost = a.subService.ResolveAutoShareLinkHost(host)
+	}
+	jsonDest := host
+	if shareLinkHost != "" {
+		jsonDest = shareLinkHost
+	}
+	jsonSub, header, err := a.subJsonService.GetJson(subId, jsonDest)
 	if err != nil || len(jsonSub) == 0 {
 		c.String(400, "Error!")
 	} else {
@@ -210,4 +245,24 @@ func (a *SUBController) ApplyCommonHeaders(
 	if profileRoutingRules != "" {
 		c.Writer.Header().Set("Routing", profileRoutingRules)
 	}
+}
+
+// resolveShareLinkHost parses explicit outbound host from path …/subid/{host} or ?host= (legacy ?linkHost=).
+// usedQuery is true when host came from query (display keeps ?host= style).
+func resolveShareLinkHost(c *gin.Context) (shareHost string, pathHasLinkHostSegment bool, usedQuery bool) {
+	rawPath := strings.TrimSpace(c.Param("linkHost"))
+	if rawPath != "" {
+		pathHasLinkHostSegment = true
+		shareHost = SanitizeSubscriptionLinkHost(rawPath)
+		return shareHost, pathHasLinkHostSegment, false
+	}
+	if h := strings.TrimSpace(c.Query("host")); h != "" {
+		shareHost = SanitizeSubscriptionLinkHost(h)
+		return shareHost, false, true
+	}
+	if h := strings.TrimSpace(c.Query("linkHost")); h != "" {
+		shareHost = SanitizeSubscriptionLinkHost(h)
+		return shareHost, false, true
+	}
+	return "", false, false
 }

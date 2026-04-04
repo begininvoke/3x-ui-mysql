@@ -2327,6 +2327,28 @@ func (t *Tgbot) SendMsgToTgbot(chatId int64, msg string, replyMarkup ...telego.R
 	}
 }
 
+// subscriptionURLAppendHostIsLoopback skips appending loopback/localhost as the trailing host segment (useless in client apps).
+func subscriptionURLAppendHostIsLoopback(h string) bool {
+	if h == "" {
+		return true
+	}
+	lh := strings.ToLower(strings.TrimSpace(h))
+	if lh == "localhost" {
+		return true
+	}
+	if lh == "0.0.0.0" || lh == "::" || lh == "::1" {
+		return true
+	}
+	hostForIP := lh
+	if strings.HasPrefix(hostForIP, "[") && strings.HasSuffix(hostForIP, "]") && len(hostForIP) > 2 {
+		hostForIP = hostForIP[1 : len(hostForIP)-1]
+	}
+	if ip := net.ParseIP(hostForIP); ip != nil {
+		return ip.IsLoopback() || ip.IsUnspecified()
+	}
+	return false
+}
+
 // buildSubscriptionURLs builds the HTML sub page URL and JSON subscription URL for a client email
 func (t *Tgbot) buildSubscriptionURLs(email string) (string, string, error) {
 	// Resolve subId from client email
@@ -2411,6 +2433,24 @@ func (t *Tgbot) buildSubscriptionURLs(email string) (string, string, error) {
 
 	if !subJsonEnable {
 		subJsonURL = ""
+	}
+
+	appendReqHost, _ := t.settingService.GetSubAppendRequestHost()
+	if appendReqHost && subURL != "" {
+		if u, err := url.Parse(subURL); err == nil {
+			hn := u.Hostname()
+			if hn != "" && !subscriptionURLAppendHostIsLoopback(hn) {
+				subURL = strings.TrimRight(subURL, "/") + "/" + hn
+			}
+		}
+	}
+	if appendReqHost && subJsonURL != "" {
+		if u, err := url.Parse(subJsonURL); err == nil {
+			hn := u.Hostname()
+			if hn != "" && !subscriptionURLAppendHostIsLoopback(hn) {
+				subJsonURL = strings.TrimRight(subJsonURL, "/") + "/" + hn
+			}
+		}
 	}
 	return subURL, subJsonURL, nil
 }

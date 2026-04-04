@@ -47,6 +47,7 @@ class AllSetting {
         this.subUpdates = 12;
         this.subEncrypt = true;
         this.subShowInfo = true;
+        this.subAppendRequestHost = true;
         this.subURI = "";
         this.subJsonURI = "";
         this.subJsonFragment = "";

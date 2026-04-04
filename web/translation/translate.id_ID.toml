@@ -404,6 +404,8 @@
 "subEncryptDesc" = "Konten yang dikembalikan dari layanan langganan akan dienkripsi Base64."
 "subShowInfo" = "Tampilkan Info Penggunaan"
 "subShowInfoDesc" = "Sisa traffic dan tanggal akan ditampilkan di aplikasi klien."
+"subAppendRequestHost" = "Append request hostname to subscription link"
+"subAppendRequestHostDesc" = "When enabled, share links and the subscription page URL use the hostname from the request (e.g. your CDN domain) as the last path segment, unless you override with …/subid/your.domain or ?host=. Turn off to keep plain …/subid only."
 "subURI" = "URI Proxy Terbalik"
 "subURIDesc" = "Path URI dari URL langganan untuk digunakan di belakang proxy."
 "externalTrafficInformEnable" = "Informasikan API eksternal pada setiap pembaruan lalu lintas."

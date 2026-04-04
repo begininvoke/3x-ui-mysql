@@ -404,6 +404,8 @@
 "subEncryptDesc" = "Mã hóa các cấu hình được trả về trong gói đăng ký"
 "subShowInfo" = "Hiển thị thông tin sử dụng"
 "subShowInfoDesc" = "Hiển thị lưu lượng truy cập còn lại và ngày sau tên cấu hình"
+"subAppendRequestHost" = "Append request hostname to subscription link"
+"subAppendRequestHostDesc" = "When enabled, share links and the subscription page URL use the hostname from the request (e.g. your CDN domain) as the last path segment, unless you override with …/subid/your.domain or ?host=. Turn off to keep plain …/subid only."
 "subURI" = "URI proxy trung gian"
 "subURIDesc" = "Thay đổi URI cơ sở của URL gói đăng ký để sử dụng cho proxy trung gian"
 "externalTrafficInformEnable" = "Thông báo giao thông bên ngoài"

@@ -38,8 +38,76 @@ func NewSubService(showInfo bool, remarkModel string) *SubService {
 	}
 }
 
+// SubAppendRequestHostEnabled reports panel setting: use request hostname in links when not explicitly overridden.
+func (s *SubService) SubAppendRequestHostEnabled() bool {
+	b, err := s.settingService.GetSubAppendRequestHost()
+	return err == nil && b
+}
+
+// ResolveAutoShareLinkHost picks the hostname appended when "append request host" is on and nothing explicit was given.
+// Loopback / localhost request hosts are ignored so opening the sub page via 127.0.0.1 does not produce …/127.0.0.1 when a public sub URI is configured.
+func (s *SubService) ResolveAutoShareLinkHost(requestHost string) string {
+	h := SanitizeSubscriptionLinkHost(requestHost)
+	if h != "" && !isUnsuitableAutoSubscriptionHost(h) {
+		return h
+	}
+	if uStr, err := s.settingService.GetSubURI(); err == nil && strings.TrimSpace(uStr) != "" {
+		if u, err := url.Parse(uStr); err == nil {
+			cand := SanitizeSubscriptionLinkHost(u.Hostname())
+			if cand != "" && !isUnsuitableAutoSubscriptionHost(cand) {
+				return cand
+			}
+		}
+	}
+	if dom, err := s.settingService.GetSubDomain(); err == nil && strings.TrimSpace(dom) != "" {
+		cand := SanitizeSubscriptionLinkHost(dom)
+		if cand != "" && !isUnsuitableAutoSubscriptionHost(cand) {
+			return cand
+		}
+	}
+	return ""
+}
+
+func isUnsuitableAutoSubscriptionHost(h string) bool {
+	if h == "" {
+		return true
+	}
+	lh := strings.ToLower(strings.TrimSpace(h))
+	if lh == "localhost" {
+		return true
+	}
+	if lh == "0.0.0.0" || lh == "::" || lh == "::1" {
+		return true
+	}
+	hostForIP := lh
+	if strings.HasPrefix(hostForIP, "[") && strings.HasSuffix(hostForIP, "]") {
+		hostForIP = hostForIP[1 : len(hostForIP)-1]
+	}
+	if ip := net.ParseIP(hostForIP); ip != nil {
+		return ip.IsLoopback() || ip.IsUnspecified()
+	}
+	return false
+}
+
+// SanitizeSubscriptionLinkHost validates a user-supplied host for share-link substitution (path segment or ?host=).
+func SanitizeSubscriptionLinkHost(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" || len(s) > 253 {
+		return ""
+	}
+	if strings.ContainsAny(s, "/@?#\\% \t\r\n") {
+		return ""
+	}
+	// Avoid clashing with static asset paths under the subscription URL prefix.
+	if strings.EqualFold(s, "assets") {
+		return ""
+	}
+	return s
+}
+
 // GetSubs retrieves subscription links for a given subscription ID and host.
-func (s *SubService) GetSubs(subId string, host string) ([]string, int64, xray.ClientTraffic, error) {
+// linkHost, if non-empty, is used as the address in generated share links (overrides bind IP and request host).
+func (s *SubService) GetSubs(subId string, host string, linkHost string) ([]string, int64, xray.ClientTraffic, error) {
 	s.address = host
 	var result []string
 	var traffic xray.ClientTraffic
@@ -76,7 +144,7 @@ func (s *SubService) GetSubs(subId string, host string) ([]string, int64, xray.C
 		}
 		for _, client := range clients {
 			if client.Enable && client.SubID == subId {
-				link := s.getLink(inbound, client.Email)
+				link := s.getLink(inbound, client.Email, linkHost)
 				result = append(result, link)
 				ct := s.getClientTraffics(inbound.ClientStats, client.Email)
 				clientTraffics = append(clientTraffics, ct)
@@ -182,30 +250,35 @@ func (s *SubService) getFallbackMaster(dest string, streamSettings string) (stri
 	return inbound.Listen, inbound.Port, string(modifiedStream), nil
 }
 
-func (s *SubService) getLink(inbound *model.Inbound, email string) string {
+func (s *SubService) getLink(inbound *model.Inbound, email string, linkHost string) string {
 	switch inbound.Protocol {
 	case "vmess":
-		return s.genVmessLink(inbound, email)
+		return s.genVmessLink(inbound, email, linkHost)
 	case "vless":
-		return s.genVlessLink(inbound, email)
+		return s.genVlessLink(inbound, email, linkHost)
 	case "trojan":
-		return s.genTrojanLink(inbound, email)
+		return s.genTrojanLink(inbound, email, linkHost)
 	case "shadowsocks":
-		return s.genShadowsocksLink(inbound, email)
+		return s.genShadowsocksLink(inbound, email, linkHost)
 	}
 	return ""
 }
 
-func (s *SubService) genVmessLink(inbound *model.Inbound, email string) string {
+func (s *SubService) shareLinkAddress(inbound *model.Inbound, linkHost string) string {
+	if linkHost != "" {
+		return linkHost
+	}
+	if inbound.Listen == "" || inbound.Listen == "0.0.0.0" || inbound.Listen == "::" || inbound.Listen == "::0" {
+		return s.address
+	}
+	return inbound.Listen
+}
+
+func (s *SubService) genVmessLink(inbound *model.Inbound, email string, linkHost string) string {
 	if inbound.Protocol != model.VMESS {
 		return ""
 	}
-	var address string
-	if inbound.Listen == "" || inbound.Listen == "0.0.0.0" || inbound.Listen == "::" || inbound.Listen == "::0" {
-		address = s.address
-	} else {
-		address = inbound.Listen
-	}
+	address := s.shareLinkAddress(inbound, linkHost)
 	obj := map[string]any{
 		"v":    "2",
 		"add":  address,
@@ -340,13 +413,8 @@ func (s *SubService) genVmessLink(inbound *model.Inbound, email string) string {
 	return "vmess://" + base64.StdEncoding.EncodeToString(jsonStr)
 }
 
-func (s *SubService) genVlessLink(inbound *model.Inbound, email string) string {
-	var address string
-	if inbound.Listen == "" || inbound.Listen == "0.0.0.0" || inbound.Listen == "::" || inbound.Listen == "::0" {
-		address = s.address
-	} else {
-		address = inbound.Listen
-	}
+func (s *SubService) genVlessLink(inbound *model.Inbound, email string, linkHost string) string {
+	address := s.shareLinkAddress(inbound, linkHost)
 
 	if inbound.Protocol != model.VLESS {
 		return ""
@@ -544,13 +612,8 @@ func (s *SubService) genVlessLink(inbound *model.Inbound, email string) string {
 	return url.String()
 }
 
-func (s *SubService) genTrojanLink(inbound *model.Inbound, email string) string {
-	var address string
-	if inbound.Listen == "" || inbound.Listen == "0.0.0.0" || inbound.Listen == "::" || inbound.Listen == "::0" {
-		address = s.address
-	} else {
-		address = inbound.Listen
-	}
+func (s *SubService) genTrojanLink(inbound *model.Inbound, email string, linkHost string) string {
+	address := s.shareLinkAddress(inbound, linkHost)
 	if inbound.Protocol != model.Trojan {
 		return ""
 	}
@@ -740,13 +803,8 @@ func (s *SubService) genTrojanLink(inbound *model.Inbound, email string) string 
 	return url.String()
 }
 
-func (s *SubService) genShadowsocksLink(inbound *model.Inbound, email string) string {
-	var address string
-	if inbound.Listen == "" || inbound.Listen == "0.0.0.0" || inbound.Listen == "::" || inbound.Listen == "::0" {
-		address = s.address
-	} else {
-		address = inbound.Listen
-	}
+func (s *SubService) genShadowsocksLink(inbound *model.Inbound, email string, linkHost string) string {
+	address := s.shareLinkAddress(inbound, linkHost)
 	if inbound.Protocol != model.Shadowsocks {
 		return ""
 	}
@@ -1069,9 +1127,6 @@ func (s *SubService) ResolveRequest(c *gin.Context) (scheme string, host string,
 		host = h
 	}
 	if host == "" {
-		host = c.GetHeader("X-Real-IP")
-	}
-	if host == "" {
 		var err error
 		host, _, err = net.SplitHostPort(c.Request.Host)
 		if err != nil {
@@ -1090,8 +1145,8 @@ func (s *SubService) ResolveRequest(c *gin.Context) (scheme string, host string,
 
 	// header display host
 	hostHeader = c.GetHeader("X-Forwarded-Host")
-	if hostHeader == "" {
-		hostHeader = c.GetHeader("X-Real-IP")
+	if hostHeader == "" && c.Request.Host != "" {
+		hostHeader = c.Request.Host
 	}
 	if hostHeader == "" {
 		hostHeader = host
@@ -1166,6 +1221,32 @@ func (s *SubService) joinPathWithID(basePath, subId string) string {
 		return basePath + subId
 	}
 	return basePath + "/" + subId
+}
+
+// AppendLinkHostSuffix appends an optional /{host} path segment for public-host share links.
+func (s *SubService) AppendLinkHostSuffix(subURL string, linkHost string) string {
+	if linkHost == "" || subURL == "" {
+		return subURL
+	}
+	if strings.HasSuffix(subURL, "/") {
+		return subURL + linkHost
+	}
+	return subURL + "/" + linkHost
+}
+
+// AppendHostQueryParam adds or sets ?host= on a subscription URL (query-style override).
+func (s *SubService) AppendHostQueryParam(subURL string, host string) string {
+	if host == "" || subURL == "" {
+		return subURL
+	}
+	u, err := url.Parse(subURL)
+	if err != nil {
+		return subURL
+	}
+	q := u.Query()
+	q.Set("host", host)
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 // BuildPageData parses header and prepares the template view model.

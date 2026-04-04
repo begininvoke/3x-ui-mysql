@@ -761,10 +761,10 @@
       infoModal.visible = false;
     },
     genSubLink(subID) {
-      return app.subSettings.subURI + subID;
+      return formatPanelSubscriptionLink(app.subSettings.subURI, subID, app.subSettings.subAppendRequestHost);
     },
     genSubJsonLink(subID) {
-      return app.subSettings.subJsonURI + subID;
+      return formatPanelSubscriptionLink(app.subSettings.subJsonURI, subID, app.subSettings.subAppendRequestHost);
     }
   };
   const infoModalApp = new Vue({

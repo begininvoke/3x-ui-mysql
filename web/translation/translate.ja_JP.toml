@@ -404,6 +404,8 @@
 "subEncryptDesc" = "サブスクリプションサービスが返す内容をBase64エンコードする"
 "subShowInfo" = "利用情報を表示"
 "subShowInfoDesc" = "クライアントアプリで残りのトラフィックと日付情報を表示する"
+"subAppendRequestHost" = "Append request hostname to subscription link"
+"subAppendRequestHostDesc" = "When enabled, share links and the subscription page URL use the hostname from the request (e.g. your CDN domain) as the last path segment, unless you override with …/subid/your.domain or ?host=. Turn off to keep plain …/subid only."
 "subURI" = "リバースプロキシURI"
 "subURIDesc" = "プロキシ後ろのサブスクリプションURLのURIパスに使用する"
 "externalTrafficInformEnable" = "外部トラフィック情報"
