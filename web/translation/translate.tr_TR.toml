@@ -669,8 +669,9 @@
 "idDesc" = "Telegram ID'nizi göster"
 
 [tgbot.messages]
-"outboundPingHeader" = "📶 <b>Outbound ping status changed</b>\r\n⏰ {{ .Time }}\r\n\r\n"
-"outboundPingLine" = "• <code>{{ .Tag }}</code>: {{ .Old }} → {{ .New }}\r\n"
+"outboundPingHeader" = "📶 <b>Outbound connectivity changed</b>\n🖥 <code>{{ .Hostname }}</code>\n⏰ {{ .Time }}\n\n"
+"outboundPingLine" = "▸ <code>{{ .Tag }}</code>\n   <i>before:</i>  {{ .Old }}\n   <i>after:</i>   <b>{{ .New }}</b>\n\n"
+"outboundPingFooter" = "<i>Per-server memory · hostname shows which node sent this.</i>"
 "cpuThreshold" = "🔴 CPU Yükü {{ .Percent }}% eşiği {{ .Threshold }}%'yi aşıyor"
 "selectUserFailed" = "❌ Kullanıcı seçiminde hata!"
 "userSaved" = "✅ Telegram Kullanıcısı kaydedildi."

@@ -396,7 +396,7 @@
 "tgNotifyLogin" = "Login Notification"
 "tgNotifyLoginDesc" = "Get notified about the username, IP address, and time whenever someone attempts to log into your web panel."
 "tgOutboundPingNotify" = "Outbound ping alerts"
-"tgOutboundPingNotifyDesc" = "Every 20 minutes, test all outbounds (two tries if the first fails). Telegram message when a tag goes up or down vs the last run."
+"tgOutboundPingNotifyDesc" = "Every 20 minutes, test all outbounds (two tries if the first fails). Telegram when reachability changes vs the last run on this server. Last results are kept in memory only (each node tracks itself)."
 "sessionMaxAge" = "Session Duration"
 "sessionMaxAgeDesc" = "The duration for which you can stay logged in. (unit: minute)"
 "expireTimeDiff" = "Expiration Date Notification"
@@ -731,8 +731,9 @@
 "idDesc" = "Show your Telegram ID"
 
 [tgbot.messages]
-"outboundPingHeader" = "📶 <b>Outbound ping status changed</b>\r\n⏰ {{ .Time }}\r\n\r\n"
-"outboundPingLine" = "• <code>{{ .Tag }}</code>: {{ .Old }} → {{ .New }}\r\n"
+"outboundPingHeader" = "📶 <b>Outbound connectivity changed</b>\n🖥 <code>{{ .Hostname }}</code>\n⏰ {{ .Time }}\n\n"
+"outboundPingLine" = "▸ <code>{{ .Tag }}</code>\n   <i>before:</i>  {{ .Old }}\n   <i>after:</i>   <b>{{ .New }}</b>\n\n"
+"outboundPingFooter" = "<i>Per-server memory · hostname shows which node sent this.</i>"
 "cpuThreshold" = "🔴 CPU Load {{ .Percent }}% exceeds the threshold of {{ .Threshold }}%"
 "selectUserFailed" = "❌ Error in user selection!"
 "userSaved" = "✅ Telegram User saved."

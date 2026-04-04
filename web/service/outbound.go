@@ -253,8 +253,8 @@ func (s *OutboundService) TestOutbound(outboundJSON string, testURL string, allO
 }
 
 // CheckOutboundPingWithRetry runs up to two TestOutbound attempts (second after a short delay if the first fails).
-// Returns ok true if any attempt succeeds; otherwise false and the last error detail from the result.
-func (s *OutboundService) CheckOutboundPingWithRetry(outboundJSON, testURL, allOutboundsJSON string) (ok bool, lastDetail string) {
+// Returns ok true if any attempt succeeds, with delayMs from that successful attempt; otherwise false and the last error detail.
+func (s *OutboundService) CheckOutboundPingWithRetry(outboundJSON, testURL, allOutboundsJSON string) (ok bool, delayMs int64, lastDetail string) {
 	lastDetail = ""
 	for attempt := 0; attempt < 2; attempt++ {
 		if attempt > 0 {
@@ -266,13 +266,13 @@ func (s *OutboundService) CheckOutboundPingWithRetry(outboundJSON, testURL, allO
 			continue
 		}
 		if res.Success {
-			return true, ""
+			return true, res.Delay, ""
 		}
 		if res.Error != "" {
 			lastDetail = res.Error
 		}
 	}
-	return false, lastDetail
+	return false, 0, lastDetail
 }
 
 // createTestConfig creates a test config by copying all outbounds unchanged and adding

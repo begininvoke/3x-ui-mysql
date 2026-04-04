@@ -3,14 +3,31 @@ package job
 import (
 	"encoding/json"
 	"html"
+	"os"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mhsanaei/3x-ui/v2/logger"
 	"github.com/mhsanaei/3x-ui/v2/web/service"
 )
 
-// OutboundPingNotifyJob checks all Xray outbounds on a schedule, persists up/down state, and notifies Telegram on changes.
+// pingOutcome is one outbound's last result on this process (each node keeps its own memory).
+type pingOutcome struct {
+	ok      bool
+	delayMs int64
+}
+
+// outboundPingState holds the previous run per tag in RAM only (not DB); safe for multi-node — each server is separate.
+var outboundPingState = struct {
+	mu   sync.Mutex
+	last map[string]pingOutcome
+}{
+	last: make(map[string]pingOutcome),
+}
+
+// OutboundPingNotifyJob checks all Xray outbounds on a schedule, keeps last results in memory on this host, and notifies Telegram on up/down changes.
 type OutboundPingNotifyJob struct {
 	settingService  service.SettingService
 	outboundService service.OutboundService
@@ -22,7 +39,31 @@ func NewOutboundPingNotifyJob() *OutboundPingNotifyJob {
 	return new(OutboundPingNotifyJob)
 }
 
-// Run tests each testable outbound (two attempts per tag when the first fails), compares to saved state, and alerts on changes.
+func formatPingValue(ok bool, delayMs int64) string {
+	if !ok {
+		return "NO"
+	}
+	if delayMs < 0 {
+		delayMs = 0
+	}
+	return strconv.FormatInt(delayMs, 10) + " ms"
+}
+
+func (j *OutboundPingNotifyJob) resolveHostLabel() string {
+	host, err := os.Hostname()
+	if err != nil || strings.TrimSpace(host) == "" {
+		host = ""
+	}
+	if host != "" {
+		return host
+	}
+	if dom, err := j.settingService.GetWebDomain(); err == nil && strings.TrimSpace(dom) != "" {
+		return strings.TrimSpace(dom)
+	}
+	return "unknown"
+}
+
+// Run tests each testable outbound (two attempts when the first fails), compares to in-memory state, and alerts on reachability changes.
 func (j *OutboundPingNotifyJob) Run() {
 	enabled, err := j.settingService.GetTgOutboundPingNotify()
 	if err != nil || !enabled {
@@ -63,13 +104,10 @@ func (j *OutboundPingNotifyJob) Run() {
 	}
 	allStr := string(allOutboundsJSON)
 
-	prev, err := j.settingService.GetOutboundPingLastStatus()
-	if err != nil {
-		prev = map[string]bool{}
-	}
-
-	next := make(map[string]bool, len(rawOutbounds))
-	var changes []string
+	next := make(map[string]pingOutcome, len(rawOutbounds))
+	var changeTags []string
+	var changeOld []string
+	var changeNew []string
 
 	for _, ob := range rawOutbounds {
 		obMap, ok := ob.(map[string]any)
@@ -90,36 +128,28 @@ func (j *OutboundPingNotifyJob) Run() {
 			continue
 		}
 
-		okPing, _ := j.outboundService.CheckOutboundPingWithRetry(string(oneJSON), testURL, allStr)
-		next[tag] = okPing
-
-		if _, had := prev[tag]; !had {
-			continue
-		}
-		if prev[tag] == okPing {
-			continue
-		}
-		oldLabel := j.tgbotService.I18nBot("tgbot.messages.yes")
-		newLabel := j.tgbotService.I18nBot("tgbot.messages.no")
-		if !prev[tag] {
-			oldLabel = j.tgbotService.I18nBot("tgbot.messages.no")
-		}
-		if okPing {
-			newLabel = j.tgbotService.I18nBot("tgbot.messages.yes")
-		}
-		line := j.tgbotService.I18nBot("tgbot.messages.outboundPingLine",
-			"Tag=="+html.EscapeString(tag),
-			"Old=="+oldLabel,
-			"New=="+newLabel,
-		)
-		changes = append(changes, line)
+		okPing, delayMs, _ := j.outboundService.CheckOutboundPingWithRetry(string(oneJSON), testURL, allStr)
+		next[tag] = pingOutcome{ok: okPing, delayMs: delayMs}
 	}
 
-	if err := j.settingService.SetOutboundPingLastStatus(next); err != nil {
-		logger.Warning("outbound ping job: save state:", err)
+	outboundPingState.mu.Lock()
+	prev := outboundPingState.last
+	for tag, cur := range next {
+		p, had := prev[tag]
+		if !had {
+			continue
+		}
+		if p.ok == cur.ok {
+			continue
+		}
+		changeTags = append(changeTags, tag)
+		changeOld = append(changeOld, formatPingValue(p.ok, p.delayMs))
+		changeNew = append(changeNew, formatPingValue(cur.ok, cur.delayMs))
 	}
+	outboundPingState.last = next
+	outboundPingState.mu.Unlock()
 
-	if len(changes) == 0 {
+	if len(changeTags) == 0 {
 		return
 	}
 
@@ -128,9 +158,22 @@ func (j *OutboundPingNotifyJob) Run() {
 		loc = time.Local
 	}
 	timeStr := time.Now().In(loc).Format("2006-01-02 15:04:05")
-	header := j.tgbotService.I18nBot("tgbot.messages.outboundPingHeader",
+	hostEsc := html.EscapeString(j.resolveHostLabel())
+
+	var b strings.Builder
+	b.WriteString(j.tgbotService.I18nBot("tgbot.messages.outboundPingHeader",
+		"Hostname=="+hostEsc,
 		"Time=="+timeStr,
-	)
-	msg := header + strings.Join(changes, "")
-	j.tgbotService.SendMsgToTgbotAdmins(msg)
+	))
+	for i := range changeTags {
+		tagEsc := html.EscapeString(changeTags[i])
+		line := j.tgbotService.I18nBot("tgbot.messages.outboundPingLine",
+			"Tag=="+tagEsc,
+			"Old=="+changeOld[i],
+			"New=="+changeNew[i],
+		)
+		b.WriteString(line)
+	}
+	b.WriteString(j.tgbotService.I18nBot("tgbot.messages.outboundPingFooter"))
+	j.tgbotService.SendMsgToTgbotAdmins(b.String())
 }

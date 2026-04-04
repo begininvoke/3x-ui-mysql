@@ -359,7 +359,7 @@
 "tgNotifyLogin" = "Уведомление о входе"
 "tgNotifyLoginDesc" = "Отображает имя пользователя, IP-адрес и время, когда кто-то пытается войти в вашу панель."
 "tgOutboundPingNotify" = "Уведомления о ping исходящих"
-"tgOutboundPingNotifyDesc" = "Каждые 20 минут проверять все исходящие (вторая попытка, если первая не удалась). Сообщение в Telegram при смене статуса относительно прошлого запуска."
+"tgOutboundPingNotifyDesc" = "Каждые 20 минут проверять все исходящие (вторая попытка, если первая не удалась). Telegram при смене доступности относительно прошлого прогона на этом сервере. Состояние только в памяти процесса (у каждой ноды своё)."
 "sessionMaxAge" = "Продолжительность сессии"
 "sessionMaxAgeDesc" = "Продолжительность сессии в системе (значение: минута)"
 "expireTimeDiff" = "Задержка уведомления об истечении сессии"
@@ -669,8 +669,9 @@
 "idDesc" = "Показать ваш Telegram ID"
 
 [tgbot.messages]
-"outboundPingHeader" = "📶 <b>Изменился статус ping исходящих</b>\r\n⏰ {{ .Time }}\r\n\r\n"
-"outboundPingLine" = "• <code>{{ .Tag }}</code>: {{ .Old }} → {{ .New }}\r\n"
+"outboundPingHeader" = "📶 <b>Изменение исходящего подключения</b>\n🖥 <code>{{ .Hostname }}</code>\n⏰ {{ .Time }}\n\n"
+"outboundPingLine" = "▸ <code>{{ .Tag }}</code>\n   <i>было:</i>  {{ .Old }}\n   <i>стало:</i>   <b>{{ .New }}</b>\n\n"
+"outboundPingFooter" = "<i>Память на этом сервере · hostname — какая нода прислала.</i>"
 "cpuThreshold" = "🔴 Загрузка процессора составляет {{ .Percent }}%, что превышает пороговое значение {{ .Threshold }}%"
 "selectUserFailed" = "❌ Ошибка при выборе пользователя."
 "userSaved" = "✅ Пользователь Telegram сохранен."

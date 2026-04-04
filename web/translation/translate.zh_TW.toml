@@ -359,7 +359,7 @@
 "tgNotifyLogin" = "登入通知"
 "tgNotifyLoginDesc" = "當有人試圖登入你的面板時顯示使用者名稱、IP 地址和時間"
 "tgOutboundPingNotify" = "出站 ping 告警"
-"tgOutboundPingNotifyDesc" = "每 20 分鐘檢測所有出站（第一次失敗會再試一次）。與上次相比狀態變化時透過 Telegram 通知。"
+"tgOutboundPingNotifyDesc" = "每 20 分鐘檢測所有出站（第一次失敗會再試一次）。與本機上次結果相比連通性變化時發 Telegram。狀態僅存在本機記憶體（各節點各自記錄）。"
 "sessionMaxAge" = "會話時長"
 "sessionMaxAgeDesc" = "保持登入狀態的時長（單位：分鐘）"
 "expireTimeDiff" = "到期通知閾值"
@@ -669,8 +669,9 @@
 "idDesc" = "顯示您的 Telegram ID"
 
 [tgbot.messages]
-"outboundPingHeader" = "📶 <b>出站 ping 狀態變化</b>\r\n⏰ {{ .Time }}\r\n\r\n"
-"outboundPingLine" = "• <code>{{ .Tag }}</code>: {{ .Old }} → {{ .New }}\r\n"
+"outboundPingHeader" = "📶 <b>出站連通性變化</b>\n🖥 <code>{{ .Hostname }}</code>\n⏰ {{ .Time }}\n\n"
+"outboundPingLine" = "▸ <code>{{ .Tag }}</code>\n   <i>先前:</i>  {{ .Old }}\n   <i>現在:</i>   <b>{{ .New }}</b>\n\n"
+"outboundPingFooter" = "<i>本機記憶體 · hostname 表示哪台節點發送。</i>"
 "cpuThreshold" = "🔴 CPU 使用率為 {{ .Percent }}%，超過閾值 {{ .Threshold }}%"
 "selectUserFailed" = "❌ 使用者選擇錯誤！"
 "userSaved" = "✅ 電報使用者已儲存。"

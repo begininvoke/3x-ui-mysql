@@ -669,8 +669,9 @@
 "idDesc" = "عرض معرف Telegram الخاص بك"
 
 [tgbot.messages]
-"outboundPingHeader" = "📶 <b>Outbound ping status changed</b>\r\n⏰ {{ .Time }}\r\n\r\n"
-"outboundPingLine" = "• <code>{{ .Tag }}</code>: {{ .Old }} → {{ .New }}\r\n"
+"outboundPingHeader" = "📶 <b>Outbound connectivity changed</b>\n🖥 <code>{{ .Hostname }}</code>\n⏰ {{ .Time }}\n\n"
+"outboundPingLine" = "▸ <code>{{ .Tag }}</code>\n   <i>before:</i>  {{ .Old }}\n   <i>after:</i>   <b>{{ .New }}</b>\n\n"
+"outboundPingFooter" = "<i>Per-server memory · hostname shows which node sent this.</i>"
 "cpuThreshold" = "🔴 حمل المعالج {{ .Percent }}% عدى الحد المسموح ({{ .Threshold }}%)"
 "selectUserFailed" = "❌ حصل خطأ في اختيار المستخدم!"
 "userSaved" = "✅ حفظت بيانات مستخدم Telegram."
