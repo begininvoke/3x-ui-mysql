@@ -25,6 +25,12 @@ import (
 // Only connections seen within this window compete for the client's LimitIP slots.
 const ipLimitLiveActivityWindowSec = 15
 
+var (
+	accessLogAcceptedLineIPRe = regexp.MustCompile(`from (?:tcp:|udp:)?\[?([0-9a-fA-F\.:]+)\]?:\d+ accepted`)
+	accessLogLineEmailRe      = regexp.MustCompile(`email: (.+)$`)
+	accessLogLineTimestampRe  = regexp.MustCompile(`^(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2})`)
+)
+
 // IPWithTimestamp tracks an IP address with its last seen timestamp
 type IPWithTimestamp struct {
 	IP        string `json:"ip"`
@@ -62,15 +68,24 @@ func (j *CheckClientIpJob) Run() {
 	f2bInstalled := j.checkFail2BanInstalled()
 	isAccessLogAvailable := j.checkAccessLogAvailable(iplimitActive)
 
+	var clientIpMap map[string]map[string]int64
+	if isAccessLogAvailable {
+		clientIpMap = j.parseAccessLogInboundClientIPs()
+		if len(clientIpMap) > 0 {
+			var inboundService service.InboundService
+			inboundService.EnforceTrafficPolicyOnAccessConnections(clientIpMap)
+		}
+	}
+
 	if isAccessLogAvailable {
 		if runtime.GOOS == "windows" {
 			if iplimitActive {
-				shouldClearAccessLog = j.processLogFile()
+				shouldClearAccessLog = j.processInboundClientIpLimits(clientIpMap)
 			}
 		} else {
 			if iplimitActive {
 				if f2bInstalled {
-					shouldClearAccessLog = j.processLogFile()
+					shouldClearAccessLog = j.processInboundClientIpLimits(clientIpMap)
 				} else {
 					logger.Warning("[LimitIP] Fail2Ban is not installed, Please install Fail2Ban from the x-ui bash menu.")
 				}
@@ -135,43 +150,40 @@ func (j *CheckClientIpJob) hasLimitIp() bool {
 	return false
 }
 
-func (j *CheckClientIpJob) processLogFile() bool {
-
-	ipRegex := regexp.MustCompile(`from (?:tcp:|udp:)?\[?([0-9a-fA-F\.:]+)\]?:\d+ accepted`)
-	emailRegex := regexp.MustCompile(`email: (.+)$`)
-	timestampRegex := regexp.MustCompile(`^(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2})`)
-
-	accessLogPath, _ := xray.GetAccessLogPath()
-	file, _ := os.Open(accessLogPath)
+func (j *CheckClientIpJob) parseAccessLogInboundClientIPs() map[string]map[string]int64 {
+	accessLogPath, err := xray.GetAccessLogPath()
+	if err != nil {
+		return nil
+	}
+	file, err := os.Open(accessLogPath)
+	if err != nil {
+		return nil
+	}
 	defer file.Close()
 
-	// Track IPs with their last seen timestamp
 	inboundClientIps := make(map[string]map[string]int64, 100)
-
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		ipMatches := ipRegex.FindStringSubmatch(line)
+		ipMatches := accessLogAcceptedLineIPRe.FindStringSubmatch(line)
 		if len(ipMatches) < 2 {
 			continue
 		}
 
 		ip := ipMatches[1]
-
 		if ip == "127.0.0.1" || ip == "::1" {
 			continue
 		}
 
-		emailMatches := emailRegex.FindStringSubmatch(line)
+		emailMatches := accessLogLineEmailRe.FindStringSubmatch(line)
 		if len(emailMatches) < 2 {
 			continue
 		}
 		email := emailMatches[1]
 
-		// Extract timestamp from log line
 		var timestamp int64
-		timestampMatches := timestampRegex.FindStringSubmatch(line)
+		timestampMatches := accessLogLineTimestampRe.FindStringSubmatch(line)
 		if len(timestampMatches) >= 2 {
 			t, err := time.Parse("2006/01/02 15:04:05", timestampMatches[1])
 			if err == nil {
@@ -186,10 +198,16 @@ func (j *CheckClientIpJob) processLogFile() bool {
 		if _, exists := inboundClientIps[email]; !exists {
 			inboundClientIps[email] = make(map[string]int64)
 		}
-		// Update timestamp - keep the latest
 		if existingTime, ok := inboundClientIps[email][ip]; !ok || timestamp > existingTime {
 			inboundClientIps[email][ip] = timestamp
 		}
+	}
+	return inboundClientIps
+}
+
+func (j *CheckClientIpJob) processInboundClientIpLimits(inboundClientIps map[string]map[string]int64) bool {
+	if len(inboundClientIps) == 0 {
+		return false
 	}
 
 	shouldCleanLog := false

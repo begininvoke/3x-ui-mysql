@@ -1018,9 +1018,7 @@ func (s *InboundService) AddTraffic(inboundTraffics []*xray.Traffic, clientTraff
 	})
 
 	if len(disabledEmails) > 0 {
-		var settingService SettingService
-		blockDuration := settingService.GetIpLimitBlockDurationSec()
-		go s.BlockIPsForDisabledClients(disabledEmails, blockDuration)
+		go s.BlockIPsForDisabledClients(disabledEmails, TrafficOrExpireDisabledBlockSeconds)
 	}
 
 	return err, (needRestart0 || needRestart1 || needRestart2)
@@ -2915,6 +2913,115 @@ func (s *InboundService) Fail2banUnbanAll() error {
 func (s *InboundService) truncateIPLimitLog() {
 	logPath := xray.GetIPLimitLogPath()
 	_ = os.Truncate(logPath, 0)
+}
+
+// TrafficOrExpireDisabledBlockSeconds is how long source IPs are blocked when a client is disabled
+// due to traffic or expiry (including auto-disable from traffic sync and access-log enforcement).
+const TrafficOrExpireDisabledBlockSeconds int64 = 30 * 60
+
+func clientTrafficLimitThresholdPercent(ss SettingService) int {
+	bufferPct := 0
+	if b, err := ss.GetTrafficLimitBuffer(); err == nil && b > 0 && b <= 30 {
+		bufferPct = b
+	}
+	return 100 - bufferPct
+}
+
+// clientTrafficDisallowedReason matches disableInvalidClients: disabled, expired, or traffic over threshold (with buffer).
+func clientTrafficDisallowedReason(ct *xray.ClientTraffic, nowMs int64, thresholdPct int) string {
+	if ct == nil {
+		return ""
+	}
+	if !ct.Enable {
+		return "Account disabled"
+	}
+	if ct.ExpiryTime > 0 && ct.ExpiryTime <= nowMs {
+		return "Account expired"
+	}
+	if ct.Total > 0 && (ct.Up+ct.Down)*100 >= ct.Total*int64(thresholdPct) {
+		return "Traffic limit exhausted"
+	}
+	return ""
+}
+
+// disableClientForTrafficOrExpiryImmediate removes the client from Xray and sets client_traffics.enable = false.
+func (s *InboundService) disableClientForTrafficOrExpiryImmediate(email string) (needRestart bool) {
+	if p == nil || !p.IsRunning() {
+		return false
+	}
+	db := database.GetDB()
+	var row struct {
+		Tag string
+	}
+	err := db.Table("inbounds").
+		Select("inbounds.tag").
+		Joins("JOIN client_traffics ON inbounds.id = client_traffics.inbound_id").
+		Where("client_traffics.email = ?", email).
+		Take(&row).Error
+	if err != nil {
+		return false
+	}
+	if err1 := s.xrayApi.Init(p.GetAPIPort()); err1 != nil {
+		return true
+	}
+	defer s.xrayApi.Close()
+	err1 := s.xrayApi.RemoveUser(row.Tag, email)
+	if err1 == nil {
+		logger.Debug("Client disabled from Xray (traffic/expiry enforcement):", email)
+	} else if strings.Contains(err1.Error(), fmt.Sprintf("User %s not found.", email)) {
+		logger.Debug("User already absent in Xray:", email)
+	} else {
+		logger.Debug("Error removing user for traffic/expiry enforcement:", err1)
+		needRestart = true
+	}
+	if res := db.Model(xray.ClientTraffic{}).Where("email = ? AND enable = ?", email, true).Update("enable", false); res.Error != nil {
+		logger.Warning("client_traffics enable update:", res.Error)
+	}
+	return needRestart
+}
+
+// EnforceTrafficPolicyOnAccessConnections blocks connecting IPs for 30 minutes when the client is disabled,
+// expired, or over the traffic threshold (same rules as disableInvalidClients). If the row is still enabled
+// but expired or out of traffic, the client is removed from Xray immediately.
+func (s *InboundService) EnforceTrafficPolicyOnAccessConnections(clientIPs map[string]map[string]int64) {
+	if len(clientIPs) == 0 {
+		return
+	}
+	var ss SettingService
+	threshold := clientTrafficLimitThresholdPercent(ss)
+	nowMs := time.Now().UnixMilli()
+	nowSec := time.Now().Unix()
+	db := database.GetDB()
+	var needRestart bool
+
+	for email, ipTs := range clientIPs {
+		var ct xray.ClientTraffic
+		if err := db.Where("email = ?", email).First(&ct).Error; err != nil {
+			continue
+		}
+		reason := clientTrafficDisallowedReason(&ct, nowMs, threshold)
+		if reason == "" {
+			continue
+		}
+		if ct.Enable && reason != "Account disabled" {
+			if s.disableClientForTrafficOrExpiryImmediate(email) {
+				needRestart = true
+			}
+		}
+		for ip := range ipTs {
+			if ip == "127.0.0.1" || ip == "::1" {
+				continue
+			}
+			if err := s.SaveBlockedIP(ip, email, nowSec, TrafficOrExpireDisabledBlockSeconds, reason); err != nil {
+				logger.Debugf("[TRAFFIC_IP] SaveBlockedIP %s: %v", ip, err)
+			}
+		}
+	}
+
+	if needRestart {
+		var xs XrayService
+		xs.SetToNeedRestart()
+	}
 }
 
 func (s *InboundService) BlockIPsForDisabledClients(emails []string, durationSeconds int64) {
