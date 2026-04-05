@@ -149,7 +149,7 @@ type Client struct {
 	TgID       int64  `json:"tgId" form:"tgId"`             // Telegram user ID for notifications
 	SubID      string `json:"subId" form:"subId"`           // Subscription identifier
 	Comment    string `json:"comment" form:"comment"`       // Client comment
-	Reset     int   `json:"reset" form:"reset"`       // Reset period in days
-	CreatedAt int64 `json:"created_at,omitempty"`     // Creation timestamp
-	UpdatedAt int64 `json:"updated_at,omitempty"`     // Last update timestamp
+	Reset      int    `json:"reset" form:"reset"`           // Reset period in days
+	CreatedAt  int64  `json:"created_at,omitempty"`         // Creation timestamp
+	UpdatedAt  int64  `json:"updated_at,omitempty"`         // Last update timestamp
 }
