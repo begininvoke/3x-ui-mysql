@@ -1,29 +1,29 @@
 package service
 
 import (
+	"bufio"
+	"encoding/json"
+	"io"
 	"net"
+	"os"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/mhsanaei/3x-ui/v2/database"
-	"github.com/mhsanaei/3x-ui/v2/database/model"
 	"github.com/mhsanaei/3x-ui/v2/xray"
 )
 
-// ActivityNamedCount is a label with an occurrence count.
 type ActivityNamedCount struct {
 	Name  string `json:"name"`
 	Count int64  `json:"count"`
 }
 
-// ActivityUserRank ranks a client by stored activity rows in the time window.
 type ActivityUserRank struct {
 	Email         string `json:"email"`
 	ActivityCount int64  `json:"activityCount"`
 }
 
-// ActivityTrafficRank ranks a client by recorded upload+download bytes.
 type ActivityTrafficRank struct {
 	Email string `json:"email"`
 	Up    int64  `json:"up"`
@@ -31,7 +31,6 @@ type ActivityTrafficRank struct {
 	Total int64  `json:"total"`
 }
 
-// ActivityAccessLogEntry is a single parsed access-log line for the recent access list.
 type ActivityAccessLogEntry struct {
 	Ts       int64  `json:"ts"`
 	From     string `json:"from"`
@@ -42,7 +41,6 @@ type ActivityAccessLogEntry struct {
 	Event    string `json:"event"`
 }
 
-// ActivityStatusOverview aggregates captured access-log rows for the status dashboard.
 type ActivityStatusOverview struct {
 	WindowHours        int                      `json:"windowHours"`
 	WindowLabel        string                   `json:"windowLabel"`
@@ -56,7 +54,6 @@ type ActivityStatusOverview struct {
 	RecentAccessLog    []ActivityAccessLogEntry `json:"recentAccessLog"`
 }
 
-// hostFromActivityAddr extracts host or IP from Xray access "to" / "from" style strings.
 func hostFromActivityAddr(s string) string {
 	s = strings.TrimSpace(strings.TrimPrefix(s, "/"))
 	for _, p := range []string{"tcp:", "udp:"} {
@@ -122,8 +119,11 @@ func topNamedCounts(m map[string]int64, limit int) []ActivityNamedCount {
 	return out
 }
 
-// GetActivityStatusOverview builds dashboard aggregates from client_activities and client traffic.
-// hours <= 0 means no time filter (all stored rows).
+const (
+	accessLogOverviewMaxTail = 48 << 20
+	recentAccessLogLimit     = 500
+)
+
 func (s *InboundService) GetActivityStatusOverview(hours int) (*ActivityStatusOverview, error) {
 	db := database.GetDB()
 	var since int64
@@ -157,115 +157,7 @@ func (s *InboundService) GetActivityStatusOverview(hours int) (*ActivityStatusOv
 		RecentAccessLog:    []ActivityAccessLogEntry{},
 	}
 
-	// Prefer live access-log tail so Network insights reflects all clients in the log, not only
-	// rows stored for activity-capture users. Falls back to DB if the log is missing/unreadable.
-	if !TryFillActivityOverviewFromAccessLog(out, since) {
-		qBase := db.Model(&model.ClientActivity{})
-		if since > 0 {
-			qBase = qBase.Where("ts >= ?", since)
-		}
-		if err := qBase.Count(&out.TotalActivityRows).Error; err != nil {
-			return nil, err
-		}
-
-		var emails []string
-		qDistinct := db.Model(&model.ClientActivity{}).Distinct("client_email")
-		if since > 0 {
-			qDistinct = qDistinct.Where("ts >= ?", since)
-		}
-		if err := qDistinct.Pluck("client_email", &emails).Error; err != nil {
-			return nil, err
-		}
-		out.DistinctClients = len(emails)
-
-		var toRows []struct {
-			ToAddr string `gorm:"column:to_addr"`
-			Cnt    int64  `gorm:"column:cnt"`
-		}
-		qTo := db.Model(&model.ClientActivity{}).Select("to_addr, COUNT(*) as cnt")
-		if since > 0 {
-			qTo = qTo.Where("ts >= ?", since)
-		}
-		if err := qTo.Group("to_addr").Order("cnt DESC").Limit(500).Scan(&toRows).Error; err != nil {
-			return nil, err
-		}
-		hostAgg := make(map[string]int64)
-		ipAgg := make(map[string]int64)
-		for _, r := range toRows {
-			h := hostFromActivityAddr(r.ToAddr)
-			if h == "" {
-				continue
-			}
-			if net.ParseIP(h) != nil {
-				ipAgg[h] += r.Cnt
-			} else {
-				hostAgg[h] += r.Cnt
-			}
-		}
-		out.TopDestHostnames = topNamedCounts(hostAgg, 30)
-		out.TopDestIPs = topNamedCounts(ipAgg, 30)
-
-		var fromRows []struct {
-			FromAddr string `gorm:"column:from_addr"`
-			Cnt      int64  `gorm:"column:cnt"`
-		}
-		qFrom := db.Model(&model.ClientActivity{}).Select("from_addr, COUNT(*) as cnt")
-		if since > 0 {
-			qFrom = qFrom.Where("ts >= ?", since)
-		}
-		if err := qFrom.Group("from_addr").Order("cnt DESC").Limit(400).Scan(&fromRows).Error; err != nil {
-			return nil, err
-		}
-		fromAgg := make(map[string]int64)
-		for _, r := range fromRows {
-			h := hostFromActivityAddr(r.FromAddr)
-			if h == "" {
-				continue
-			}
-			fromAgg[h] += r.Cnt
-		}
-		out.TopClientSourceIPs = topNamedCounts(fromAgg, 30)
-
-		var userRows []struct {
-			Email string `gorm:"column:client_email"`
-			Cnt   int64  `gorm:"column:cnt"`
-		}
-		qUser := db.Model(&model.ClientActivity{}).Select("client_email, COUNT(*) as cnt")
-		if since > 0 {
-			qUser = qUser.Where("ts >= ?", since)
-		}
-		if err := qUser.Group("client_email").Order("cnt DESC").Limit(25).Scan(&userRows).Error; err != nil {
-			return nil, err
-		}
-		for _, r := range userRows {
-			if r.Email == "" {
-				continue
-			}
-			out.TopUsersByActivity = append(out.TopUsersByActivity, ActivityUserRank{
-				Email:         r.Email,
-				ActivityCount: r.Cnt,
-			})
-		}
-
-		var dbRows []model.ClientActivity
-		qRecent := db.Model(&model.ClientActivity{}).Order("ts DESC").Limit(500)
-		if since > 0 {
-			qRecent = qRecent.Where("ts >= ?", since)
-		}
-		if err := qRecent.Find(&dbRows).Error; err == nil {
-			for _, r := range dbRows {
-				out.RecentAccessLog = append(out.RecentAccessLog, ActivityAccessLogEntry{
-					Ts:       r.Ts,
-					From:     r.FromAddr,
-					To:       r.ToAddr,
-					Email:    r.ClientEmail,
-					Inbound:  r.InboundTag,
-					Outbound: r.OutboundTag,
-					Event:    r.Event,
-				})
-			}
-		}
-	}
+	fillActivityOverviewFromAccessLog(out, since)
 
 	var traffics []xray.ClientTraffic
 	if err := db.Model(&xray.ClientTraffic{}).
@@ -288,4 +180,137 @@ func (s *InboundService) GetActivityStatusOverview(hours int) (*ActivityStatusOv
 	}
 
 	return out, nil
+}
+
+func fillActivityOverviewFromAccessLog(out *ActivityStatusOverview, sinceUnix int64) {
+	path, err := xray.GetAccessLogPath()
+	if err != nil || path == "" || path == "none" {
+		return
+	}
+	if _, err := os.Stat(path); err != nil {
+		return
+	}
+
+	var settingService SettingService
+	tpl, terr := settingService.GetXrayConfigTemplate()
+	var cfgMap map[string]any
+	if terr == nil && tpl != "" {
+		_ = json.Unmarshal([]byte(tpl), &cfgMap)
+	}
+	freedoms, blackholes := FreedomBlackholeTagsFromDefaultXrayConfig(cfgMap)
+
+	hostAgg := make(map[string]int64)
+	ipAgg := make(map[string]int64)
+	fromAgg := make(map[string]int64)
+	userAgg := make(map[string]int64)
+	uniqueEmails := make(map[string]struct{})
+	recentEntries := make([]ActivityAccessLogEntry, 0, recentAccessLogLimit)
+
+	f, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		return
+	}
+	size := st.Size()
+	start := int64(0)
+	if size > accessLogOverviewMaxTail {
+		start = size - accessLogOverviewMaxTail
+	}
+	if _, err = f.Seek(start, io.SeekStart); err != nil {
+		return
+	}
+	br := bufio.NewReader(f)
+	if start > 0 {
+		_, _ = br.ReadString('\n')
+	}
+
+	var total int64
+	for {
+		line, rerr := br.ReadString('\n')
+		line = strings.TrimSpace(strings.TrimSuffix(line, "\n"))
+		if line != "" && !strings.Contains(line, "api -> api") {
+			entry, ok := ParseXrayAccessLogLine(line)
+			if ok {
+				ts := entry.DateTime.Unix()
+				if sinceUnix <= 0 || ts >= sinceUnix {
+					total++
+					if h := hostFromActivityAddr(entry.ToAddress); h != "" {
+						if net.ParseIP(h) != nil {
+							ipAgg[h]++
+						} else {
+							hostAgg[h]++
+						}
+					}
+					if fh := hostFromActivityAddr(entry.FromAddress); fh != "" {
+						fromAgg[fh]++
+					}
+					if entry.Email != "" {
+						userAgg[entry.Email]++
+						uniqueEmails[entry.Email] = struct{}{}
+					}
+					recentEntries = append(recentEntries, ActivityAccessLogEntry{
+						Ts:       ts,
+						From:     entry.FromAddress,
+						To:       entry.ToAddress,
+						Email:    entry.Email,
+						Inbound:  entry.Inbound,
+						Outbound: entry.Outbound,
+						Event:    AccessLogEventKind(line, freedoms, blackholes),
+					})
+				}
+			}
+		}
+		if rerr == io.EOF {
+			break
+		}
+		if rerr != nil {
+			break
+		}
+	}
+
+	if len(recentEntries) > recentAccessLogLimit {
+		recentEntries = recentEntries[len(recentEntries)-recentAccessLogLimit:]
+	}
+	for i, j := 0, len(recentEntries)-1; i < j; i, j = i+1, j-1 {
+		recentEntries[i], recentEntries[j] = recentEntries[j], recentEntries[i]
+	}
+
+	out.TotalActivityRows = total
+	out.DistinctClients = len(uniqueEmails)
+	out.TopDestHostnames = topNamedCounts(hostAgg, 30)
+	out.TopDestIPs = topNamedCounts(ipAgg, 30)
+	out.TopClientSourceIPs = topNamedCounts(fromAgg, 30)
+	out.RecentAccessLog = recentEntries
+
+	type rank struct {
+		email string
+		cnt   int64
+	}
+	ranks := make([]rank, 0, len(userAgg))
+	for e, c := range userAgg {
+		if e == "" {
+			continue
+		}
+		ranks = append(ranks, rank{e, c})
+	}
+	sort.Slice(ranks, func(i, j int) bool {
+		if ranks[i].cnt == ranks[j].cnt {
+			return ranks[i].email < ranks[j].email
+		}
+		return ranks[i].cnt > ranks[j].cnt
+	})
+	out.TopUsersByActivity = make([]ActivityUserRank, 0, 25)
+	for i := range ranks {
+		if i >= 25 {
+			break
+		}
+		out.TopUsersByActivity = append(out.TopUsersByActivity, ActivityUserRank{
+			Email:         ranks[i].email,
+			ActivityCount: ranks[i].cnt,
+		})
+	}
 }

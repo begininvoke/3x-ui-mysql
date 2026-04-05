@@ -35,6 +35,13 @@ const (
 )
 
 func initModels() error {
+	// Migrate panel_restarts from old single-row schema to new hostname-tracking schema
+	if db.Migrator().HasTable("panel_restarts") && !db.Migrator().HasColumn(&model.PanelRestart{}, "hostname") {
+		if err := db.Migrator().DropTable("panel_restarts"); err != nil {
+			log.Printf("Warning: failed to drop old panel_restarts table: %v", err)
+		}
+	}
+
 	models := []any{
 		&model.User{},
 		&model.Inbound{},
@@ -46,7 +53,6 @@ func initModels() error {
 		&model.TrafficDaily{},
 		&model.PanelRestart{},
 		&model.BlockedIP{},
-		&model.ClientActivity{},
 	}
 	for _, model := range models {
 		if err := db.AutoMigrate(model); err != nil {

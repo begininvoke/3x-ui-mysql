@@ -235,10 +235,6 @@
                       @click="activeTab = 'traffic'">
                       <a-icon type="bar-chart" /> {{ i18n "pages.networkInsights.topByTraffic" }}
                     </div>
-                    <div class="tab-bar-item" :class="{ active: activeTab === 'activity' }"
-                      @click="activeTab = 'activity'">
-                      <a-icon type="cluster" /> {{ i18n "pages.networkInsights.sectionActivity" }}
-                    </div>
                   </div>
 
                   <!-- Tab: Access Log -->
@@ -305,53 +301,6 @@
                     </div>
                   </div>
 
-                  <!-- Tab: Activity -->
-                  <div v-show="activeTab === 'activity'">
-                    <p class="section-hint">{{ i18n "pages.networkInsights.activityWindowHint" }}</p>
-
-                    <a-row :gutter="[isMobile ? 8 : 12, 12]">
-                      <a-col :xs="24" :lg="12">
-                        <div class="section-label"><a-icon type="cloud" /> {{ i18n "pages.networkInsights.topHostnames" }}</div>
-                        <a-table v-if="(overview.topDestHostnames || []).length" :columns="colsHost"
-                          :data-source="overview.topDestHostnames" :pagination="false" size="small" row-key="name"
-                          :scroll="isMobile ? { x: 280 } : {}">
-                        </a-table>
-                        <div v-else class="empty-box" style="padding:20px 8px">
-                          <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
-                        </div>
-                      </a-col>
-                      <a-col :xs="24" :lg="12">
-                        <div class="section-label"><a-icon type="api" /> {{ i18n "pages.networkInsights.topDestIps" }}</div>
-                        <a-table v-if="(overview.topDestIps || []).length" :columns="colsHost"
-                          :data-source="overview.topDestIps" :pagination="false" size="small" row-key="name"
-                          :scroll="isMobile ? { x: 280 } : {}">
-                        </a-table>
-                        <div v-else class="empty-box" style="padding:20px 8px">
-                          <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
-                        </div>
-                      </a-col>
-                      <a-col :xs="24" :lg="12">
-                        <div class="section-label"><a-icon type="laptop" /> {{ i18n "pages.networkInsights.topSourceIps" }}</div>
-                        <a-table v-if="(overview.topClientSourceIps || []).length" :columns="colsHost"
-                          :data-source="overview.topClientSourceIps" :pagination="false" size="small" row-key="name"
-                          :scroll="isMobile ? { x: 280 } : {}">
-                        </a-table>
-                        <div v-else class="empty-box" style="padding:20px 8px">
-                          <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
-                        </div>
-                      </a-col>
-                      <a-col :xs="24" :lg="12">
-                        <div class="section-label"><a-icon type="user" /> {{ i18n "pages.networkInsights.topByActivity" }}</div>
-                        <a-table v-if="(overview.topUsersByActivity || []).length" :columns="colsUserAct"
-                          :data-source="overview.topUsersByActivity" :pagination="false" size="small" row-key="email"
-                          :scroll="isMobile ? { x: 320 } : {}">
-                        </a-table>
-                        <div v-else class="empty-box" style="padding:20px 8px">
-                          <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
-                        </div>
-                      </a-col>
-                    </a-row>
-                  </div>
                 </a-card>
               </a-col>
             </a-row>

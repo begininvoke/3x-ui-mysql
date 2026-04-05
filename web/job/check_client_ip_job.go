@@ -77,19 +77,22 @@ func (j *CheckClientIpJob) Run() {
 		}
 	}
 
-	if isAccessLogAvailable {
-		if runtime.GOOS == "windows" {
-			if iplimitActive {
-				shouldClearAccessLog = j.processInboundClientIpLimits(clientIpMap)
+	if isAccessLogAvailable && len(clientIpMap) > 0 {
+		enforceIpLimits := false
+		if iplimitActive {
+			if runtime.GOOS == "windows" {
+				enforceIpLimits = true
+			} else if f2bInstalled {
+				enforceIpLimits = true
+			} else {
+				logger.Warning("[LimitIP] Fail2Ban is not installed, Please install Fail2Ban from the x-ui bash menu.")
 			}
+		}
+
+		if enforceIpLimits {
+			shouldClearAccessLog = j.processInboundClientIpLimits(clientIpMap)
 		} else {
-			if iplimitActive {
-				if f2bInstalled {
-					shouldClearAccessLog = j.processInboundClientIpLimits(clientIpMap)
-				} else {
-					logger.Warning("[LimitIP] Fail2Ban is not installed, Please install Fail2Ban from the x-ui bash menu.")
-				}
-			}
+			j.saveClientIpRecords(clientIpMap)
 		}
 	}
 
@@ -203,6 +206,53 @@ func (j *CheckClientIpJob) parseAccessLogInboundClientIPs() map[string]map[strin
 		}
 	}
 	return inboundClientIps
+}
+
+// saveClientIpRecords persists all parsed client IPs to the database
+// without performing any limit enforcement. This ensures the IP log
+// viewer always has data, even when IP limiting is not configured.
+func (j *CheckClientIpJob) saveClientIpRecords(inboundClientIps map[string]map[string]int64) {
+	if len(inboundClientIps) == 0 {
+		return
+	}
+
+	db := database.GetDB()
+	for email, ipTimestamps := range inboundClientIps {
+		ipsWithTime := make([]IPWithTimestamp, 0, len(ipTimestamps))
+		for ip, timestamp := range ipTimestamps {
+			ipsWithTime = append(ipsWithTime, IPWithTimestamp{IP: ip, Timestamp: timestamp})
+		}
+
+		clientIpsRecord, err := j.getInboundClientIps(email)
+		if err != nil {
+			j.addInboundClientIps(email, ipsWithTime)
+			continue
+		}
+
+		var existingIps []IPWithTimestamp
+		if clientIpsRecord.Ips != "" {
+			json.Unmarshal([]byte(clientIpsRecord.Ips), &existingIps)
+		}
+
+		ipMap := make(map[string]int64)
+		for _, ipTime := range existingIps {
+			ipMap[ipTime.IP] = ipTime.Timestamp
+		}
+		for _, ipTime := range ipsWithTime {
+			if existingTime, ok := ipMap[ipTime.IP]; !ok || ipTime.Timestamp > existingTime {
+				ipMap[ipTime.IP] = ipTime.Timestamp
+			}
+		}
+
+		merged := make([]IPWithTimestamp, 0, len(ipMap))
+		for ip, ts := range ipMap {
+			merged = append(merged, IPWithTimestamp{IP: ip, Timestamp: ts})
+		}
+
+		jsonIps, _ := json.Marshal(merged)
+		clientIpsRecord.Ips = string(jsonIps)
+		db.Save(clientIpsRecord)
+	}
 }
 
 func (j *CheckClientIpJob) processInboundClientIpLimits(inboundClientIps map[string]map[string]int64) bool {

@@ -8,47 +8,35 @@ import (
 	"github.com/mhsanaei/3x-ui/v2/database"
 	"github.com/mhsanaei/3x-ui/v2/database/model"
 	"github.com/mhsanaei/3x-ui/v2/logger"
-
-	"gorm.io/gorm"
 )
 
 type PanelService struct {
 	lastRestartCheck int64
 }
 
-// RestartPanel writes a restart signal to the shared DB (so other instances pick it up)
-// and restarts the local instance after the given delay.
+// RestartPanel creates a new restart event in the shared DB with this panel's hostname,
+// then restarts the local instance. Other panels will detect the new epoch and restart too.
 func (s *PanelService) RestartPanel(delay time.Duration) error {
-	now := time.Now().UnixMilli()
+	epoch := time.Now().UnixMilli()
+	hostname, _ := os.Hostname()
 	db := database.GetDB()
 
-	if database.IsMySQL() {
-		err := db.Exec(
-			"INSERT INTO panel_restarts (id, requested_at) VALUES (1, ?) ON DUPLICATE KEY UPDATE requested_at = ?",
-			now, now,
-		).Error
-		if err != nil {
-			logger.Warning("RestartPanel: failed to write restart signal to MySQL:", err)
-		} else {
-			logger.Infof("RestartPanel: signal written to DB (requested_at=%d). All nodes will pick this up.", now)
-		}
+	// Clean up old restart records (older than 1 hour)
+	cutoff := epoch - 3600000
+	db.Where("restart_epoch < ?", cutoff).Delete(&model.PanelRestart{})
+
+	record := &model.PanelRestart{
+		RestartEpoch: epoch,
+		Hostname:     hostname,
+		RestartedAt:  epoch,
+	}
+	if err := db.Create(record).Error; err != nil {
+		logger.Warning("RestartPanel: failed to write restart signal:", err)
 	} else {
-		result := db.Model(&model.PanelRestart{}).Where("id = 1").Update("requested_at", now)
-		if result.RowsAffected == 0 {
-			db.Create(&model.PanelRestart{Id: 1, RequestedAt: now})
-		}
-		logger.Infof("RestartPanel: signal written to DB (requested_at=%d)", now)
+		logger.Infof("RestartPanel: signal written (epoch=%d, hostname=%s). Other nodes will pick this up.", epoch, hostname)
 	}
 
-	// Verify the write succeeded by reading it back
-	var verify model.PanelRestart
-	if err := db.First(&verify, 1).Error; err != nil {
-		logger.Warning("RestartPanel: verification read failed:", err)
-	} else {
-		logger.Infof("RestartPanel: verified DB value requested_at=%d", verify.RequestedAt)
-	}
-
-	s.lastRestartCheck = now
+	s.lastRestartCheck = epoch
 	return s.restartLocal(delay)
 }
 
@@ -66,39 +54,57 @@ func (s *PanelService) restartLocal(delay time.Duration) error {
 	return nil
 }
 
-// CheckRemoteRestart polls the DB for restart requests from other instances.
-// Returns true if a restart was triggered.
+// CheckRemoteRestart polls the DB for restart requests from other panel instances.
+// If a new restart epoch is found and this panel's hostname is not recorded for it,
+// the hostname is added and a local restart is triggered.
 func (s *PanelService) CheckRemoteRestart() bool {
 	db := database.GetDB()
 	if db == nil {
-		logger.Debug("CheckRemoteRestart: db is nil, skipping")
 		return false
 	}
 
-	var row model.PanelRestart
-	result := db.First(&row, 1)
-	if result.Error != nil {
-		if result.Error != gorm.ErrRecordNotFound {
-			logger.Warningf("CheckRemoteRestart: DB query error: %v", result.Error)
-		}
+	hostname, _ := os.Hostname()
+
+	var maxEpoch int64
+	row := db.Model(&model.PanelRestart{}).Select("COALESCE(MAX(restart_epoch), 0)").Row()
+	if err := row.Scan(&maxEpoch); err != nil || maxEpoch == 0 {
 		if s.lastRestartCheck == 0 {
 			s.lastRestartCheck = time.Now().UnixMilli()
-			logger.Infof("CheckRemoteRestart: no DB record yet, baseline set to now (%d)", s.lastRestartCheck)
 		}
 		return false
 	}
 
 	if s.lastRestartCheck == 0 {
-		s.lastRestartCheck = row.RequestedAt
-		logger.Infof("CheckRemoteRestart: initialized baseline from DB (requested_at=%d)", s.lastRestartCheck)
+		s.lastRestartCheck = maxEpoch
+		logger.Infof("CheckRemoteRestart: baseline set from DB (epoch=%d)", maxEpoch)
 		return false
 	}
 
-	if row.RequestedAt > s.lastRestartCheck {
-		logger.Infof("Remote restart detected! DB requested_at=%d > local baseline=%d. Restarting in 3s...", row.RequestedAt, s.lastRestartCheck)
-		s.lastRestartCheck = row.RequestedAt
-		s.restartLocal(time.Second * 3)
-		return true
+	if maxEpoch <= s.lastRestartCheck {
+		return false
 	}
-	return false
+
+	// New restart epoch detected — check if our hostname already acknowledged it
+	var count int64
+	db.Model(&model.PanelRestart{}).
+		Where("restart_epoch = ? AND hostname = ?", maxEpoch, hostname).
+		Count(&count)
+
+	if count > 0 {
+		s.lastRestartCheck = maxEpoch
+		return false
+	}
+
+	// Our hostname not found for this epoch — record it and restart
+	record := &model.PanelRestart{
+		RestartEpoch: maxEpoch,
+		Hostname:     hostname,
+		RestartedAt:  time.Now().UnixMilli(),
+	}
+	db.Create(record)
+
+	logger.Infof("Remote restart detected! epoch=%d, hostname=%s not found — adding and restarting in 3s...", maxEpoch, hostname)
+	s.lastRestartCheck = maxEpoch
+	s.restartLocal(time.Second * 3)
+	return true
 }

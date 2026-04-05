@@ -114,9 +114,12 @@ type TrafficDaily struct {
 }
 
 // PanelRestart coordinates panel restarts across multiple instances via the shared database.
+// Each restart event is identified by restart_epoch; each panel records its hostname when it acknowledges the restart.
 type PanelRestart struct {
-	Id          int   `json:"id" gorm:"primaryKey"`
-	RequestedAt int64 `json:"requestedAt" gorm:"default:0"`
+	Id           int    `json:"id" gorm:"primaryKey;autoIncrement"`
+	RestartEpoch int64  `json:"restartEpoch" gorm:"index"`
+	Hostname     string `json:"hostname" gorm:"size:255"`
+	RestartedAt  int64  `json:"restartedAt"`
 }
 
 // BlockedIP represents a blocked IP record stored in the database for admin visibility and management.
@@ -146,9 +149,7 @@ type Client struct {
 	TgID       int64  `json:"tgId" form:"tgId"`             // Telegram user ID for notifications
 	SubID      string `json:"subId" form:"subId"`           // Subscription identifier
 	Comment    string `json:"comment" form:"comment"`       // Client comment
-	Reset      int    `json:"reset" form:"reset"`           // Reset period in days
-	CreatedAt  int64  `json:"created_at,omitempty"`         // Creation timestamp
-	UpdatedAt  int64  `json:"updated_at,omitempty"`         // Last update timestamp
-	// ActivityCapture when true stores Xray access-log rows for this client only (admin visibility).
-	ActivityCapture bool `json:"activityCapture" form:"activityCapture"`
+	Reset     int   `json:"reset" form:"reset"`       // Reset period in days
+	CreatedAt int64 `json:"created_at,omitempty"`     // Creation timestamp
+	UpdatedAt int64 `json:"updated_at,omitempty"`     // Last update timestamp
 }
