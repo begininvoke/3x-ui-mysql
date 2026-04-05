@@ -30,8 +30,8 @@ import (
 	"github.com/mhsanaei/3x-ui/v2/util/common"
 	"github.com/mhsanaei/3x-ui/v2/util/sys"
 
-	"golang.org/x/net/proxy"
 	"github.com/mhsanaei/3x-ui/v2/xray"
+	"golang.org/x/net/proxy"
 
 	"github.com/google/uuid"
 	"github.com/shirou/gopsutil/v4/cpu"
