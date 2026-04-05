@@ -64,6 +64,13 @@
             </template>
         </a-setting-list-item>
         <a-setting-list-item paddings="small">
+            <template #title>{{ i18n "pages.settings.updateProxy"}}</template>
+            <template #description>{{ i18n "pages.settings.updateProxyDesc"}}</template>
+            <template #control>
+                <a-input type="text" placeholder="socks5://127.0.0.1:1080" v-model="allSetting.updateProxy"></a-input>
+            </template>
+        </a-setting-list-item>
+        <a-setting-list-item paddings="small">
             <template #title>{{ i18n "pages.settings.language"}}</template>
             <template #control>
                 <a-select ref="selectLang" v-model="lang" @change="LanguageManager.setLanguage(lang)"

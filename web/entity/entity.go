@@ -86,6 +86,9 @@ type AllSetting struct {
 	SubJsonMux                  string `json:"subJsonMux" form:"subJsonMux"`                                   // JSON subscription mux configuration
 	SubJsonRules                string `json:"subJsonRules" form:"subJsonRules"`
 
+	// Update proxy setting
+	UpdateProxy string `json:"updateProxy" form:"updateProxy"` // SOCKS5 proxy for checking panel/Xray updates (e.g. socks5://127.0.0.1:1080)
+
 	// Database settings
 	DBType        string `json:"dbType" form:"dbType"`
 	MySQLHost     string `json:"mysqlHost" form:"mysqlHost"`

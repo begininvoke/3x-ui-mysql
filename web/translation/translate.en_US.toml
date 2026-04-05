@@ -402,6 +402,8 @@
 "tgOutboundPingNotifyDesc" = "Every 20 minutes, test all outbounds (two tries if the first fails). Telegram when reachability changes vs the last run on this server. Last results are kept in memory only (each node tracks itself)."
 "sessionMaxAge" = "Session Duration"
 "sessionMaxAgeDesc" = "The duration for which you can stay logged in. (unit: minute)"
+"updateProxy" = "Update Check Proxy"
+"updateProxyDesc" = "SOCKS5 proxy for checking panel updates and downloading Xray versions from GitHub. Example: socks5://127.0.0.1:1080"
 "expireTimeDiff" = "Expiration Date Notification"
 "expireTimeDiffDesc" = "Get notified about expiration date when reaching this threshold. (unit: day)"
 "trafficDiff" = "Traffic Cap Notification"

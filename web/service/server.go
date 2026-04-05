@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,6 +29,8 @@ import (
 	"github.com/mhsanaei/3x-ui/v2/logger"
 	"github.com/mhsanaei/3x-ui/v2/util/common"
 	"github.com/mhsanaei/3x-ui/v2/util/sys"
+
+	"golang.org/x/net/proxy"
 	"github.com/mhsanaei/3x-ui/v2/xray"
 
 	"github.com/google/uuid"
@@ -144,6 +147,7 @@ type ConnectionSample struct {
 type ServerService struct {
 	xrayService        XrayService
 	inboundService     InboundService
+	settingService     SettingService
 	cachedIPv4         string
 	cachedIPv6         string
 	noIPv6             bool
@@ -749,10 +753,46 @@ func (s *ServerService) sampleCPUUtilization() (float64, error) {
 	return s.emaCPU, nil
 }
 
+// getHTTPClient returns an http.Client configured with the SOCKS5 proxy from settings, if set.
+// Falls back to http.DefaultClient when no proxy is configured.
+func (s *ServerService) getHTTPClient() *http.Client {
+	proxyStr, err := s.settingService.GetUpdateProxy()
+	if err != nil || proxyStr == "" {
+		return http.DefaultClient
+	}
+
+	if !strings.HasPrefix(proxyStr, "socks5://") {
+		logger.Warning("Update proxy must start with socks5://, ignoring: ", proxyStr)
+		return http.DefaultClient
+	}
+
+	u, err := url.Parse(proxyStr)
+	if err != nil {
+		logger.Warning("Failed to parse update proxy URL: ", err)
+		return http.DefaultClient
+	}
+
+	dialer, err := proxy.FromURL(u, proxy.Direct)
+	if err != nil {
+		logger.Warning("Failed to create proxy dialer: ", err)
+		return http.DefaultClient
+	}
+
+	transport := &http.Transport{}
+	if cd, ok := dialer.(proxy.ContextDialer); ok {
+		transport.DialContext = cd.DialContext
+	}
+
+	return &http.Client{
+		Transport: transport,
+		Timeout:   60 * time.Second,
+	}
+}
+
 // GetLatestPanelVersion checks the GitHub API for the latest release of the panel.
 func (s *ServerService) GetLatestPanelVersion() (*PanelVersionInfo, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", panelGitHubRepo)
-	resp, err := http.Get(url)
+	resp, err := s.getHTTPClient().Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -812,7 +852,7 @@ func (s *ServerService) UpdatePanel() error {
 
 	logger.Infof("Downloading panel update from %s", downloadURL)
 
-	resp, err := http.Get(downloadURL)
+	resp, err := s.getHTTPClient().Get(downloadURL)
 	if err != nil {
 		return fmt.Errorf("failed to download update: %w", err)
 	}
@@ -976,7 +1016,7 @@ func (s *ServerService) GetXrayVersions() ([]string, error) {
 		bufferSize = 8192
 	)
 
-	resp, err := http.Get(XrayURL)
+	resp, err := s.getHTTPClient().Get(XrayURL)
 	if err != nil {
 		return nil, err
 	}
@@ -1075,7 +1115,7 @@ func (s *ServerService) downloadXRay(version string) (string, error) {
 
 	fileName := fmt.Sprintf("Xray-%s-%s.zip", osName, arch)
 	url := fmt.Sprintf("https://github.com/XTLS/Xray-core/releases/download/%s/%s", version, fileName)
-	resp, err := http.Get(url)
+	resp, err := s.getHTTPClient().Get(url)
 	if err != nil {
 		return "", err
 	}

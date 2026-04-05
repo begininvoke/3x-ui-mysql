@@ -3,6 +3,11 @@
 <script src="{{ .base_path }}assets/moment/moment-jalali.min.js?{{ .cur_ver }}"></script>
 <script src="{{ .base_path }}assets/vue/vue.min.js?{{ .cur_ver }}"></script>
 <script src="{{ .base_path }}assets/ant-design-vue/antd.min.js"></script>
+<script>
+  if (typeof SVGAnimatedString !== 'undefined' && !SVGAnimatedString.prototype.indexOf) {
+    SVGAnimatedString.prototype.indexOf = function(s) { return this.baseVal.indexOf(s); };
+  }
+</script>
 <script src="{{ .base_path }}assets/js/util/index.js?{{ .cur_ver }}"></script>
 <script src="{{ .base_path }}assets/qrcode/qrious2.min.js?{{ .cur_ver }}"></script>
 <style>

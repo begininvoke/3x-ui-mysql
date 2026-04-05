@@ -86,6 +86,7 @@ var defaultValueMap = map[string]string{
 	"externalTrafficInformURI":    "",
 	"xrayOutboundTestUrl":         "https://www.google.com/generate_204",
 	"tgOutboundPingNotify":        "false",
+	"updateProxy":                 "",
 
 	// Database defaults
 	"dbType":        "sqlite",
@@ -333,6 +334,14 @@ func (s *SettingService) GetTgBotProxy() (string, error) {
 
 func (s *SettingService) SetTgBotProxy(token string) error {
 	return s.setString("tgBotProxy", token)
+}
+
+func (s *SettingService) GetUpdateProxy() (string, error) {
+	return s.getString("updateProxy")
+}
+
+func (s *SettingService) SetUpdateProxy(proxy string) error {
+	return s.setString("updateProxy", proxy)
 }
 
 func (s *SettingService) GetTgBotAPIServer() (string, error) {

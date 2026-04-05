@@ -55,6 +55,8 @@ class AllSetting {
         this.subJsonMux = "";
         this.subJsonRules = "";
 
+        this.updateProxy = "";
+
         this.ipLimitBlockDuration = 1800;
         this.trafficLimitBuffer = 5;
         this.ipLimitWhitelist = "";
