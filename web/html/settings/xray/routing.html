@@ -1,9 +1,20 @@
 {{define "settings/xray/routing"}}
+<style>
+  .xray-page .routing-rule-disabled > td { opacity: 0.58; }
+  .dark.xray-page .routing-rule-disabled > td { opacity: 0.5; }
+</style>
 <a-space direction="vertical" size="middle">
     <a-button type="primary" icon="plus" @click="addRule">{{ i18n "pages.xray.rules.add" }}</a-button>
+    <a-alert type="info" show-icon style="font-size:12px"
+        message='{{ i18n "pages.xray.rules.activeHint" }}'></a-alert>
     <a-table-sortable :columns="isMobile ? rulesMobileColumns : rulesColumns" bordered :row-key="r => r.key"
-        :data-source="routingRuleData" :scroll="isMobile ? {} : { x: 1000 }" :pagination="false" :indent-size="0"
+        :data-source="routingRuleData" :row-class-name="routingRuleRowClass"
+        :scroll="isMobile ? {} : { x: 1000 }" :pagination="false" :indent-size="0"
         v-on:onSort="replaceRule">
+        <template slot="ruleEnable" slot-scope="text, rule, index">
+            <a-switch size="small" :checked="!rule.panelRuleDisabled"
+                @change="(checked) => setRoutingRuleEnabled(index, checked)" />
+        </template>
         <template slot="action" slot-scope="text, rule, index">
             <a-table-sort-trigger :item-index="index"></a-table-sort-trigger>
             <span class="ant-table-row-index"> [[ index+1 ]] </span>

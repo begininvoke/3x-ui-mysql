@@ -505,6 +505,8 @@
 "statsOutboundDownlinkDesc" = "启用所有出站代理的下行流量统计收集。"
 
 [pages.xray.rules]
+"active" = "启用"
+"activeHint" = "关闭后规则仍保存在模板中，重启 Xray 时不会生效，可随时再开启。"
 "first" = "置顶"
 "last" = "置底"
 "up" = "向上"

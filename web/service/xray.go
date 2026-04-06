@@ -7,10 +7,66 @@ import (
 	"sync"
 
 	"github.com/mhsanaei/3x-ui/v2/logger"
+	"github.com/mhsanaei/3x-ui/v2/util/json_util"
 	"github.com/mhsanaei/3x-ui/v2/xray"
 
 	"go.uber.org/atomic"
 )
+
+// panelRuleDisabledJSONKey marks a routing rule as disabled in the panel template only; Xray-core ignores it after stripping.
+const panelRuleDisabledJSONKey = "panelRuleDisabled"
+
+// stripDisabledRoutingRulesForRuntime removes disabled rules and drops the panel-only key from rules sent to Xray.
+func stripDisabledRoutingRulesForRuntime(routerJSON json_util.RawMessage) (json_util.RawMessage, error) {
+	if len(routerJSON) == 0 {
+		return routerJSON, nil
+	}
+	var routing map[string]any
+	if err := json.Unmarshal(routerJSON, &routing); err != nil {
+		return routerJSON, nil
+	}
+	rules, ok := routing["rules"].([]any)
+	if !ok || len(rules) == 0 {
+		return routerJSON, nil
+	}
+	newRules := make([]any, 0, len(rules))
+	for _, r := range rules {
+		rm, ok := r.(map[string]any)
+		if !ok {
+			newRules = append(newRules, r)
+			continue
+		}
+		if isPanelRuleDisabled(rm) {
+			continue
+		}
+		clean := make(map[string]any, len(rm))
+		for k, v := range rm {
+			if k == panelRuleDisabledJSONKey {
+				continue
+			}
+			clean[k] = v
+		}
+		newRules = append(newRules, clean)
+	}
+	routing["rules"] = newRules
+	out, err := json.Marshal(routing)
+	return json_util.RawMessage(out), err
+}
+
+func isPanelRuleDisabled(m map[string]any) bool {
+	v, ok := m[panelRuleDisabledJSONKey]
+	if !ok {
+		return false
+	}
+	if b, ok := v.(bool); ok {
+		return b
+	}
+	// JSON numbers from some encoders
+	if f, ok := v.(float64); ok {
+		return f != 0
+	}
+	return false
+}
 
 var (
 	p                 *xray.Process
@@ -102,6 +158,12 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	routerOut, err := stripDisabledRoutingRulesForRuntime(xrayConfig.RouterConfig)
+	if err != nil {
+		return nil, err
+	}
+	xrayConfig.RouterConfig = routerOut
 
 	s.inboundService.AddTraffic(nil, nil)
 

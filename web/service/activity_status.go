@@ -122,6 +122,7 @@ func topNamedCounts(m map[string]int64, limit int) []ActivityNamedCount {
 const (
 	accessLogOverviewMaxTail = 48 << 20
 	recentAccessLogLimit     = 500
+	topDestAggLimit          = 40
 )
 
 func (s *InboundService) GetActivityStatusOverview(hours int) (*ActivityStatusOverview, error) {
@@ -281,9 +282,9 @@ func fillActivityOverviewFromAccessLog(out *ActivityStatusOverview, sinceUnix in
 
 	out.TotalActivityRows = total
 	out.DistinctClients = len(uniqueEmails)
-	out.TopDestHostnames = topNamedCounts(hostAgg, 30)
-	out.TopDestIPs = topNamedCounts(ipAgg, 30)
-	out.TopClientSourceIPs = topNamedCounts(fromAgg, 30)
+	out.TopDestHostnames = topNamedCounts(hostAgg, topDestAggLimit)
+	out.TopDestIPs = topNamedCounts(ipAgg, topDestAggLimit)
+	out.TopClientSourceIPs = topNamedCounts(fromAgg, topDestAggLimit)
 	out.RecentAccessLog = recentEntries
 
 	type rank struct {

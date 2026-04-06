@@ -119,22 +119,33 @@
   .network-insights-page .event-tag-direct { color: #52c41a; }
   .network-insights-page .event-tag-blocked { color: #f5222d; }
 
-  .network-insights-page .tab-bar {
-    display: flex; gap: 0; border-bottom: 1px solid rgba(0,0,0,0.06); margin-bottom: 16px;
+  .network-insights-page .ni-overview-tabs.ant-tabs { margin-top: 2px; }
+  .network-insights-page .ni-overview-tabs > .ant-tabs-bar {
+    margin-bottom: 14px;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
   }
-  .network-insights-page.dark .tab-bar { border-bottom-color: rgba(255,255,255,0.08); }
-  .network-insights-page .tab-bar-item {
-    padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 500;
-    color: rgba(0,0,0,0.45); border-bottom: 2px solid transparent;
-    transition: all 0.2s;
+  .network-insights-page.dark .ni-overview-tabs > .ant-tabs-bar {
+    border-bottom-color: rgba(255,255,255,0.08);
   }
-  .network-insights-page.dark .tab-bar-item { color: rgba(255,255,255,0.4); }
-  .network-insights-page .tab-bar-item:hover { color: rgba(0,0,0,0.75); }
-  .network-insights-page.dark .tab-bar-item:hover { color: rgba(255,255,255,0.7); }
-  .network-insights-page .tab-bar-item.active {
-    color: #1890ff; border-bottom-color: #1890ff;
+  .network-insights-page .ni-overview-tabs .ant-tabs-nav .ant-tabs-tab {
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 500;
   }
-  .network-insights-page.dark .tab-bar-item.active { color: #40a9ff; border-bottom-color: #40a9ff; }
+  .network-insights-page .ni-overview-tabs .ant-tabs-ink-bar { height: 2px; border-radius: 1px; }
+  .network-insights-page .event-cell-outbound {
+    font-size: 11px;
+    margin-top: 4px;
+    line-height: 1.3;
+    color: rgba(0,0,0,0.55);
+    word-break: break-all;
+  }
+  .network-insights-page.dark .event-cell-outbound { color: rgba(255,255,255,0.45); }
+  .network-insights-page .dest24-toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+    margin-bottom: 14px;
+  }
+  .network-insights-page .dest24-toolbar .ant-radio-group { flex-shrink: 0; }
 </style>
 {{ template "page/body_start" .}}
 <a-layout id="app" v-cloak :class="themeSwitcher.currentTheme + ' network-insights-page'">
@@ -225,20 +236,12 @@
                   <a-alert v-if="loadError" type="error" show-icon closable @close="loadError = ''"
                     :message="loadError" style="margin-bottom:12px"></a-alert>
 
-                  <!-- Tab bar -->
-                  <div class="tab-bar">
-                    <div class="tab-bar-item" :class="{ active: activeTab === 'accessLog' }"
-                      @click="activeTab = 'accessLog'">
-                      <a-icon type="unordered-list" /> {{ i18n "pages.networkInsights.tabAccessLog" }}
-                    </div>
-                    <div class="tab-bar-item" :class="{ active: activeTab === 'traffic' }"
-                      @click="activeTab = 'traffic'">
-                      <a-icon type="bar-chart" /> {{ i18n "pages.networkInsights.topByTraffic" }}
-                    </div>
-                  </div>
-
+                  <a-tabs class="ni-overview-tabs" :active-key="activeTab" @change="onOverviewTabChange"
+                    :animated="false">
+                    <a-tab-pane key="accessLog">
+                      <span slot="tab"><a-icon type="unordered-list" /> {{ i18n "pages.networkInsights.tabAccessLog" }}</span>
                   <!-- Tab: Access Log -->
-                  <div v-show="activeTab === 'accessLog'">
+                  <div>
                     <div class="filter-row" style="margin-bottom:14px">
                       <a-input-search
                         v-model="logSearch"
@@ -265,11 +268,16 @@
                       <template slot="ts" slot-scope="text">
                         <span class="mono-cell">[[ formatLogTs(text) ]]</span>
                       </template>
-                      <template slot="event" slot-scope="text">
-                        <a-tag v-if="text === 'proxied'" color="blue" style="margin:0">Proxied</a-tag>
-                        <a-tag v-else-if="text === 'direct'" color="green" style="margin:0">Direct</a-tag>
-                        <a-tag v-else-if="text === 'blocked'" color="red" style="margin:0">Blocked</a-tag>
-                        <a-tag v-else style="margin:0">[[ text || '—' ]]</a-tag>
+                      <template slot="event" slot-scope="text, record">
+                        <div>
+                          <a-tag v-if="text === 'proxied'" color="blue" style="margin:0">{{ i18n "pages.networkInsights.eventProxied" }}</a-tag>
+                          <a-tag v-else-if="text === 'direct'" color="green" style="margin:0">{{ i18n "pages.networkInsights.eventDirect" }}</a-tag>
+                          <a-tag v-else-if="text === 'blocked'" color="red" style="margin:0">{{ i18n "pages.networkInsights.eventBlocked" }}</a-tag>
+                          <a-tag v-else style="margin:0">[[ text || '—' ]]</a-tag>
+                          <div v-if="record.outbound" class="event-cell-outbound mono-cell" :title="record.outbound">
+                            {{ i18n "pages.networkInsights.colOutbound" }}: [[ record.outbound ]]
+                          </div>
+                        </div>
                       </template>
                       <template slot="from" slot-scope="text">
                         <span class="mono-cell">[[ text || '—' ]]</span>
@@ -287,9 +295,11 @@
                       <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
                     </div>
                   </div>
+                    </a-tab-pane>
 
-                  <!-- Tab: Traffic -->
-                  <div v-show="activeTab === 'traffic'">
+                    <a-tab-pane key="traffic">
+                      <span slot="tab"><a-icon type="bar-chart" /> {{ i18n "pages.networkInsights.tabTraffic" }}</span>
+                  <div>
                     <p class="section-hint">{{ i18n "pages.networkInsights.trafficHint" }}</p>
                     <a-table v-if="(overview.topUsersByTraffic || []).length" :columns="colsTraffic"
                       :data-source="overview.topUsersByTraffic" :pagination="trafficPagination" size="small" row-key="email"
@@ -300,6 +310,48 @@
                       <div class="empty-box-title">{{ i18n "pages.networkInsights.noTrafficYet" }}</div>
                     </div>
                   </div>
+                    </a-tab-pane>
+
+                    <a-tab-pane key="dest24">
+                      <span slot="tab"><a-icon type="environment" /> {{ i18n "pages.networkInsights.tabDest24h" }}</span>
+                  <div>
+                    <p class="section-hint">{{ i18n "pages.networkInsights.dest24Hint" }}</p>
+                    <div class="dest24-toolbar">
+                      <a-radio-group v-model="destSortMode" size="small" button-style="solid">
+                        <a-radio-button value="count">{{ i18n "pages.networkInsights.sortByCount" }}</a-radio-button>
+                        <a-radio-button value="name">{{ i18n "pages.networkInsights.sortByName" }}</a-radio-button>
+                      </a-radio-group>
+                      <a-spin v-if="dest24Fetching" size="small" />
+                    </div>
+                    <a-row :gutter="[16, 16]">
+                      <a-col :xs="24" :lg="12">
+                        <div class="section-label" style="margin-top:0">
+                          <a-icon type="global" /> {{ i18n "pages.networkInsights.topHostnames" }}
+                        </div>
+                        <a-table v-if="sorted24Hostnames.length" :columns="colsDestRank" :data-source="sorted24Hostnames"
+                          :pagination="destRankPagination" size="small" row-key="name"
+                          :scroll="isMobile ? { x: 280 } : {}">
+                        </a-table>
+                        <div v-else class="empty-box" style="padding:20px 12px">
+                          <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
+                        </div>
+                      </a-col>
+                      <a-col :xs="24" :lg="12">
+                        <div class="section-label" style="margin-top:0">
+                          <a-icon type="cluster" /> {{ i18n "pages.networkInsights.topDestIps" }}
+                        </div>
+                        <a-table v-if="sorted24Ips.length" :columns="colsDestRank" :data-source="sorted24Ips"
+                          :pagination="destRankPagination" size="small" row-key="name"
+                          :scroll="isMobile ? { x: 280 } : {}">
+                        </a-table>
+                        <div v-else class="empty-box" style="padding:20px 12px">
+                          <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
+                        </div>
+                      </a-col>
+                    </a-row>
+                  </div>
+                    </a-tab-pane>
+                  </a-tabs>
 
                 </a-card>
               </a-col>
@@ -328,6 +380,11 @@
       while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
       return v.toFixed(i > 0 ? 2 : 0) + ' ' + u[i];
     }
+
+    var colsDestRank = [
+      { title: '{{ i18n "pages.inbounds.address" }}', dataIndex: 'name', key: 'name', ellipsis: true, className: 'mono-cell' },
+      { title: '{{ i18n "pages.networkInsights.count" }}', dataIndex: 'count', key: 'count', width: 96, align: 'right' },
+    ];
 
     var colsTraffic = [
       { title: '{{ i18n "pages.networkInsights.email" }}', dataIndex: 'email', key: 'email', ellipsis: true, className: 'mono-cell' },
@@ -358,7 +415,7 @@
       },
       {
         title: '{{ i18n "pages.networkInsights.colEvent" }}',
-        dataIndex: 'event', key: 'event', width: 90,
+        dataIndex: 'event', key: 'event', width: 148,
         scopedSlots: { customRender: 'event' },
         filters: [
           { text: 'Proxied', value: 'proxied' },
@@ -399,18 +456,16 @@
         logSearch: '',
         logEventFilter: 'all',
         overview: {},
-        colsHost: [
-          { title: '{{ i18n "pages.inbounds.address" }}', dataIndex: 'name', key: 'name', ellipsis: true, className: 'mono-cell' },
-          { title: '{{ i18n "pages.networkInsights.count" }}', dataIndex: 'count', key: 'count', width: 100 },
-        ],
-        colsUserAct: [
-          { title: '{{ i18n "pages.networkInsights.email" }}', dataIndex: 'email', key: 'email', ellipsis: true, className: 'mono-cell' },
-          { title: '{{ i18n "pages.networkInsights.count" }}', dataIndex: 'activityCount', key: 'activityCount', width: 100 },
-        ],
+        overview24h: { topDestHostnames: [], topDestIps: [] },
+        dest24Loaded: false,
+        dest24Fetching: false,
+        destSortMode: 'count',
+        colsDestRank: colsDestRank,
         colsTraffic: colsTraffic,
         colsAccessLog: colsAccessLog,
         trafficPagination: { pageSize: 15, hideOnSinglePage: true, size: 'small' },
         accessLogPagination: { pageSize: 50, hideOnSinglePage: true, size: 'small', showSizeChanger: true, pageSizeOptions: ['25', '50', '100', '200'] },
+        destRankPagination: { pageSize: 40, hideOnSinglePage: true, size: 'small' },
       },
       computed: {
         trafficRankedCount() {
@@ -441,8 +496,62 @@
             return Object.assign({}, e, { _idx: i });
           });
         },
+        sorted24Hostnames() {
+          return this.sortNamedList(this.overview24h.topDestHostnames, this.destSortMode).slice(0, 40);
+        },
+        sorted24Ips() {
+          return this.sortNamedList(this.overview24h.topDestIps, this.destSortMode).slice(0, 40);
+        },
       },
       methods: {
+        sortNamedList(list, mode) {
+          var arr = (list || []).map(function (x) { return { name: x.name, count: x.count }; });
+          if (mode === 'name') {
+            arr.sort(function (a, b) {
+              var c = (a.name || '').localeCompare(b.name || '');
+              if (c !== 0) return c;
+              return (b.count || 0) - (a.count || 0);
+            });
+          } else {
+            arr.sort(function (a, b) {
+              if ((b.count || 0) !== (a.count || 0)) return (b.count || 0) - (a.count || 0);
+              return (a.name || '').localeCompare(b.name || '');
+            });
+          }
+          return arr;
+        },
+        onOverviewTabChange(key) {
+          this.activeTab = key;
+          if (key === 'dest24') {
+            this.fetchDest24h(false);
+          }
+        },
+        applyOverview24h(raw) {
+          var r = raw && typeof raw === 'object' ? raw : {};
+          this.overview24h = {
+            topDestHostnames: Array.isArray(r.topDestHostnames) ? r.topDestHostnames : [],
+            topDestIps: Array.isArray(r.topDestIps) ? r.topDestIps : [],
+          };
+        },
+        async fetchDest24h(force) {
+          if (this.dest24Fetching) return;
+          if (!force && this.dest24Loaded) return;
+          this.dest24Fetching = true;
+          try {
+            var resp = await axios.get(this.apiActivityStatusURL(), { params: { hours: 24 } });
+            var body = resp && resp.data;
+            if (body && body.success) {
+              this.applyOverview24h(body.obj);
+              this.dest24Loaded = true;
+            } else {
+              this.applyOverview24h({});
+            }
+          } catch (e) {
+            console.error(e);
+            this.applyOverview24h({});
+          }
+          this.dest24Fetching = false;
+        },
         formatLogTs(ts) {
           if (!ts) return '—';
           var d = new Date(ts * 1000);
@@ -483,10 +592,16 @@
               this.loadError = '{{ i18n "somethingWentWrong" }}';
               this.applyOverview({});
             }
+            this.dest24Loaded = false;
+            if (this.activeTab === 'dest24') {
+              await this.fetchDest24h(true);
+            }
           } catch (e) {
             console.error(e);
             this.loadError = (e && e.message) ? e.message : '{{ i18n "somethingWentWrong" }}';
             this.applyOverview({});
+            this.applyOverview24h({});
+            this.dest24Loaded = false;
           }
           this.loading = false;
           this.fetched = true;

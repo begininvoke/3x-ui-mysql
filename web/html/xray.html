@@ -170,6 +170,10 @@
   const rulesColumns = [
     { title: "#", align: 'center', width: 15, scopedSlots: { customRender: 'action' } },
     {
+      title: '{{ i18n "pages.xray.rules.active" }}', align: 'center', width: 52,
+      scopedSlots: { customRender: 'ruleEnable' },
+    },
+    {
       title: '{{ i18n "pages.xray.rules.source"}}', children: [
         { title: 'IP', dataIndex: "sourceIP", align: 'center', width: 20, ellipsis: true },
         { title: '{{ i18n "pages.inbounds.port" }}', dataIndex: 'sourcePort', align: 'center', width: 10, ellipsis: true },
@@ -198,6 +202,10 @@
 
   const rulesMobileColumns = [
     { title: "#", align: 'center', width: 20, scopedSlots: { customRender: 'action' } },
+    {
+      title: '{{ i18n "pages.xray.rules.active" }}', align: 'center', width: 44,
+      scopedSlots: { customRender: 'ruleEnable' },
+    },
     { title: '{{ i18n "pages.xray.rules.inbound"}}', align: 'center', width: 50, ellipsis: true, scopedSlots: { customRender: 'inbound' } },
     { title: '{{ i18n "pages.xray.rules.outbound"}}', align: 'center', width: 50, ellipsis: true, scopedSlots: { customRender: 'outbound' } },
     { title: '{{ i18n "pages.xray.rules.info"}}', align: 'center', width: 50, ellipsis: true, scopedSlots: { customRender: 'info' } },
@@ -1036,13 +1044,31 @@
           confirm: (rule) => {
             ruleModal.loading();
             if (JSON.stringify(rule).length > 3) {
+              const wasDisabled = this.templateSettings.routing.rules[index].panelRuleDisabled === true;
               this.templateSettings.routing.rules[index] = rule;
+              if (wasDisabled) {
+                this.$set(this.templateSettings.routing.rules[index], 'panelRuleDisabled', true);
+              }
               this.routingRuleSettings = JSON.stringify(this.templateSettings.routing.rules);
             }
             ruleModal.close();
           },
           isEdit: true
         });
+      },
+      routingRuleRowClass(record) {
+        return record && record.panelRuleDisabled ? 'routing-rule-disabled' : '';
+      },
+      setRoutingRuleEnabled(index, enabled) {
+        const ts = this.templateSettings;
+        if (!ts || !ts.routing || !ts.routing.rules || !ts.routing.rules[index]) return;
+        const r = ts.routing.rules[index];
+        if (enabled) {
+          this.$delete(r, 'panelRuleDisabled');
+        } else {
+          this.$set(r, 'panelRuleDisabled', true);
+        }
+        this.xraySetting = JSON.stringify(ts, null, 2);
       },
       replaceRule(old_index, new_index) {
         rules = this.templateSettings.routing.rules;
