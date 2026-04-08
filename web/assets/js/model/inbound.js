@@ -1902,6 +1902,7 @@ Inbound.VmessSettings.VMESS = class extends XrayCommonClass {
         tgId = '',
         subId = RandomUtil.randomLowerAndNum(16),
         comment = '',
+        customLinks = '',
         reset = 0,
         created_at = undefined,
         updated_at = undefined
@@ -1917,6 +1918,7 @@ Inbound.VmessSettings.VMESS = class extends XrayCommonClass {
         this.tgId = tgId;
         this.subId = subId;
         this.comment = comment;
+        this.customLinks = customLinks;
         this.reset = reset;
         this.created_at = created_at;
         this.updated_at = updated_at;
@@ -1934,6 +1936,7 @@ Inbound.VmessSettings.VMESS = class extends XrayCommonClass {
             json.tgId,
             json.subId,
             json.comment,
+            json.customLinks,
             json.reset,
             json.created_at,
             json.updated_at,
@@ -2057,6 +2060,7 @@ Inbound.VLESSSettings.VLESS = class extends XrayCommonClass {
         tgId = '',
         subId = RandomUtil.randomLowerAndNum(16),
         comment = '',
+        customLinks = '',
         reset = 0,
         created_at = undefined,
         updated_at = undefined
@@ -2072,6 +2076,7 @@ Inbound.VLESSSettings.VLESS = class extends XrayCommonClass {
         this.tgId = tgId;
         this.subId = subId;
         this.comment = comment;
+        this.customLinks = customLinks;
         this.reset = reset;
         this.created_at = created_at;
         this.updated_at = updated_at;
@@ -2089,6 +2094,7 @@ Inbound.VLESSSettings.VLESS = class extends XrayCommonClass {
             json.tgId,
             json.subId,
             json.comment,
+            json.customLinks,
             json.reset,
             json.created_at,
             json.updated_at,
@@ -2202,6 +2208,7 @@ Inbound.TrojanSettings.Trojan = class extends XrayCommonClass {
         tgId = '',
         subId = RandomUtil.randomLowerAndNum(16),
         comment = '',
+        customLinks = '',
         reset = 0,
         created_at = undefined,
         updated_at = undefined
@@ -2216,6 +2223,7 @@ Inbound.TrojanSettings.Trojan = class extends XrayCommonClass {
         this.tgId = tgId;
         this.subId = subId;
         this.comment = comment;
+        this.customLinks = customLinks;
         this.reset = reset;
         this.created_at = created_at;
         this.updated_at = updated_at;
@@ -2232,6 +2240,7 @@ Inbound.TrojanSettings.Trojan = class extends XrayCommonClass {
             tgId: this.tgId,
             subId: this.subId,
             comment: this.comment,
+            customLinks: this.customLinks,
             reset: this.reset,
             created_at: this.created_at,
             updated_at: this.updated_at,
@@ -2249,6 +2258,7 @@ Inbound.TrojanSettings.Trojan = class extends XrayCommonClass {
             json.tgId,
             json.subId,
             json.comment,
+            json.customLinks,
             json.reset,
             json.created_at,
             json.updated_at,
@@ -2371,6 +2381,7 @@ Inbound.ShadowsocksSettings.Shadowsocks = class extends XrayCommonClass {
         tgId = '',
         subId = RandomUtil.randomLowerAndNum(16),
         comment = '',
+        customLinks = '',
         reset = 0,
         created_at = undefined,
         updated_at = undefined
@@ -2386,6 +2397,7 @@ Inbound.ShadowsocksSettings.Shadowsocks = class extends XrayCommonClass {
         this.tgId = tgId;
         this.subId = subId;
         this.comment = comment;
+        this.customLinks = customLinks;
         this.reset = reset;
         this.created_at = created_at;
         this.updated_at = updated_at;
@@ -2403,6 +2415,7 @@ Inbound.ShadowsocksSettings.Shadowsocks = class extends XrayCommonClass {
             tgId: this.tgId,
             subId: this.subId,
             comment: this.comment,
+            customLinks: this.customLinks,
             reset: this.reset,
             created_at: this.created_at,
             updated_at: this.updated_at,
@@ -2421,6 +2434,7 @@ Inbound.ShadowsocksSettings.Shadowsocks = class extends XrayCommonClass {
             json.tgId,
             json.subId,
             json.comment,
+            json.customLinks,
             json.reset,
             json.created_at,
             json.updated_at,

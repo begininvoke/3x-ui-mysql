@@ -147,9 +147,10 @@ type Client struct {
 	ExpiryTime int64  `json:"expiryTime" form:"expiryTime"` // Expiration timestamp
 	Enable     bool   `json:"enable" form:"enable"`         // Whether the client is enabled
 	TgID       int64  `json:"tgId" form:"tgId"`             // Telegram user ID for notifications
-	SubID      string `json:"subId" form:"subId"`           // Subscription identifier
-	Comment    string `json:"comment" form:"comment"`       // Client comment
-	Reset      int    `json:"reset" form:"reset"`           // Reset period in days
+	SubID        string `json:"subId" form:"subId"`               // Subscription identifier
+	Comment      string `json:"comment" form:"comment"`         // Client comment
+	CustomLinks  string `json:"customLinks" form:"customLinks"` // Newline-separated custom V2Ray links for this client's subscription
+	Reset        int    `json:"reset" form:"reset"`             // Reset period in days
 	CreatedAt  int64  `json:"created_at,omitempty"`         // Creation timestamp
 	UpdatedAt  int64  `json:"updated_at,omitempty"`         // Last update timestamp
 }

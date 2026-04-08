@@ -146,6 +146,15 @@ func (s *SubService) GetSubs(subId string, host string, linkHost string) ([]stri
 			if client.Enable && client.SubID == subId {
 				link := s.getLink(inbound, client.Email, linkHost)
 				result = append(result, link)
+				if client.CustomLinks != "" {
+					normalized := strings.ReplaceAll(client.CustomLinks, ",", "\n")
+					for _, line := range strings.Split(normalized, "\n") {
+						line = strings.TrimSpace(line)
+						if line != "" {
+							result = append(result, line)
+						}
+					}
+				}
 				ct := s.getClientTraffics(inbound.ClientStats, client.Email)
 				clientTraffics = append(clientTraffics, ct)
 				if ct.LastOnline > lastOnline {

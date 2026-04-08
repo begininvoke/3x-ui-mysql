@@ -71,6 +71,22 @@
     <a-form-item v-if="client.email" label='{{ i18n "comment" }}'>
         <a-input v-model.trim="client.comment"></a-input>
     </a-form-item>
+    <a-form-item v-if="client.email && app.subSettings?.enable">
+        <template slot="label">
+            <a-tooltip>
+                <template slot="title">
+                    <span>Custom V2Ray links (one per line) appended to this client's subscription</span>
+                </template>
+                Custom Links
+                <a-icon type="question-circle"></a-icon>
+            </a-tooltip>
+        </template>
+        <a-textarea
+            v-model="client.customLinks"
+            placeholder="vless://uuid@host:port?...#Name&#10;vmess://base64..."
+            :auto-size="{ minRows: 2, maxRows: 8 }"
+        ></a-textarea>
+    </a-form-item>
     <a-form-item v-if="app.ipLimitEnable">
         <template slot="label">
             <a-tooltip>
