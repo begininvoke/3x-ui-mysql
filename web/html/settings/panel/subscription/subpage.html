@@ -9,7 +9,7 @@
   }
 </script>
 <script src="{{ .base_path }}assets/js/util/index.js?{{ .cur_ver }}"></script>
-<script src="{{ .base_path }}assets/qrcode/qrious2.min.js?{{ .cur_ver }}"></script>
+{{ if not .justInfo }}<script src="{{ .base_path }}assets/qrcode/qrious2.min.js?{{ .cur_ver }}"></script>{{ end }}
 <style>
     .subscription-page .subscription-link-box {
         cursor: pointer;
@@ -85,6 +85,7 @@
                     </template>
 
                     <a-form layout="vertical">
+{{ if not .justInfo }}
                         <a-form-item>
                             <a-space direction="vertical" align="center">
                                 <a-row type="flex" :gutter="[8,8]" justify="center" style="width:100%">
@@ -120,6 +121,7 @@
                                 </a-row>
                             </a-space>
                         </a-form-item>
+{{ end }}
 
                         <a-form-item>
                             <a-descriptions bordered :column="1" size="small">
@@ -172,6 +174,7 @@
                         </a-form-item>
                     </a-form>
 
+{{ if not .justInfo }}
                     <br />
                     <div v-for="(link, idx) in links" :key="link"
                         style="position: relative; margin-bottom: 20px; text-align: center;">
@@ -240,6 +243,7 @@
                             </a-row>
                         </a-form-item>
                     </a-form>
+{{ end }}
                 </a-card>
             </a-col>
         </a-row>
@@ -247,13 +251,15 @@
 </a-layout>
 
 <!-- Bootstrap data for external JS -->
-<template id="subscription-data" data-sid="{{ .sId }}" data-sub-url="{{ .subUrl }}" data-subjson-url="{{ .subJsonUrl }}"
+<template id="subscription-data" data-sid="{{ .sId }}"
+    data-sub-url="{{ if not .justInfo }}{{ .subUrl }}{{ end }}"
+    data-subjson-url="{{ if not .justInfo }}{{ .subJsonUrl }}{{ end }}"
     data-download="{{ .download }}" data-upload="{{ .upload }}" data-used="{{ .used }}" data-total="{{ .total }}"
     data-remained="{{ .remained }}" data-expire="{{ .expire }}" data-lastonline="{{ .lastOnline }}"
     data-downloadbyte="{{ .downloadByte }}" data-uploadbyte="{{ .uploadByte }}" data-totalbyte="{{ .totalByte }}"
-    data-datepicker="{{ .datepicker }}"></template>
-<textarea id="subscription-links" style="display:none">{{ range .result }}{{ . }}
-{{ end }}</textarea>
+    data-datepicker="{{ .datepicker }}" data-justinfo="{{ .justInfo }}"></template>
+{{ if not .justInfo }}<textarea id="subscription-links" style="display:none">{{ range .result }}{{ . }}
+{{ end }}</textarea>{{ end }}
 
 {{template "component/aThemeSwitch" .}}
 <script src="{{ .base_path }}assets/js/subscription.js?{{ .cur_ver }}"></script>

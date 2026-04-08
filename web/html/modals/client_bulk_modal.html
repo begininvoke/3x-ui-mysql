@@ -63,6 +63,15 @@
             </template>
             <a-input-number :style="{ width: '50%' }" v-model.number="clientsBulkModal.tgId" min="0"></a-input-number>
         </a-form-item>
+        <a-form-item v-if="app.subSettings?.enable" label='Just Info'>
+            <a-switch v-model="clientsBulkModal.justInfo"></a-switch>
+            <a-tooltip class="ml-1">
+                <template slot="title">
+                    <span>{{ i18n "pages.inbounds.justInfoDesc" }}</span>
+                </template>
+                <a-icon type="question-circle"></a-icon>
+            </a-tooltip>
+        </a-form-item>
         <a-form-item v-if="app.ipLimitEnable">
             <template slot="label">
                 <a-tooltip>
@@ -144,6 +153,7 @@
         emailPrefix: "",
         emailPostfix: "",
         subId: "",
+        justInfo: false,
         tgId: '',
         security: "auto",
         flow: "",
@@ -167,6 +177,7 @@
                 if (method == 4) newClient.email = "";
                 newClient.email += useNum ? prefix + i.toString() + postfix : prefix + postfix;
                 if (clientsBulkModal.subId.length > 0) newClient.subId = clientsBulkModal.subId;
+                newClient.justInfo = clientsBulkModal.justInfo;
                 newClient.tgId = clientsBulkModal.tgId;
                 newClient.security = clientsBulkModal.security;
                 newClient.limitIp = clientsBulkModal.limitIp;
@@ -200,6 +211,7 @@
             this.emailPrefix = "";
             this.emailPostfix = "";
             this.subId = "";
+            this.justInfo = false;
             this.tgId = '';
             this.security = "auto";
             this.flow = "";

@@ -20,6 +20,7 @@
     uploadByte: parseInt(el.getAttribute('data-uploadbyte') || '0', 10) || 0,
     totalByte: parseInt(el.getAttribute('data-totalbyte') || '0', 10) || 0,
     datepicker: el.getAttribute('data-datepicker') || 'gregorian',
+    justInfo: el.getAttribute('data-justinfo') === 'true',
   };
 
   // Normalize lastOnline to milliseconds if it looks like seconds
@@ -99,13 +100,15 @@
       const tpl = document.getElementById('subscription-data');
       const sj = tpl ? tpl.getAttribute('data-subjson-url') : '';
       if (sj) this.app.subJsonUrl = sj;
-      drawQR(this.app.subUrl);
-      try {
-        const elJson = document.getElementById('qrcode-subjson');
-        if (elJson && this.app.subJsonUrl) {
-          new QRious({ element: elJson, value: this.app.subJsonUrl, size: 220 });
-        }
-      } catch (e) { /* ignore */ }
+      if (!this.app.justInfo) {
+        drawQR(this.app.subUrl);
+        try {
+          const elJson = document.getElementById('qrcode-subjson');
+          if (elJson && this.app.subJsonUrl) {
+            new QRious({ element: elJson, value: this.app.subJsonUrl, size: 220 });
+          }
+        } catch (e) { /* ignore */ }
+      }
       this._onResize = () => { this.viewportWidth = window.innerWidth; };
       window.addEventListener('resize', this._onResize);
     },

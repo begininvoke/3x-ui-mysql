@@ -1903,6 +1903,7 @@ Inbound.VmessSettings.VMESS = class extends XrayCommonClass {
         subId = RandomUtil.randomLowerAndNum(16),
         comment = '',
         customLinks = '',
+        justInfo = false,
         reset = 0,
         created_at = undefined,
         updated_at = undefined
@@ -1919,6 +1920,7 @@ Inbound.VmessSettings.VMESS = class extends XrayCommonClass {
         this.subId = subId;
         this.comment = comment;
         this.customLinks = customLinks;
+        this.justInfo = justInfo;
         this.reset = reset;
         this.created_at = created_at;
         this.updated_at = updated_at;
@@ -1937,11 +1939,33 @@ Inbound.VmessSettings.VMESS = class extends XrayCommonClass {
             json.subId,
             json.comment,
             json.customLinks,
+            json.justInfo,
             json.reset,
             json.created_at,
             json.updated_at,
         );
     }
+
+    toJson() {
+        return {
+            id: this.id,
+            security: this.security,
+            email: this.email,
+            limitIp: this.limitIp,
+            totalGB: this.totalGB,
+            expiryTime: this.expiryTime,
+            enable: this.enable,
+            tgId: this.tgId,
+            subId: this.subId,
+            comment: this.comment,
+            customLinks: this.customLinks,
+            justInfo: this.justInfo,
+            reset: this.reset,
+            created_at: this.created_at,
+            updated_at: this.updated_at,
+        };
+    }
+
     get _expiryTime() {
         if (this.expiryTime === 0 || this.expiryTime === "") {
             return null;
@@ -2061,6 +2085,7 @@ Inbound.VLESSSettings.VLESS = class extends XrayCommonClass {
         subId = RandomUtil.randomLowerAndNum(16),
         comment = '',
         customLinks = '',
+        justInfo = false,
         reset = 0,
         created_at = undefined,
         updated_at = undefined
@@ -2077,6 +2102,7 @@ Inbound.VLESSSettings.VLESS = class extends XrayCommonClass {
         this.subId = subId;
         this.comment = comment;
         this.customLinks = customLinks;
+        this.justInfo = justInfo;
         this.reset = reset;
         this.created_at = created_at;
         this.updated_at = updated_at;
@@ -2095,10 +2121,31 @@ Inbound.VLESSSettings.VLESS = class extends XrayCommonClass {
             json.subId,
             json.comment,
             json.customLinks,
+            json.justInfo,
             json.reset,
             json.created_at,
             json.updated_at,
         );
+    }
+
+    toJson() {
+        return {
+            id: this.id,
+            flow: this.flow,
+            email: this.email,
+            limitIp: this.limitIp,
+            totalGB: this.totalGB,
+            expiryTime: this.expiryTime,
+            enable: this.enable,
+            tgId: this.tgId,
+            subId: this.subId,
+            comment: this.comment,
+            customLinks: this.customLinks,
+            justInfo: this.justInfo,
+            reset: this.reset,
+            created_at: this.created_at,
+            updated_at: this.updated_at,
+        };
     }
 
     get _expiryTime() {
@@ -2209,6 +2256,7 @@ Inbound.TrojanSettings.Trojan = class extends XrayCommonClass {
         subId = RandomUtil.randomLowerAndNum(16),
         comment = '',
         customLinks = '',
+        justInfo = false,
         reset = 0,
         created_at = undefined,
         updated_at = undefined
@@ -2224,6 +2272,7 @@ Inbound.TrojanSettings.Trojan = class extends XrayCommonClass {
         this.subId = subId;
         this.comment = comment;
         this.customLinks = customLinks;
+        this.justInfo = justInfo;
         this.reset = reset;
         this.created_at = created_at;
         this.updated_at = updated_at;
@@ -2241,6 +2290,7 @@ Inbound.TrojanSettings.Trojan = class extends XrayCommonClass {
             subId: this.subId,
             comment: this.comment,
             customLinks: this.customLinks,
+            justInfo: this.justInfo,
             reset: this.reset,
             created_at: this.created_at,
             updated_at: this.updated_at,
@@ -2259,6 +2309,7 @@ Inbound.TrojanSettings.Trojan = class extends XrayCommonClass {
             json.subId,
             json.comment,
             json.customLinks,
+            json.justInfo,
             json.reset,
             json.created_at,
             json.updated_at,
@@ -2382,6 +2433,7 @@ Inbound.ShadowsocksSettings.Shadowsocks = class extends XrayCommonClass {
         subId = RandomUtil.randomLowerAndNum(16),
         comment = '',
         customLinks = '',
+        justInfo = false,
         reset = 0,
         created_at = undefined,
         updated_at = undefined
@@ -2398,6 +2450,7 @@ Inbound.ShadowsocksSettings.Shadowsocks = class extends XrayCommonClass {
         this.subId = subId;
         this.comment = comment;
         this.customLinks = customLinks;
+        this.justInfo = justInfo;
         this.reset = reset;
         this.created_at = created_at;
         this.updated_at = updated_at;
@@ -2416,6 +2469,7 @@ Inbound.ShadowsocksSettings.Shadowsocks = class extends XrayCommonClass {
             subId: this.subId,
             comment: this.comment,
             customLinks: this.customLinks,
+            justInfo: this.justInfo,
             reset: this.reset,
             created_at: this.created_at,
             updated_at: this.updated_at,
@@ -2435,6 +2489,7 @@ Inbound.ShadowsocksSettings.Shadowsocks = class extends XrayCommonClass {
             json.subId,
             json.comment,
             json.customLinks,
+            json.justInfo,
             json.reset,
             json.created_at,
             json.updated_at,

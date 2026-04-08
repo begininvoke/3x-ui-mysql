@@ -150,6 +150,7 @@ type Client struct {
 	SubID       string `json:"subId" form:"subId"`             // Subscription identifier
 	Comment     string `json:"comment" form:"comment"`         // Client comment
 	CustomLinks string `json:"customLinks" form:"customLinks"` // Newline-separated custom V2Ray links for this client's subscription
+	JustInfo    bool   `json:"justInfo" form:"justInfo"`       // When true, subscription page shows only traffic info (no links/QR)
 	Reset       int    `json:"reset" form:"reset"`             // Reset period in days
 	CreatedAt   int64  `json:"created_at,omitempty"`           // Creation timestamp
 	UpdatedAt   int64  `json:"updated_at,omitempty"`           // Last update timestamp

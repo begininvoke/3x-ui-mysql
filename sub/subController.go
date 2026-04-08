@@ -97,8 +97,8 @@ func (a *SUBController) subs(c *gin.Context) {
 	if shareLinkHost == "" && a.subService.SubAppendRequestHostEnabled() {
 		shareLinkHost = a.subService.ResolveAutoShareLinkHost(host)
 	}
-	subs, lastOnline, traffic, err := a.subService.GetSubs(subId, host, shareLinkHost)
-	if err != nil || len(subs) == 0 {
+	subs, lastOnline, traffic, justInfo, err := a.subService.GetSubs(subId, host, shareLinkHost)
+	if err != nil || (len(subs) == 0 && !justInfo) {
 		c.String(400, "Error!")
 	} else {
 		result := ""
@@ -139,7 +139,7 @@ func (a *SUBController) subs(c *gin.Context) {
 			if pathHasLinkHostSegment && shareLinkHost != "" {
 				basePathStr = basePathStr + shareLinkHost + "/"
 			}
-			page := a.subService.BuildPageData(subId, hostHeader, traffic, lastOnline, subs, subURL, subJsonURL, basePathStr)
+			page := a.subService.BuildPageData(subId, hostHeader, traffic, lastOnline, subs, subURL, subJsonURL, basePathStr, justInfo)
 			c.HTML(200, "subpage.html", gin.H{
 				"title":        "subscription.title",
 				"cur_ver":      config.GetVersion(),
@@ -160,6 +160,7 @@ func (a *SUBController) subs(c *gin.Context) {
 				"subUrl":       page.SubUrl,
 				"subJsonUrl":   page.SubJsonUrl,
 				"result":       page.Result,
+				"justInfo":     page.JustInfo,
 			})
 			return
 		}

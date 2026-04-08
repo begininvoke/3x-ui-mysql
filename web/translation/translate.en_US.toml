@@ -284,6 +284,7 @@
 "setDefaultCert" = "Set Cert from Panel"
 "telegramDesc" = "Please provide Telegram Chat ID. (use '/id' command in the bot) or (@userinfobot)"
 "subscriptionDesc" = "To find your subscription URL, navigate to the 'Details'. Additionally, you can use the same name for several clients."
+"justInfoDesc" = "When enabled, the subscription page shows only traffic info (name, usage, expiry) without any links or QR codes."
 "info" = "Info"
 "same" = "Same"
 "inboundData" = "Inbound's Data"

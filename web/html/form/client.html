@@ -71,7 +71,16 @@
     <a-form-item v-if="client.email" label='{{ i18n "comment" }}'>
         <a-input v-model.trim="client.comment"></a-input>
     </a-form-item>
-    <a-form-item v-if="client.email && app.subSettings?.enable">
+    <a-form-item v-if="client.email && app.subSettings?.enable" label='Just Info'>
+        <a-switch v-model="client.justInfo"></a-switch>
+        <a-tooltip class="ml-1">
+            <template slot="title">
+                <span>{{ i18n "pages.inbounds.justInfoDesc" }}</span>
+            </template>
+            <a-icon type="question-circle"></a-icon>
+        </a-tooltip>
+    </a-form-item>
+    <a-form-item v-if="client.email && app.subSettings?.enable && !client.justInfo">
         <template slot="label">
             <a-tooltip>
                 <template slot="title">
