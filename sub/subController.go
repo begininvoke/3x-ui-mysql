@@ -97,13 +97,20 @@ func (a *SUBController) subs(c *gin.Context) {
 	if shareLinkHost == "" && a.subService.SubAppendRequestHostEnabled() {
 		shareLinkHost = a.subService.ResolveAutoShareLinkHost(host)
 	}
-	subs, lastOnline, traffic, justInfo, err := a.subService.GetSubs(subId, host, shareLinkHost)
-	if err != nil || (len(subs) == 0 && !justInfo) {
+	subs, lastOnline, traffic, subPassword, err := a.subService.GetSubs(subId, host, shareLinkHost)
+	if err != nil || len(subs) == 0 {
 		c.String(400, "Error!")
 	} else {
+		hasPassword := subPassword != ""
+		providedPassword := strings.TrimSpace(c.Query("password"))
+		passwordOk := !hasPassword || providedPassword == subPassword
+		showLinks := passwordOk
+
 		result := ""
-		for _, sub := range subs {
-			result += sub + "\n"
+		if showLinks {
+			for _, sub := range subs {
+				result += sub + "\n"
+			}
 		}
 
 		// If the request expects HTML (e.g., browser) or explicitly asked (?html=1 or ?view=html), render the info page here
@@ -133,13 +140,22 @@ func (a *SUBController) subs(c *gin.Context) {
 			if basePathStr == "/" {
 				basePathStr = "/" + subId + "/"
 			} else {
-				// Remove trailing slash if exists, add subId, then add trailing slash
 				basePathStr = strings.TrimRight(basePathStr, "/") + "/" + subId + "/"
 			}
 			if pathHasLinkHostSegment && shareLinkHost != "" {
 				basePathStr = basePathStr + shareLinkHost + "/"
 			}
-			page := a.subService.BuildPageData(subId, hostHeader, traffic, lastOnline, subs, subURL, subJsonURL, basePathStr, justInfo)
+
+			pageSubs := subs
+			pageSubURL := subURL
+			pageSubJsonURL := subJsonURL
+			if !showLinks {
+				pageSubs = nil
+				pageSubURL = ""
+				pageSubJsonURL = ""
+			}
+
+			page := a.subService.BuildPageData(subId, hostHeader, traffic, lastOnline, pageSubs, pageSubURL, pageSubJsonURL, basePathStr, hasPassword, passwordOk)
 			c.HTML(200, "subpage.html", gin.H{
 				"title":        "subscription.title",
 				"cur_ver":      config.GetVersion(),
@@ -160,8 +176,14 @@ func (a *SUBController) subs(c *gin.Context) {
 				"subUrl":       page.SubUrl,
 				"subJsonUrl":   page.SubJsonUrl,
 				"result":       page.Result,
-				"justInfo":     page.JustInfo,
+				"hasPassword":  page.HasPassword,
+				"passwordOk":   page.PasswordOk,
 			})
+			return
+		}
+
+		if hasPassword && !passwordOk {
+			c.String(401, "Password required")
 			return
 		}
 
@@ -193,6 +215,20 @@ func (a *SUBController) subJsons(c *gin.Context) {
 	if shareLinkHost == "" && a.subService.SubAppendRequestHostEnabled() {
 		shareLinkHost = a.subService.ResolveAutoShareLinkHost(host)
 	}
+
+	_, _, _, subPassword, err := a.subService.GetSubs(subId, host, shareLinkHost)
+	if err != nil {
+		c.String(400, "Error!")
+		return
+	}
+	if subPassword != "" {
+		providedPassword := strings.TrimSpace(c.Query("password"))
+		if providedPassword != subPassword {
+			c.String(401, "Password required")
+			return
+		}
+	}
+
 	jsonDest := host
 	if shareLinkHost != "" {
 		jsonDest = shareLinkHost

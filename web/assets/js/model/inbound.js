@@ -602,7 +602,8 @@ class TlsStreamSettings extends XrayCommonClass {
         alpn = [ALPN_OPTION.H2, ALPN_OPTION.HTTP1],
         echServerKeys = '',
         echForceQuery = 'none',
-        settings = new TlsStreamSettings.Settings()
+        settings = new TlsStreamSettings.Settings(),
+        allowInsecure = false
     ) {
         super();
         this.sni = serverName;
@@ -617,6 +618,7 @@ class TlsStreamSettings extends XrayCommonClass {
         this.echServerKeys = echServerKeys;
         this.echForceQuery = echForceQuery;
         this.settings = settings;
+        this.allowInsecure = allowInsecure;
     }
 
     addCert() {
@@ -650,6 +652,7 @@ class TlsStreamSettings extends XrayCommonClass {
             json.echServerKeys,
             json.echForceQuery,
             settings,
+            json.allowInsecure,
         );
     }
 
@@ -667,6 +670,7 @@ class TlsStreamSettings extends XrayCommonClass {
             echServerKeys: this.echServerKeys,
             echForceQuery: this.echForceQuery,
             settings: this.settings,
+            allowInsecure: this.allowInsecure,
         };
     }
 }
@@ -1413,6 +1417,9 @@ class Inbound extends XrayCommonClass {
             if (this.stream.tls.alpn.length > 0) {
                 obj.alpn = this.stream.tls.alpn.join(',');
             }
+            if (this.stream.tls.allowInsecure) {
+                obj.allowInsecure = 1;
+            }
         }
 
         return 'vmess://' + Base64.encode(JSON.stringify(obj, null, 2));
@@ -1478,6 +1485,9 @@ class Inbound extends XrayCommonClass {
                 }
                 if (this.stream.tls.settings.echConfigList?.length > 0) {
                     params.set("ech", this.stream.tls.settings.echConfigList);
+                }
+                if (this.stream.tls.allowInsecure) {
+                    params.set("allowInsecure", "1");
                 }
                 if (type == "tcp" && !ObjectUtil.isEmpty(flow)) {
                     params.set("flow", flow);
@@ -1579,6 +1589,9 @@ class Inbound extends XrayCommonClass {
                 if (!ObjectUtil.isEmpty(this.stream.tls.sni)) {
                     params.set("sni", this.stream.tls.sni);
                 }
+                if (this.stream.tls.allowInsecure) {
+                    params.set("allowInsecure", "1");
+                }
             }
         }
 
@@ -1654,6 +1667,9 @@ class Inbound extends XrayCommonClass {
                 }
                 if (!ObjectUtil.isEmpty(this.stream.tls.sni)) {
                     params.set("sni", this.stream.tls.sni);
+                }
+                if (this.stream.tls.allowInsecure) {
+                    params.set("allowInsecure", "1");
                 }
             }
         }
@@ -1903,7 +1919,7 @@ Inbound.VmessSettings.VMESS = class extends XrayCommonClass {
         subId = RandomUtil.randomLowerAndNum(16),
         comment = '',
         customLinks = '',
-        justInfo = false,
+        subPassword = '',
         reset = 0,
         created_at = undefined,
         updated_at = undefined
@@ -1920,7 +1936,7 @@ Inbound.VmessSettings.VMESS = class extends XrayCommonClass {
         this.subId = subId;
         this.comment = comment;
         this.customLinks = customLinks;
-        this.justInfo = justInfo;
+        this.subPassword = subPassword;
         this.reset = reset;
         this.created_at = created_at;
         this.updated_at = updated_at;
@@ -1939,7 +1955,7 @@ Inbound.VmessSettings.VMESS = class extends XrayCommonClass {
             json.subId,
             json.comment,
             json.customLinks,
-            json.justInfo,
+            json.subPassword,
             json.reset,
             json.created_at,
             json.updated_at,
@@ -1959,7 +1975,7 @@ Inbound.VmessSettings.VMESS = class extends XrayCommonClass {
             subId: this.subId,
             comment: this.comment,
             customLinks: this.customLinks,
-            justInfo: this.justInfo,
+            subPassword: this.subPassword,
             reset: this.reset,
             created_at: this.created_at,
             updated_at: this.updated_at,
@@ -2085,7 +2101,7 @@ Inbound.VLESSSettings.VLESS = class extends XrayCommonClass {
         subId = RandomUtil.randomLowerAndNum(16),
         comment = '',
         customLinks = '',
-        justInfo = false,
+        subPassword = '',
         reset = 0,
         created_at = undefined,
         updated_at = undefined
@@ -2102,7 +2118,7 @@ Inbound.VLESSSettings.VLESS = class extends XrayCommonClass {
         this.subId = subId;
         this.comment = comment;
         this.customLinks = customLinks;
-        this.justInfo = justInfo;
+        this.subPassword = subPassword;
         this.reset = reset;
         this.created_at = created_at;
         this.updated_at = updated_at;
@@ -2121,7 +2137,7 @@ Inbound.VLESSSettings.VLESS = class extends XrayCommonClass {
             json.subId,
             json.comment,
             json.customLinks,
-            json.justInfo,
+            json.subPassword,
             json.reset,
             json.created_at,
             json.updated_at,
@@ -2141,7 +2157,7 @@ Inbound.VLESSSettings.VLESS = class extends XrayCommonClass {
             subId: this.subId,
             comment: this.comment,
             customLinks: this.customLinks,
-            justInfo: this.justInfo,
+            subPassword: this.subPassword,
             reset: this.reset,
             created_at: this.created_at,
             updated_at: this.updated_at,
@@ -2256,7 +2272,7 @@ Inbound.TrojanSettings.Trojan = class extends XrayCommonClass {
         subId = RandomUtil.randomLowerAndNum(16),
         comment = '',
         customLinks = '',
-        justInfo = false,
+        subPassword = '',
         reset = 0,
         created_at = undefined,
         updated_at = undefined
@@ -2272,7 +2288,7 @@ Inbound.TrojanSettings.Trojan = class extends XrayCommonClass {
         this.subId = subId;
         this.comment = comment;
         this.customLinks = customLinks;
-        this.justInfo = justInfo;
+        this.subPassword = subPassword;
         this.reset = reset;
         this.created_at = created_at;
         this.updated_at = updated_at;
@@ -2290,7 +2306,7 @@ Inbound.TrojanSettings.Trojan = class extends XrayCommonClass {
             subId: this.subId,
             comment: this.comment,
             customLinks: this.customLinks,
-            justInfo: this.justInfo,
+            subPassword: this.subPassword,
             reset: this.reset,
             created_at: this.created_at,
             updated_at: this.updated_at,
@@ -2309,7 +2325,7 @@ Inbound.TrojanSettings.Trojan = class extends XrayCommonClass {
             json.subId,
             json.comment,
             json.customLinks,
-            json.justInfo,
+            json.subPassword,
             json.reset,
             json.created_at,
             json.updated_at,
@@ -2433,7 +2449,7 @@ Inbound.ShadowsocksSettings.Shadowsocks = class extends XrayCommonClass {
         subId = RandomUtil.randomLowerAndNum(16),
         comment = '',
         customLinks = '',
-        justInfo = false,
+        subPassword = '',
         reset = 0,
         created_at = undefined,
         updated_at = undefined
@@ -2450,7 +2466,7 @@ Inbound.ShadowsocksSettings.Shadowsocks = class extends XrayCommonClass {
         this.subId = subId;
         this.comment = comment;
         this.customLinks = customLinks;
-        this.justInfo = justInfo;
+        this.subPassword = subPassword;
         this.reset = reset;
         this.created_at = created_at;
         this.updated_at = updated_at;
@@ -2469,7 +2485,7 @@ Inbound.ShadowsocksSettings.Shadowsocks = class extends XrayCommonClass {
             subId: this.subId,
             comment: this.comment,
             customLinks: this.customLinks,
-            justInfo: this.justInfo,
+            subPassword: this.subPassword,
             reset: this.reset,
             created_at: this.created_at,
             updated_at: this.updated_at,
@@ -2489,7 +2505,7 @@ Inbound.ShadowsocksSettings.Shadowsocks = class extends XrayCommonClass {
             json.subId,
             json.comment,
             json.customLinks,
-            json.justInfo,
+            json.subPassword,
             json.reset,
             json.created_at,
             json.updated_at,

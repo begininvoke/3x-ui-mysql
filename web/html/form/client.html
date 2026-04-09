@@ -71,16 +71,16 @@
     <a-form-item v-if="client.email" label='{{ i18n "comment" }}'>
         <a-input v-model.trim="client.comment"></a-input>
     </a-form-item>
-    <a-form-item v-if="client.email && app.subSettings?.enable" label='Just Info'>
-        <a-switch v-model="client.justInfo"></a-switch>
+    <a-form-item v-if="client.email && app.subSettings?.enable" label='{{ i18n "pages.inbounds.subPassword" }}'>
+        <a-input-password v-model.trim="client.subPassword" placeholder='{{ i18n "pages.inbounds.subPasswordPlaceholder" }}'></a-input-password>
         <a-tooltip class="ml-1">
             <template slot="title">
-                <span>{{ i18n "pages.inbounds.justInfoDesc" }}</span>
+                <span>{{ i18n "pages.inbounds.subPasswordDesc" }}</span>
             </template>
             <a-icon type="question-circle"></a-icon>
         </a-tooltip>
     </a-form-item>
-    <a-form-item v-if="client.email && app.subSettings?.enable && !client.justInfo">
+    <a-form-item v-if="client.email && app.subSettings?.enable">
         <template slot="label">
             <a-tooltip>
                 <template slot="title">

@@ -107,21 +107,21 @@ func SanitizeSubscriptionLinkHost(s string) string {
 
 // GetSubs retrieves subscription links for a given subscription ID and host.
 // linkHost, if non-empty, is used as the address in generated share links (overrides bind IP and request host).
-// Returns links, lastOnline, traffic, justInfo flag, and error.
-func (s *SubService) GetSubs(subId string, host string, linkHost string) ([]string, int64, xray.ClientTraffic, bool, error) {
+// Returns links, lastOnline, traffic, subPassword, and error.
+func (s *SubService) GetSubs(subId string, host string, linkHost string) ([]string, int64, xray.ClientTraffic, string, error) {
 	s.address = host
 	var result []string
 	var traffic xray.ClientTraffic
 	var lastOnline int64
 	var clientTraffics []xray.ClientTraffic
-	justInfo := false
+	var subPassword string
 	inbounds, err := s.getInboundsBySubId(subId)
 	if err != nil {
-		return nil, 0, traffic, false, err
+		return nil, 0, traffic, "", err
 	}
 
 	if len(inbounds) == 0 {
-		return nil, 0, traffic, false, common.NewError("No inbounds found with ", subId)
+		return nil, 0, traffic, "", common.NewError("No inbounds found with ", subId)
 	}
 
 	s.datepicker, err = s.settingService.GetDatepicker()
@@ -146,19 +146,17 @@ func (s *SubService) GetSubs(subId string, host string, linkHost string) ([]stri
 		}
 		for _, client := range clients {
 			if client.Enable && client.SubID == subId {
-				if client.JustInfo {
-					justInfo = true
+				if client.SubPassword != "" && subPassword == "" {
+					subPassword = client.SubPassword
 				}
-				if !justInfo {
-					link := s.getLink(inbound, client.Email, linkHost)
-					result = append(result, link)
-					if client.CustomLinks != "" {
-						normalized := strings.ReplaceAll(client.CustomLinks, ",", "\n")
-						for _, line := range strings.Split(normalized, "\n") {
-							line = strings.TrimSpace(line)
-							if line != "" {
-								result = append(result, line)
-							}
+				link := s.getLink(inbound, client.Email, linkHost)
+				result = append(result, link)
+				if client.CustomLinks != "" {
+					normalized := strings.ReplaceAll(client.CustomLinks, ",", "\n")
+					for _, line := range strings.Split(normalized, "\n") {
+						line = strings.TrimSpace(line)
+						if line != "" {
+							result = append(result, line)
 						}
 					}
 				}
@@ -193,10 +191,7 @@ func (s *SubService) GetSubs(subId string, host string, linkHost string) ([]stri
 			}
 		}
 	}
-	if justInfo {
-		result = nil
-	}
-	return result, lastOnline, traffic, justInfo, nil
+	return result, lastOnline, traffic, subPassword, nil
 }
 
 func (s *SubService) getInboundsBySubId(subId string) ([]*model.Inbound, error) {
@@ -384,6 +379,9 @@ func (s *SubService) genVmessLink(inbound *model.Inbound, email string, linkHost
 				obj["fp"], _ = fpValue.(string)
 			}
 		}
+		if allowInsecure, ok := tlsSetting["allowInsecure"].(bool); ok && allowInsecure {
+			obj["allowInsecure"] = 1
+		}
 	}
 
 	clients, _ := s.inboundService.GetClients(inbound)
@@ -536,6 +534,9 @@ func (s *SubService) genVlessLink(inbound *model.Inbound, email string, linkHost
 			if fpValue, ok := searchKey(tlsSettings, "fingerprint"); ok {
 				params["fp"], _ = fpValue.(string)
 			}
+		}
+		if allowInsecure, ok := tlsSetting["allowInsecure"].(bool); ok && allowInsecure {
+			params["allowInsecure"] = "1"
 		}
 
 		if streamNetwork == "tcp" && len(clients[clientIndex].Flow) > 0 {
@@ -727,6 +728,9 @@ func (s *SubService) genTrojanLink(inbound *model.Inbound, email string, linkHos
 			if fpValue, ok := searchKey(tlsSettings, "fingerprint"); ok {
 				params["fp"], _ = fpValue.(string)
 			}
+		}
+		if allowInsecure, ok := tlsSetting["allowInsecure"].(bool); ok && allowInsecure {
+			params["allowInsecure"] = "1"
 		}
 	}
 
@@ -922,6 +926,9 @@ func (s *SubService) genShadowsocksLink(inbound *model.Inbound, email string, li
 			if fpValue, ok := searchKey(tlsSettings, "fingerprint"); ok {
 				params["fp"], _ = fpValue.(string)
 			}
+		}
+		if allowInsecure, ok := tlsSetting["allowInsecure"].(bool); ok && allowInsecure {
+			params["allowInsecure"] = "1"
 		}
 	}
 
@@ -1130,7 +1137,8 @@ type PageData struct {
 	SubUrl       string
 	SubJsonUrl   string
 	Result       []string
-	JustInfo     bool
+	HasPassword  bool
+	PasswordOk   bool
 }
 
 // ResolveRequest extracts scheme and host info from request/headers consistently.
@@ -1271,7 +1279,7 @@ func (s *SubService) AppendHostQueryParam(subURL string, host string) string {
 
 // BuildPageData parses header and prepares the template view model.
 // BuildPageData constructs page data for rendering the subscription information page.
-func (s *SubService) BuildPageData(subId string, hostHeader string, traffic xray.ClientTraffic, lastOnline int64, subs []string, subURL, subJsonURL string, basePath string, justInfo bool) PageData {
+func (s *SubService) BuildPageData(subId string, hostHeader string, traffic xray.ClientTraffic, lastOnline int64, subs []string, subURL, subJsonURL string, basePath string, hasPassword bool, passwordOk bool) PageData {
 	download := common.FormatTraffic(traffic.Down)
 	upload := common.FormatTraffic(traffic.Up)
 	total := "∞"
@@ -1306,7 +1314,8 @@ func (s *SubService) BuildPageData(subId string, hostHeader string, traffic xray
 		SubUrl:       subURL,
 		SubJsonUrl:   subJsonURL,
 		Result:       subs,
-		JustInfo:     justInfo,
+		HasPassword:  hasPassword,
+		PasswordOk:   passwordOk,
 	}
 }
 

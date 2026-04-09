@@ -9,7 +9,7 @@
   }
 </script>
 <script src="{{ .base_path }}assets/js/util/index.js?{{ .cur_ver }}"></script>
-{{ if not .justInfo }}<script src="{{ .base_path }}assets/qrcode/qrious2.min.js?{{ .cur_ver }}"></script>{{ end }}
+{{ if or (not .hasPassword) .passwordOk }}<script src="{{ .base_path }}assets/qrcode/qrious2.min.js?{{ .cur_ver }}"></script>{{ end }}
 <style>
     .subscription-page .subscription-link-box {
         cursor: pointer;
@@ -85,7 +85,16 @@
                     </template>
 
                     <a-form layout="vertical">
-{{ if not .justInfo }}
+{{ if and .hasPassword (not .passwordOk) }}
+                        <a-form-item>
+                            <a-space direction="vertical" align="center" style="width:100%">
+                                <a-alert type="info" message='{{ i18n "subscription.passwordRequired" }}' show-icon style="margin-bottom:12px"></a-alert>
+                                <a-input-password id="sub-password-input" v-model="passwordInput" :placeholder="'{{ i18n "password" }}'" size="large" style="max-width:320px" @pressEnter="submitPassword"></a-input-password>
+                                <a-button type="primary" size="large" @click="submitPassword" style="margin-top:8px">{{ i18n "confirm" }}</a-button>
+                            </a-space>
+                        </a-form-item>
+{{ end }}
+{{ if or (not .hasPassword) .passwordOk }}
                         <a-form-item>
                             <a-space direction="vertical" align="center">
                                 <a-row type="flex" :gutter="[8,8]" justify="center" style="width:100%">
@@ -174,7 +183,7 @@
                         </a-form-item>
                     </a-form>
 
-{{ if not .justInfo }}
+{{ if or (not .hasPassword) .passwordOk }}
                     <br />
                     <div v-for="(link, idx) in links" :key="link"
                         style="position: relative; margin-bottom: 20px; text-align: center;">
@@ -252,13 +261,13 @@
 
 <!-- Bootstrap data for external JS -->
 <template id="subscription-data" data-sid="{{ .sId }}"
-    data-sub-url="{{ if not .justInfo }}{{ .subUrl }}{{ end }}"
-    data-subjson-url="{{ if not .justInfo }}{{ .subJsonUrl }}{{ end }}"
+    data-sub-url="{{ if or (not .hasPassword) .passwordOk }}{{ .subUrl }}{{ end }}"
+    data-subjson-url="{{ if or (not .hasPassword) .passwordOk }}{{ .subJsonUrl }}{{ end }}"
     data-download="{{ .download }}" data-upload="{{ .upload }}" data-used="{{ .used }}" data-total="{{ .total }}"
     data-remained="{{ .remained }}" data-expire="{{ .expire }}" data-lastonline="{{ .lastOnline }}"
     data-downloadbyte="{{ .downloadByte }}" data-uploadbyte="{{ .uploadByte }}" data-totalbyte="{{ .totalByte }}"
-    data-datepicker="{{ .datepicker }}" data-justinfo="{{ .justInfo }}"></template>
-{{ if not .justInfo }}<textarea id="subscription-links" style="display:none">{{ range .result }}{{ . }}
+    data-datepicker="{{ .datepicker }}" data-haspassword="{{ .hasPassword }}" data-passwordok="{{ .passwordOk }}"></template>
+{{ if or (not .hasPassword) .passwordOk }}<textarea id="subscription-links" style="display:none">{{ range .result }}{{ . }}
 {{ end }}</textarea>{{ end }}
 
 {{template "component/aThemeSwitch" .}}

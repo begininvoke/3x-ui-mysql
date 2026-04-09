@@ -20,7 +20,8 @@
     uploadByte: parseInt(el.getAttribute('data-uploadbyte') || '0', 10) || 0,
     totalByte: parseInt(el.getAttribute('data-totalbyte') || '0', 10) || 0,
     datepicker: el.getAttribute('data-datepicker') || 'gregorian',
-    justInfo: el.getAttribute('data-justinfo') === 'true',
+    hasPassword: el.getAttribute('data-haspassword') === 'true',
+    passwordOk: el.getAttribute('data-passwordok') === 'true',
   };
 
   // Normalize lastOnline to milliseconds if it looks like seconds
@@ -85,6 +86,8 @@
     return 'Link ' + (idx + 1);
   }
 
+  const showLinks = !data.hasPassword || data.passwordOk;
+
   const app = new Vue({
     delimiters: ['[[', ']]'],
     el: '#app',
@@ -93,6 +96,7 @@
       app: data,
       links: rawLinks,
       lang: '',
+      passwordInput: '',
       viewportWidth: (typeof window !== 'undefined' ? window.innerWidth : 1024),
     },
     async mounted() {
@@ -100,7 +104,7 @@
       const tpl = document.getElementById('subscription-data');
       const sj = tpl ? tpl.getAttribute('data-subjson-url') : '';
       if (sj) this.app.subJsonUrl = sj;
-      if (!this.app.justInfo) {
+      if (showLinks) {
         drawQR(this.app.subUrl);
         try {
           const elJson = document.getElementById('qrcode-subjson');
@@ -155,6 +159,12 @@
       copy,
       open,
       linkName,
+      submitPassword() {
+        if (!this.passwordInput) return;
+        const url = new URL(window.location.href);
+        url.searchParams.set('password', this.passwordInput);
+        window.location.href = url.toString();
+      },
       i18nLabel(key) {
         return '{{ i18n "' + key + '" }}';
       },

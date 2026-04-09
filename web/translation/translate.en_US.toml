@@ -85,6 +85,7 @@
 "inactive" = "Inactive"
 "unlimited" = "Unlimited"
 "noExpiry" = "No expiry"
+"passwordRequired" = "Enter password to view links and QR codes"
 
 [menu]
 "theme" = "Theme"
@@ -284,7 +285,9 @@
 "setDefaultCert" = "Set Cert from Panel"
 "telegramDesc" = "Please provide Telegram Chat ID. (use '/id' command in the bot) or (@userinfobot)"
 "subscriptionDesc" = "To find your subscription URL, navigate to the 'Details'. Additionally, you can use the same name for several clients."
-"justInfoDesc" = "When enabled, the subscription page shows only traffic info (name, usage, expiry) without any links or QR codes."
+"subPassword" = "Sub Password"
+"subPasswordPlaceholder" = "Leave empty for no protection"
+"subPasswordDesc" = "When set, the subscription page requires this password to reveal links and QR codes. Traffic info is always visible."
 "info" = "Info"
 "same" = "Same"
 "inboundData" = "Inbound's Data"
