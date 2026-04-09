@@ -544,6 +544,14 @@
 "testSuccess" = "Тест успішний"
 "testFailed" = "Тест не пройдено"
 "testError" = "Не вдалося протестувати вихідне з'єднання"
+"speedTest" = "Тест швидкості"
+"speedResult" = "Швидкість"
+"speedTestSuccess" = "Тест швидкості успішний"
+"speedTestFailed" = "Тест швидкості не пройдено"
+"speedTestError" = "Не вдалося протестувати швидкість"
+"testAllPing" = "Тест всіх пінг"
+"testAllSpeed" = "Тест всіх швидкість"
+"testAllDone" = "Всі тести завершено"
 
 [pages.xray.balancer]
 "addBalancer" = "Додати балансир"

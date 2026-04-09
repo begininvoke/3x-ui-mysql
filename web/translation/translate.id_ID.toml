@@ -544,6 +544,14 @@
 "testSuccess" = "Tes berhasil"
 "testFailed" = "Tes gagal"
 "testError" = "Gagal menguji outbound"
+"speedTest" = "Tes Kecepatan"
+"speedResult" = "Kecepatan"
+"speedTestSuccess" = "Tes kecepatan berhasil"
+"speedTestFailed" = "Tes kecepatan gagal"
+"speedTestError" = "Gagal menguji kecepatan"
+"testAllPing" = "Tes Semua Ping"
+"testAllSpeed" = "Tes Semua Kecepatan"
+"testAllDone" = "Semua tes selesai"
 
 [pages.xray.balancer]
 "addBalancer" = "Tambahkan Penyeimbang"

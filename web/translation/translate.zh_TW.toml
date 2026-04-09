@@ -544,6 +544,14 @@
 "testSuccess" = "測試成功"
 "testFailed" = "測試失敗"
 "testError" = "測試出站失敗"
+"speedTest" = "測速"
+"speedResult" = "速度"
+"speedTestSuccess" = "測速成功"
+"speedTestFailed" = "測速失敗"
+"speedTestError" = "測速失敗"
+"testAllPing" = "全部測延遲"
+"testAllSpeed" = "全部測速"
+"testAllDone" = "所有測試完成"
 
 [pages.xray.balancer]
 "addBalancer" = "新增負載均衡"

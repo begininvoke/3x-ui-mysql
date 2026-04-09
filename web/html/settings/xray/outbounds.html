@@ -12,20 +12,42 @@
             </a-space>
         </a-col>
         <a-col :xs="12" :sm="12" :lg="12" :style="{ textAlign: 'right' }">
-            <a-button-group>
-                <a-button icon="sync" @click="refreshOutboundTraffic()"
-                    :loading="refreshing"></a-button>
-                <a-popconfirm placement="topRight"
-                    @confirm="resetOutboundTraffic(-1)"
-                    title='{{ i18n "pages.inbounds.resetTrafficContent"}}'
-                    :overlay-class-name="themeSwitcher.currentTheme"
-                    ok-text='{{ i18n "reset"}}'
-                    cancel-text='{{ i18n "cancel"}}'>
-                    <a-icon slot="icon" type="question-circle-o"
-                        :style="{ color: themeSwitcher.isDarkTheme ? '#008771' : '#008771' }"></a-icon>
-                    <a-button icon="retweet"></a-button>
-                </a-popconfirm>
-            </a-button-group>
+            <a-space size="small">
+                <a-tooltip>
+                    <template slot="title">{{ i18n "pages.xray.outbound.testAllPing" }}</template>
+                    <a-button
+                        icon="thunderbolt"
+                        @click="testAllOutbounds()"
+                        :loading="testingAllPing"
+                        :disabled="testingAllPing || testingAllSpeed">
+                        <span v-if="!isMobile">{{ i18n "pages.xray.outbound.testAllPing" }}</span>
+                    </a-button>
+                </a-tooltip>
+                <a-tooltip>
+                    <template slot="title">{{ i18n "pages.xray.outbound.testAllSpeed" }}</template>
+                    <a-button
+                        icon="dashboard"
+                        @click="testAllOutboundsSpeed()"
+                        :loading="testingAllSpeed"
+                        :disabled="testingAllPing || testingAllSpeed">
+                        <span v-if="!isMobile">{{ i18n "pages.xray.outbound.testAllSpeed" }}</span>
+                    </a-button>
+                </a-tooltip>
+                <a-button-group>
+                    <a-button icon="sync" @click="refreshOutboundTraffic()"
+                        :loading="refreshing"></a-button>
+                    <a-popconfirm placement="topRight"
+                        @confirm="resetOutboundTraffic(-1)"
+                        title='{{ i18n "pages.inbounds.resetTrafficContent"}}'
+                        :overlay-class-name="themeSwitcher.currentTheme"
+                        ok-text='{{ i18n "reset"}}'
+                        cancel-text='{{ i18n "cancel"}}'>
+                        <a-icon slot="icon" type="question-circle-o"
+                            :style="{ color: themeSwitcher.isDarkTheme ? '#008771' : '#008771' }"></a-icon>
+                        <a-button icon="retweet"></a-button>
+                    </a-popconfirm>
+                </a-button-group>
+            </a-space>
         </a-col>
     </a-row>
     <a-table :columns="outboundColumns" bordered :row-key="r => r.key"
@@ -86,18 +108,31 @@
             <a-tag color="green">[[ findOutboundTraffic(outbound) ]]</a-tag>
         </template>
         <template slot="test" slot-scope="text, outbound, index">
-            <a-tooltip>
-                <template slot="title">{{ i18n "pages.xray.outbound.test"
-                    }}</template>
-                <a-button
-                    type="primary"
-                    shape="circle"
-                    icon="thunderbolt"
-                    :loading="outboundTestStates[index] && outboundTestStates[index].testing"
-                    @click="testOutbound(index)"
-                    :disabled="(outbound.protocol === 'blackhole' || outbound.tag === 'blocked') || (outboundTestStates[index] && outboundTestStates[index].testing)">
-                </a-button>
-            </a-tooltip>
+            <a-space size="small">
+                <a-tooltip>
+                    <template slot="title">{{ i18n "pages.xray.outbound.test"
+                        }}</template>
+                    <a-button
+                        type="primary"
+                        shape="circle"
+                        icon="thunderbolt"
+                        :loading="outboundTestStates[index] && outboundTestStates[index].testing"
+                        @click="testOutbound(index)"
+                        :disabled="testingAllPing || testingAllSpeed || (outbound.protocol === 'blackhole' || outbound.tag === 'blocked') || (outboundTestStates[index] && outboundTestStates[index].testing)">
+                    </a-button>
+                </a-tooltip>
+                <a-tooltip>
+                    <template slot="title">{{ i18n "pages.xray.outbound.speedTest"
+                        }}</template>
+                    <a-button
+                        shape="circle"
+                        icon="dashboard"
+                        :loading="outboundSpeedTestStates[index] && outboundSpeedTestStates[index].testing"
+                        @click="testOutboundSpeed(index)"
+                        :disabled="testingAllPing || testingAllSpeed || (outbound.protocol === 'blackhole' || outbound.tag === 'blocked') || (outboundSpeedTestStates[index] && outboundSpeedTestStates[index].testing)">
+                    </a-button>
+                </a-tooltip>
+            </a-space>
         </template>
         <template slot="testResult" slot-scope="text, outbound, index">
             <div
@@ -118,6 +153,27 @@
             </div>
             <span
                 v-else-if="outboundTestStates[index] && outboundTestStates[index].testing">
+                <a-icon type="loading" />
+            </span>
+            <span v-else>-</span>
+        </template>
+        <template slot="speedResult" slot-scope="text, outbound, index">
+            <div
+                v-if="outboundSpeedTestStates[index] && outboundSpeedTestStates[index].result">
+                <a-tag v-if="outboundSpeedTestStates[index].result.success"
+                    color="blue">
+                    [[ formatSpeed(outboundSpeedTestStates[index].result.speed) ]]
+                    <span>([[ outboundSpeedTestStates[index].result.duration ]]ms)</span>
+                </a-tag>
+                <a-tooltip v-else
+                    :title="outboundSpeedTestStates[index].result.error">
+                    <a-tag color="red">
+                        Failed
+                    </a-tag>
+                </a-tooltip>
+            </div>
+            <span
+                v-else-if="outboundSpeedTestStates[index] && outboundSpeedTestStates[index].testing">
                 <a-icon type="loading" />
             </span>
             <span v-else>-</span>

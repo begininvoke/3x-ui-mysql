@@ -544,6 +544,14 @@
 "testSuccess" = "الاختبار ناجح"
 "testFailed" = "فشل الاختبار"
 "testError" = "فشل اختبار المخرج"
+"speedTest" = "اختبار السرعة"
+"speedResult" = "السرعة"
+"speedTestSuccess" = "اختبار السرعة ناجح"
+"speedTestFailed" = "فشل اختبار السرعة"
+"speedTestError" = "فشل في اختبار السرعة"
+"testAllPing" = "اختبار جميع البنج"
+"testAllSpeed" = "اختبار جميع السرعة"
+"testAllDone" = "اكتملت جميع الاختبارات"
 
 [pages.xray.balancer]
 "addBalancer" = "أضف موازن تحميل"

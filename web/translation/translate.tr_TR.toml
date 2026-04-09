@@ -544,6 +544,14 @@
 "testSuccess" = "Test başarılı"
 "testFailed" = "Test başarısız"
 "testError" = "Giden test edilemedi"
+"speedTest" = "Hız Testi"
+"speedResult" = "Hız"
+"speedTestSuccess" = "Hız testi başarılı"
+"speedTestFailed" = "Hız testi başarısız"
+"speedTestError" = "Hız testi yapılamadı"
+"testAllPing" = "Tüm Ping Testi"
+"testAllSpeed" = "Tüm Hız Testi"
+"testAllDone" = "Tüm testler tamamlandı"
 
 [pages.xray.balancer]
 "addBalancer" = "Dengeleyici Ekle"

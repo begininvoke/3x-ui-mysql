@@ -544,6 +544,14 @@
 "testSuccess" = "Kiểm tra thành công"
 "testFailed" = "Kiểm tra thất bại"
 "testError" = "Không thể kiểm tra đầu ra"
+"speedTest" = "Kiểm Tra Tốc Độ"
+"speedResult" = "Tốc Độ"
+"speedTestSuccess" = "Kiểm tra tốc độ thành công"
+"speedTestFailed" = "Kiểm tra tốc độ thất bại"
+"speedTestError" = "Không thể kiểm tra tốc độ"
+"testAllPing" = "Kiểm Tra Tất Cả Ping"
+"testAllSpeed" = "Kiểm Tra Tất Cả Tốc Độ"
+"testAllDone" = "Tất cả kiểm tra hoàn tất"
 
 [pages.xray.balancer]
 "addBalancer" = "Thêm cân bằng"

@@ -121,6 +121,15 @@ type TestOutboundResult struct {
 	StatusCode int    `json:"statusCode,omitempty"`
 }
 
+// TestOutboundSpeedResult represents the result of a speed test on an outbound
+type TestOutboundSpeedResult struct {
+	Success  bool    `json:"success"`
+	Speed    float64 `json:"speed"`    // Download speed in bytes per second
+	Duration int64   `json:"duration"` // Duration in milliseconds
+	Size     int64   `json:"size"`     // Downloaded size in bytes
+	Error    string  `json:"error,omitempty"`
+}
+
 // TestOutbound tests an outbound by creating a temporary xray instance and measuring response time.
 // allOutboundsJSON must be a JSON array of all outbounds; they are copied into the test config unchanged.
 // Only the test inbound and a route rule (to the tested outbound tag) are added.
@@ -249,6 +258,124 @@ func (s *OutboundService) TestOutbound(outboundJSON string, testURL string, allO
 		Success:    true,
 		Delay:      delay,
 		StatusCode: statusCode,
+	}, nil
+}
+
+// TestOutboundSpeed tests an outbound's download speed by creating a temporary xray instance
+// and downloading a file through it, measuring throughput.
+func (s *OutboundService) TestOutboundSpeed(outboundJSON string, allOutboundsJSON string) (*TestOutboundSpeedResult, error) {
+	speedTestURL := "https://speed.cloudflare.com/__down?bytes=1048576"
+
+	if !testSemaphore.TryLock() {
+		return &TestOutboundSpeedResult{
+			Success: false,
+			Error:   "Another outbound test is already running, please wait",
+		}, nil
+	}
+	defer testSemaphore.Unlock()
+
+	var testOutbound map[string]any
+	if err := json.Unmarshal([]byte(outboundJSON), &testOutbound); err != nil {
+		return &TestOutboundSpeedResult{
+			Success: false,
+			Error:   fmt.Sprintf("Invalid outbound JSON: %v", err),
+		}, nil
+	}
+	outboundTag, _ := testOutbound["tag"].(string)
+	if outboundTag == "" {
+		return &TestOutboundSpeedResult{
+			Success: false,
+			Error:   "Outbound has no tag",
+		}, nil
+	}
+	if protocol, _ := testOutbound["protocol"].(string); protocol == "blackhole" || outboundTag == "blocked" {
+		return &TestOutboundSpeedResult{
+			Success: false,
+			Error:   "Blocked/blackhole outbound cannot be tested",
+		}, nil
+	}
+
+	var allOutbounds []any
+	if allOutboundsJSON != "" {
+		if err := json.Unmarshal([]byte(allOutboundsJSON), &allOutbounds); err != nil {
+			return &TestOutboundSpeedResult{
+				Success: false,
+				Error:   fmt.Sprintf("Invalid allOutbounds JSON: %v", err),
+			}, nil
+		}
+	}
+	if len(allOutbounds) == 0 {
+		allOutbounds = []any{testOutbound}
+	}
+
+	testPort, err := findAvailablePort()
+	if err != nil {
+		return &TestOutboundSpeedResult{
+			Success: false,
+			Error:   fmt.Sprintf("Failed to find available port: %v", err),
+		}, nil
+	}
+
+	testConfig := s.createTestConfig(outboundTag, allOutbounds, testPort)
+
+	testConfigPath, err := createTestConfigPath()
+	if err != nil {
+		return &TestOutboundSpeedResult{
+			Success: false,
+			Error:   fmt.Sprintf("Failed to create test config path: %v", err),
+		}, nil
+	}
+	defer os.Remove(testConfigPath)
+
+	testProcess := xray.NewTestProcess(testConfig, testConfigPath)
+	defer func() {
+		if testProcess.IsRunning() {
+			testProcess.Stop()
+		}
+	}()
+
+	if err := testProcess.Start(); err != nil {
+		return &TestOutboundSpeedResult{
+			Success: false,
+			Error:   fmt.Sprintf("Failed to start test xray instance: %v", err),
+		}, nil
+	}
+
+	if err := waitForPort(testPort, 3*time.Second); err != nil {
+		if !testProcess.IsRunning() {
+			result := testProcess.GetResult()
+			return &TestOutboundSpeedResult{
+				Success: false,
+				Error:   fmt.Sprintf("Xray process exited: %s", result),
+			}, nil
+		}
+		return &TestOutboundSpeedResult{
+			Success: false,
+			Error:   fmt.Sprintf("Xray failed to start listening: %v", err),
+		}, nil
+	}
+
+	if !testProcess.IsRunning() {
+		result := testProcess.GetResult()
+		return &TestOutboundSpeedResult{
+			Success: false,
+			Error:   fmt.Sprintf("Xray process exited: %s", result),
+		}, nil
+	}
+
+	speed, duration, size, err := s.testSpeedConnection(testPort, speedTestURL)
+	if err != nil {
+		return &TestOutboundSpeedResult{
+			Success: false,
+			Error:   err.Error(),
+		}, nil
+	}
+
+	return &TestOutboundSpeedResult{
+		Success:  true,
+		Speed:    speed,
+		Duration: duration,
+		Size:     size,
 	}, nil
 }
 
@@ -397,6 +524,54 @@ func (s *OutboundService) testConnection(proxyPort int, testURL string) (int64, 
 	resp.Body.Close()
 
 	return delay, resp.StatusCode, nil
+}
+
+// testSpeedConnection downloads a file through the proxy and measures download speed.
+// Returns speed (bytes/sec), duration (ms), downloaded size (bytes), and any error.
+func (s *OutboundService) testSpeedConnection(proxyPort int, testURL string) (float64, int64, int64, error) {
+	proxyURL := fmt.Sprintf("socks5://127.0.0.1:%d", proxyPort)
+	proxyURLParsed, err := url.Parse(proxyURL)
+	if err != nil {
+		return 0, 0, 0, common.NewErrorf("Invalid proxy URL: %v", err)
+	}
+
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			Proxy: http.ProxyURL(proxyURLParsed),
+			DialContext: (&net.Dialer{
+				Timeout:   5 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			DisableCompression: true,
+		},
+	}
+
+	startTime := time.Now()
+	resp, err := client.Get(testURL)
+	if err != nil {
+		return 0, 0, 0, common.NewErrorf("Download failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, 0, 0, common.NewErrorf("Download returned status %d", resp.StatusCode)
+	}
+
+	n, err := io.Copy(io.Discard, resp.Body)
+	duration := time.Since(startTime)
+
+	if err != nil {
+		return 0, 0, 0, common.NewErrorf("Download read error: %v", err)
+	}
+	if n == 0 {
+		return 0, 0, 0, common.NewError("Downloaded 0 bytes")
+	}
+
+	durationMs := duration.Milliseconds()
+	speed := float64(n) / duration.Seconds()
+
+	return speed, durationMs, n, nil
 }
 
 // waitForPort polls until the given TCP port is accepting connections or the timeout expires.

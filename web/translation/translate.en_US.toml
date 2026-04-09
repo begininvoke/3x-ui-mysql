@@ -623,6 +623,14 @@
 "testSuccess" = "Test successful"
 "testFailed" = "Test failed"
 "testError" = "Failed to test outbound"
+"speedTest" = "Speed Test"
+"speedResult" = "Speed"
+"speedTestSuccess" = "Speed test successful"
+"speedTestFailed" = "Speed test failed"
+"speedTestError" = "Failed to test speed"
+"testAllPing" = "Test All Ping"
+"testAllSpeed" = "Test All Speed"
+"testAllDone" = "All tests completed"
 
 [pages.xray.balancer]
 "addBalancer" = "Add Balancer"

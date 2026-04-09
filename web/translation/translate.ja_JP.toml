@@ -544,6 +544,14 @@
 "testSuccess" = "テスト成功"
 "testFailed" = "テスト失敗"
 "testError" = "アウトバウンドのテストに失敗しました"
+"speedTest" = "速度テスト"
+"speedResult" = "速度"
+"speedTestSuccess" = "速度テスト成功"
+"speedTestFailed" = "速度テスト失敗"
+"speedTestError" = "速度テストに失敗しました"
+"testAllPing" = "全てPingテスト"
+"testAllSpeed" = "全て速度テスト"
+"testAllDone" = "全テスト完了"
 
 [pages.xray.balancer]
 "addBalancer" = "負荷分散追加"

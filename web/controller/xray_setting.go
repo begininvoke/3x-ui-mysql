@@ -38,6 +38,7 @@ func (a *XraySettingController) initRouter(g *gin.RouterGroup) {
 	g.POST("/update", a.updateSetting)
 	g.POST("/resetOutboundsTraffic", a.resetOutboundsTraffic)
 	g.POST("/testOutbound", a.testOutbound)
+	g.POST("/testOutboundSpeed", a.testOutboundSpeed)
 }
 
 // getXraySetting retrieves the Xray configuration template, inbound tags, and outbound test URL.
@@ -159,6 +160,25 @@ func (a *XraySettingController) testOutbound(c *gin.Context) {
 	testURL, _ := a.SettingService.GetXrayOutboundTestUrl()
 
 	result, err := a.OutboundService.TestOutbound(outboundJSON, testURL, allOutboundsJSON)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+
+	jsonObj(c, result, nil)
+}
+
+// testOutboundSpeed tests an outbound's download speed by downloading a 1MB file through it.
+func (a *XraySettingController) testOutboundSpeed(c *gin.Context) {
+	outboundJSON := c.PostForm("outbound")
+	allOutboundsJSON := c.PostForm("allOutbounds")
+
+	if outboundJSON == "" {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), common.NewError("outbound parameter is required"))
+		return
+	}
+
+	result, err := a.OutboundService.TestOutboundSpeed(outboundJSON, allOutboundsJSON)
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return

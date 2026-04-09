@@ -218,7 +218,8 @@
     { title: '{{ i18n "pages.xray.outbound.address"}}', align: 'center', width: 50, scopedSlots: { customRender: 'address' } },
     { title: '{{ i18n "pages.inbounds.traffic" }}', align: 'center', width: 50, scopedSlots: { customRender: 'traffic' } },
     { title: '{{ i18n "pages.xray.outbound.testResult" }}', align: 'center', width: 120, scopedSlots: { customRender: 'testResult' } },
-    { title: '{{ i18n "pages.xray.outbound.test" }}', align: 'center', width: 60, scopedSlots: { customRender: 'test' } },
+    { title: '{{ i18n "pages.xray.outbound.speedResult" }}', align: 'center', width: 120, scopedSlots: { customRender: 'speedResult' } },
+    { title: '{{ i18n "pages.xray.outbound.test" }}', align: 'center', width: 80, scopedSlots: { customRender: 'test' } },
   ];
 
   const reverseColumns = [
@@ -265,7 +266,10 @@
       oldOutboundTestUrl: 'https://www.google.com/generate_204',
       inboundTags: [],
       outboundsTraffic: [],
-      outboundTestStates: {}, // Track testing state and results for each outbound
+      outboundTestStates: {},
+      outboundSpeedTestStates: {},
+      testingAllPing: false,
+      testingAllSpeed: false,
       saveBtnDisable: true,
       refreshing: false,
       restartResult: '',
@@ -700,6 +704,134 @@
           });
           Vue.prototype.$message.error('{{ i18n "pages.xray.outbound.testError" }}: ' + error.message);
         }
+      },
+      formatSpeed(bytesPerSec) {
+        if (bytesPerSec >= 1048576) {
+          return (bytesPerSec / 1048576).toFixed(2) + ' MB/s';
+        } else if (bytesPerSec >= 1024) {
+          return (bytesPerSec / 1024).toFixed(1) + ' KB/s';
+        }
+        return Math.round(bytesPerSec) + ' B/s';
+      },
+      async testOutboundSpeed(index) {
+        const outbound = this.templateSettings.outbounds[index];
+        if (!outbound) {
+          Vue.prototype.$message.error('{{ i18n "pages.xray.outbound.speedTestError" }}');
+          return;
+        }
+
+        if (outbound.protocol === 'blackhole' || outbound.tag === 'blocked') {
+          Vue.prototype.$message.warning('{{ i18n "pages.xray.outbound.speedTestError" }}: blocked/blackhole outbound');
+          return;
+        }
+
+        if (!this.outboundSpeedTestStates[index]) {
+          this.$set(this.outboundSpeedTestStates, index, {
+            testing: false,
+            result: null
+          });
+        }
+
+        this.$set(this.outboundSpeedTestStates[index], 'testing', true);
+        this.$set(this.outboundSpeedTestStates[index], 'result', null);
+
+        try {
+          const outboundJSON = JSON.stringify(outbound);
+          const allOutboundsJSON = JSON.stringify(this.templateSettings.outbounds || []);
+
+          const msg = await HttpUtil.post("/panel/xray/testOutboundSpeed", {
+            outbound: outboundJSON,
+            allOutbounds: allOutboundsJSON
+          });
+
+          this.$set(this.outboundSpeedTestStates[index], 'testing', false);
+
+          if (msg.success && msg.obj) {
+            const result = msg.obj;
+            this.$set(this.outboundSpeedTestStates[index], 'result', result);
+
+            if (result.success) {
+              Vue.prototype.$message.success(
+                `{{ i18n "pages.xray.outbound.speedTestSuccess" }}: ${this.formatSpeed(result.speed)} (${result.duration}ms)`
+              );
+            } else {
+              Vue.prototype.$message.error(
+                `{{ i18n "pages.xray.outbound.speedTestFailed" }}: ${result.error || 'Unknown error'}`
+              );
+            }
+          } else {
+            this.$set(this.outboundSpeedTestStates[index], 'result', {
+              success: false,
+              error: msg.msg || '{{ i18n "pages.xray.outbound.speedTestError" }}'
+            });
+            Vue.prototype.$message.error(msg.msg || '{{ i18n "pages.xray.outbound.speedTestError" }}');
+          }
+        } catch (error) {
+          this.$set(this.outboundSpeedTestStates[index], 'testing', false);
+          this.$set(this.outboundSpeedTestStates[index], 'result', {
+            success: false,
+            error: error.message || '{{ i18n "pages.xray.outbound.speedTestError" }}'
+          });
+          Vue.prototype.$message.error('{{ i18n "pages.xray.outbound.speedTestError" }}: ' + error.message);
+        }
+      },
+      async testAllOutbounds() {
+        const outbounds = this.templateSettings.outbounds;
+        if (!outbounds || outbounds.length === 0) return;
+
+        this.testingAllPing = true;
+        let passed = 0;
+        let failed = 0;
+        let skipped = 0;
+
+        for (let i = 0; i < outbounds.length; i++) {
+          const ob = outbounds[i];
+          if (ob.protocol === 'blackhole' || ob.tag === 'blocked') {
+            skipped++;
+            continue;
+          }
+          await this.testOutbound(i);
+          const state = this.outboundTestStates[i];
+          if (state && state.result && state.result.success) {
+            passed++;
+          } else {
+            failed++;
+          }
+        }
+
+        this.testingAllPing = false;
+        Vue.prototype.$message.info(
+          `{{ i18n "pages.xray.outbound.testAllDone" }}: ${passed} ✓ / ${failed} ✗` + (skipped ? ` / ${skipped} ⊘` : '')
+        );
+      },
+      async testAllOutboundsSpeed() {
+        const outbounds = this.templateSettings.outbounds;
+        if (!outbounds || outbounds.length === 0) return;
+
+        this.testingAllSpeed = true;
+        let passed = 0;
+        let failed = 0;
+        let skipped = 0;
+
+        for (let i = 0; i < outbounds.length; i++) {
+          const ob = outbounds[i];
+          if (ob.protocol === 'blackhole' || ob.tag === 'blocked') {
+            skipped++;
+            continue;
+          }
+          await this.testOutboundSpeed(i);
+          const state = this.outboundSpeedTestStates[i];
+          if (state && state.result && state.result.success) {
+            passed++;
+          } else {
+            failed++;
+          }
+        }
+
+        this.testingAllSpeed = false;
+        Vue.prototype.$message.info(
+          `{{ i18n "pages.xray.outbound.testAllDone" }}: ${passed} ✓ / ${failed} ✗` + (skipped ? ` / ${skipped} ⊘` : '')
+        );
       },
       addReverse() {
         reverseModal.show({

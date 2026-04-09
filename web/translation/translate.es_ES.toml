@@ -544,6 +544,14 @@
 "testSuccess" = "Prueba exitosa"
 "testFailed" = "Prueba fallida"
 "testError" = "Error al probar la salida"
+"speedTest" = "Test de Velocidad"
+"speedResult" = "Velocidad"
+"speedTestSuccess" = "Test de velocidad exitoso"
+"speedTestFailed" = "Test de velocidad fallido"
+"speedTestError" = "Error al probar velocidad"
+"testAllPing" = "Probar Todo Ping"
+"testAllSpeed" = "Probar Toda Velocidad"
+"testAllDone" = "Todas las pruebas completadas"
 
 [pages.xray.balancer]
 "addBalancer" = "Agregar equilibrador"

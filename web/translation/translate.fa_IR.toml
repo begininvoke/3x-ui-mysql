@@ -548,6 +548,14 @@
 "testSuccess" = "تست موفقیت‌آمیز"
 "testFailed" = "تست ناموفق"
 "testError" = "خطا در تست خروجی"
+"speedTest" = "تست سرعت"
+"speedResult" = "سرعت"
+"speedTestSuccess" = "تست سرعت موفق بود"
+"speedTestFailed" = "تست سرعت ناموفق بود"
+"speedTestError" = "خطا در تست سرعت"
+"testAllPing" = "تست همه پینگ"
+"testAllSpeed" = "تست همه سرعت"
+"testAllDone" = "همه تست‌ها تکمیل شد"
 
 [pages.xray.balancer]
 "addBalancer" = "افزودن بالانسر"
