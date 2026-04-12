@@ -59,9 +59,9 @@ type ActivityStatusOverview struct {
 
 // PanelStored24hInsight is the API shape for DB-backed 24h request totals and hostname rankings.
 type PanelStored24hInsight struct {
-	UpdatedAt          int64                `json:"updatedAt"`
-	TotalRequests24h   int64                `json:"totalRequests24h"`
-	TopDestHostnames   []ActivityNamedCount `json:"topDestHostnames"`
+	UpdatedAt        int64                `json:"updatedAt"`
+	TotalRequests24h int64                `json:"totalRequests24h"`
+	TopDestHostnames []ActivityNamedCount `json:"topDestHostnames"`
 }
 
 func hostFromActivityAddr(s string) string {
@@ -130,10 +130,10 @@ func topNamedCounts(m map[string]int64, limit int) []ActivityNamedCount {
 }
 
 const (
-	accessLogOverviewMaxTail  = 48 << 20
-	accessLogSnapshotMaxTail  = 256 << 20
-	recentAccessLogLimit      = 500
-	topDestAggLimit           = 40
+	accessLogOverviewMaxTail   = 48 << 20
+	accessLogSnapshotMaxTail   = 256 << 20
+	recentAccessLogLimit       = 500
+	topDestAggLimit            = 40
 	panelHostnameSnapshotLimit = 120
 )
 
@@ -278,7 +278,7 @@ func (s *InboundService) RefreshNetworkInsightsPanel24h() error {
 		return err
 	}
 	return db.Model(&row).Updates(map[string]any{
-		"updated_at_unix":     time.Now().Unix(),
+		"updated_at_unix":    time.Now().Unix(),
 		"total_requests_24h": total,
 		"top_hostnames_json": string(raw),
 	}).Error
