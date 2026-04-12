@@ -104,6 +104,14 @@ type Setting struct {
 	Value string `json:"value" form:"value"`
 }
 
+// NetworkInsightsSnapshot stores rolling 24h access-log aggregates for the Network insights page (single row id=1).
+type NetworkInsightsSnapshot struct {
+	Id               int    `gorm:"primaryKey"`
+	UpdatedAtUnix    int64  `gorm:"column:updated_at_unix"`
+	TotalRequests24h int64  `gorm:"column:total_requests_24h"`
+	TopHostnamesJSON string `gorm:"column:top_hostnames_json;type:text"`
+}
+
 // TrafficDaily stores per-day, per-hostname traffic deltas for dashboard display.
 type TrafficDaily struct {
 	Id       int    `json:"id" gorm:"primaryKey;autoIncrement"`

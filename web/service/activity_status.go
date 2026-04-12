@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/mhsanaei/3x-ui/v2/database"
+	"github.com/mhsanaei/3x-ui/v2/database/model"
 	"github.com/mhsanaei/3x-ui/v2/xray"
 )
 
@@ -52,6 +53,15 @@ type ActivityStatusOverview struct {
 	TopUsersByActivity []ActivityUserRank       `json:"topUsersByActivity"`
 	TopUsersByTraffic  []ActivityTrafficRank    `json:"topUsersByTraffic"`
 	RecentAccessLog    []ActivityAccessLogEntry `json:"recentAccessLog"`
+	// PanelStored24h is read from the panel database (rolling 24h snapshot refreshed by a background job).
+	PanelStored24h *PanelStored24hInsight `json:"panelStored24h"`
+}
+
+// PanelStored24hInsight is the API shape for DB-backed 24h request totals and hostname rankings.
+type PanelStored24hInsight struct {
+	UpdatedAt          int64                `json:"updatedAt"`
+	TotalRequests24h   int64                `json:"totalRequests24h"`
+	TopDestHostnames   []ActivityNamedCount `json:"topDestHostnames"`
 }
 
 func hostFromActivityAddr(s string) string {
@@ -120,9 +130,11 @@ func topNamedCounts(m map[string]int64, limit int) []ActivityNamedCount {
 }
 
 const (
-	accessLogOverviewMaxTail = 48 << 20
-	recentAccessLogLimit     = 500
-	topDestAggLimit          = 40
+	accessLogOverviewMaxTail  = 48 << 20
+	accessLogSnapshotMaxTail  = 256 << 20
+	recentAccessLogLimit      = 500
+	topDestAggLimit           = 40
+	panelHostnameSnapshotLimit = 120
 )
 
 func (s *InboundService) GetActivityStatusOverview(hours int) (*ActivityStatusOverview, error) {
@@ -180,7 +192,113 @@ func (s *InboundService) GetActivityStatusOverview(hours int) (*ActivityStatusOv
 		})
 	}
 
+	out.PanelStored24h = s.panelStored24hFromDB()
 	return out, nil
+}
+
+// aggregateAccessLogLast24hHostnames scans the access log tail and counts rows in the last 24h and non-IP destination hosts.
+// If there is no access log path or file, ok is false and err is nil.
+func aggregateAccessLogLast24hHostnames(maxTail int64) (total int64, hostAgg map[string]int64, ok bool, err error) {
+	sinceUnix := time.Now().Add(-24 * time.Hour).Unix()
+	path, perr := xray.GetAccessLogPath()
+	if perr != nil || path == "" || path == "none" {
+		return 0, nil, false, nil
+	}
+	if _, statErr := os.Stat(path); statErr != nil {
+		return 0, nil, false, nil
+	}
+
+	hostAgg = make(map[string]int64)
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, nil, false, err
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		return 0, nil, false, err
+	}
+	size := st.Size()
+	start := int64(0)
+	if size > maxTail {
+		start = size - maxTail
+	}
+	if _, err = f.Seek(start, io.SeekStart); err != nil {
+		return 0, nil, false, err
+	}
+	br := bufio.NewReader(f)
+	if start > 0 {
+		_, _ = br.ReadString('\n')
+	}
+
+	for {
+		line, rerr := br.ReadString('\n')
+		line = strings.TrimSpace(strings.TrimSuffix(line, "\n"))
+		if line != "" && !strings.Contains(line, "api -> api") {
+			entry, parsed := ParseXrayAccessLogLine(line)
+			if parsed {
+				ts := entry.DateTime.Unix()
+				if ts >= sinceUnix {
+					total++
+					if h := hostFromActivityAddr(entry.ToAddress); h != "" {
+						if net.ParseIP(h) == nil {
+							hostAgg[h]++
+						}
+					}
+				}
+			}
+		}
+		if rerr == io.EOF {
+			break
+		}
+		if rerr != nil {
+			return 0, nil, false, rerr
+		}
+	}
+	return total, hostAgg, true, nil
+}
+
+// RefreshNetworkInsightsPanel24h recomputes 24h totals and hostname ranks from the access log and stores them in the database.
+func (s *InboundService) RefreshNetworkInsightsPanel24h() error {
+	total, hostAgg, ok, err := aggregateAccessLogLast24hHostnames(accessLogSnapshotMaxTail)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+	top := topNamedCounts(hostAgg, panelHostnameSnapshotLimit)
+	raw, err := json.Marshal(top)
+	if err != nil {
+		return err
+	}
+	db := database.GetDB()
+	row := model.NetworkInsightsSnapshot{Id: 1}
+	if err := db.FirstOrCreate(&row, model.NetworkInsightsSnapshot{Id: 1}).Error; err != nil {
+		return err
+	}
+	return db.Model(&row).Updates(map[string]any{
+		"updated_at_unix":     time.Now().Unix(),
+		"total_requests_24h": total,
+		"top_hostnames_json": string(raw),
+	}).Error
+}
+
+func (s *InboundService) panelStored24hFromDB() *PanelStored24hInsight {
+	db := database.GetDB()
+	var row model.NetworkInsightsSnapshot
+	if err := db.First(&row, 1).Error; err != nil {
+		return nil
+	}
+	var list []ActivityNamedCount
+	if row.TopHostnamesJSON != "" {
+		_ = json.Unmarshal([]byte(row.TopHostnamesJSON), &list)
+	}
+	return &PanelStored24hInsight{
+		UpdatedAt:        row.UpdatedAtUnix,
+		TotalRequests24h: row.TotalRequests24h,
+		TopDestHostnames: list,
+	}
 }
 
 func fillActivityOverviewFromAccessLog(out *ActivityStatusOverview, sinceUnix int64) {

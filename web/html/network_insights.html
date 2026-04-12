@@ -146,6 +146,14 @@
     margin-bottom: 14px;
   }
   .network-insights-page .dest24-toolbar .ant-radio-group { flex-shrink: 0; }
+
+  .network-insights-page .ni-tab-icon-only {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    padding: 0 2px;
+  }
 </style>
 {{ template "page/body_start" .}}
 <a-layout id="app" v-cloak :class="themeSwitcher.currentTheme + ' network-insights-page'">
@@ -239,7 +247,11 @@
                   <a-tabs class="ni-overview-tabs" :active-key="activeTab" @change="onOverviewTabChange"
                     :animated="false">
                     <a-tab-pane key="accessLog">
-                      <span slot="tab"><a-icon type="unordered-list" /> {{ i18n "pages.networkInsights.tabAccessLog" }}</span>
+                      <span slot="tab" class="ni-tab-icon-only">
+                        <a-tooltip placement="top" :title="'{{ i18n "pages.networkInsights.tabAccessLog" }}'">
+                          <span><a-icon type="unordered-list" /></span>
+                        </a-tooltip>
+                      </span>
                   <!-- Tab: Access Log -->
                   <div>
                     <div class="filter-row" style="margin-bottom:14px">
@@ -272,7 +284,8 @@
                         <div>
                           <a-tag v-if="text === 'proxied'" color="blue" style="margin:0">{{ i18n "pages.networkInsights.eventProxied" }}</a-tag>
                           <a-tag v-else-if="text === 'direct'" color="green" style="margin:0">{{ i18n "pages.networkInsights.eventDirect" }}</a-tag>
-                          <a-tag v-else-if="text === 'blocked'" color="red" style="margin:0">{{ i18n "pages.networkInsights.eventBlocked" }}</a-tag>
+                          <a-tag v-else-if="text === 'blocked' && record.email" color="red" style="margin:0">{{ i18n "pages.networkInsights.eventBlocked" }}</a-tag>
+                          <a-tag v-else-if="text === 'blocked'" color="default" style="margin:0">{{ i18n "pages.networkInsights.eventNonClient" }}</a-tag>
                           <a-tag v-else style="margin:0">[[ text || '—' ]]</a-tag>
                           <div v-if="record.outbound" class="event-cell-outbound mono-cell" :title="record.outbound">
                             {{ i18n "pages.networkInsights.colOutbound" }}: [[ record.outbound ]]
@@ -298,7 +311,11 @@
                     </a-tab-pane>
 
                     <a-tab-pane key="traffic">
-                      <span slot="tab"><a-icon type="bar-chart" /> {{ i18n "pages.networkInsights.tabTraffic" }}</span>
+                      <span slot="tab" class="ni-tab-icon-only">
+                        <a-tooltip placement="top" :title="'{{ i18n "pages.networkInsights.tabTraffic" }}'">
+                          <span><a-icon type="bar-chart" /></span>
+                        </a-tooltip>
+                      </span>
                   <div>
                     <p class="section-hint">{{ i18n "pages.networkInsights.trafficHint" }}</p>
                     <a-table v-if="(overview.topUsersByTraffic || []).length" :columns="colsTraffic"
@@ -313,9 +330,19 @@
                     </a-tab-pane>
 
                     <a-tab-pane key="dest24">
-                      <span slot="tab"><a-icon type="environment" /> {{ i18n "pages.networkInsights.tabDest24h" }}</span>
+                      <span slot="tab" class="ni-tab-icon-only">
+                        <a-tooltip placement="top" :title="'{{ i18n "pages.networkInsights.tabDest24h" }}'">
+                          <span><a-icon type="environment" /></span>
+                        </a-tooltip>
+                      </span>
                   <div>
                     <p class="section-hint">{{ i18n "pages.networkInsights.dest24Hint" }}</p>
+                    <p v-if="panelStored24h" class="section-hint" style="margin-top:-6px">
+                      <strong>{{ i18n "pages.networkInsights.panel24Requests" }}</strong>
+                      [[ panelStored24h.totalRequests24h != null ? panelStored24h.totalRequests24h.toLocaleString() : '—' ]]
+                      · <strong>{{ i18n "pages.networkInsights.panel24Saved" }}</strong>
+                      [[ formatLogTs(panelStored24h.updatedAt) ]]
+                    </p>
                     <div class="dest24-toolbar">
                       <a-radio-group v-model="destSortMode" size="small" button-style="solid">
                         <a-radio-button value="count">{{ i18n "pages.networkInsights.sortByCount" }}</a-radio-button>
@@ -326,7 +353,7 @@
                     <a-row :gutter="[16, 16]">
                       <a-col :xs="24" :lg="12">
                         <div class="section-label" style="margin-top:0">
-                          <a-icon type="global" /> {{ i18n "pages.networkInsights.topHostnames" }}
+                          <a-icon type="global" /> {{ i18n "pages.networkInsights.topHostnamesPanel" }}
                         </div>
                         <a-table v-if="sorted24Hostnames.length" :columns="colsDestRank" :data-source="sorted24Hostnames"
                           :pagination="destRankPagination" size="small" row-key="name"
@@ -456,7 +483,7 @@
         logSearch: '',
         logEventFilter: 'all',
         overview: {},
-        overview24h: { topDestHostnames: [], topDestIps: [] },
+        dest24TopIps: [],
         dest24Loaded: false,
         dest24Fetching: false,
         destSortMode: 'count',
@@ -496,11 +523,16 @@
             return Object.assign({}, e, { _idx: i });
           });
         },
+        panelStored24h() {
+          return this.overview.panelStored24h || null;
+        },
         sorted24Hostnames() {
-          return this.sortNamedList(this.overview24h.topDestHostnames, this.destSortMode).slice(0, 40);
+          var p = this.overview.panelStored24h;
+          var list = (p && Array.isArray(p.topDestHostnames)) ? p.topDestHostnames : [];
+          return this.sortNamedList(list, this.destSortMode).slice(0, 40);
         },
         sorted24Ips() {
-          return this.sortNamedList(this.overview24h.topDestIps, this.destSortMode).slice(0, 40);
+          return this.sortNamedList(this.dest24TopIps, this.destSortMode).slice(0, 40);
         },
       },
       methods: {
@@ -526,12 +558,17 @@
             this.fetchDest24h(false);
           }
         },
-        applyOverview24h(raw) {
+        applyDest24LiveResponse(raw) {
           var r = raw && typeof raw === 'object' ? raw : {};
-          this.overview24h = {
-            topDestHostnames: Array.isArray(r.topDestHostnames) ? r.topDestHostnames : [],
-            topDestIps: Array.isArray(r.topDestIps) ? r.topDestIps : [],
-          };
+          this.dest24TopIps = Array.isArray(r.topDestIps) ? r.topDestIps : [];
+          if (r.panelStored24h && typeof r.panelStored24h === 'object') {
+            this.overview = this.overview || {};
+            this.overview.panelStored24h = r.panelStored24h;
+          }
+        },
+        clearDest24LiveData() {
+          this.dest24TopIps = [];
+          this.dest24Loaded = false;
         },
         async fetchDest24h(force) {
           if (this.dest24Fetching) return;
@@ -541,14 +578,14 @@
             var resp = await axios.get(this.apiActivityStatusURL(), { params: { hours: 24 } });
             var body = resp && resp.data;
             if (body && body.success) {
-              this.applyOverview24h(body.obj);
+              this.applyDest24LiveResponse(body.obj);
               this.dest24Loaded = true;
             } else {
-              this.applyOverview24h({});
+              this.applyDest24LiveResponse({});
             }
           } catch (e) {
             console.error(e);
-            this.applyOverview24h({});
+            this.applyDest24LiveResponse({});
           }
           this.dest24Fetching = false;
         },
@@ -572,6 +609,7 @@
             topUsersByActivity: Array.isArray(r.topUsersByActivity) ? r.topUsersByActivity : [],
             topUsersByTraffic: Array.isArray(r.topUsersByTraffic) ? r.topUsersByTraffic : [],
             recentAccessLog: Array.isArray(r.recentAccessLog) ? r.recentAccessLog : [],
+            panelStored24h: r.panelStored24h && typeof r.panelStored24h === 'object' ? r.panelStored24h : null,
           };
         },
         apiActivityStatusURL() {
@@ -580,6 +618,7 @@
         async fetchData() {
           this.refreshing = true;
           this.loadError = '';
+          this.clearDest24LiveData();
           try {
             var resp = await axios.get(this.apiActivityStatusURL(), { params: { hours: this.hours } });
             var body = resp && resp.data;
@@ -592,7 +631,6 @@
               this.loadError = '{{ i18n "somethingWentWrong" }}';
               this.applyOverview({});
             }
-            this.dest24Loaded = false;
             if (this.activeTab === 'dest24') {
               await this.fetchDest24h(true);
             }
@@ -600,8 +638,7 @@
             console.error(e);
             this.loadError = (e && e.message) ? e.message : '{{ i18n "somethingWentWrong" }}';
             this.applyOverview({});
-            this.applyOverview24h({});
-            this.dest24Loaded = false;
+            this.clearDest24LiveData();
           }
           this.loading = false;
           this.fetched = true;
