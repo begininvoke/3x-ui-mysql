@@ -329,13 +329,13 @@ func (s *Server) startTask() {
 	// check client ips from log file every 10 sec
 	s.cron.AddJob("@every 10s", job.NewCheckClientIpJob())
 
-	// Persist rolling 24h destination hostname ranks for Network insights (panel DB)
+	// Merge access-log destination ranks into the Network insights panel DB snapshot
 	s.cron.AddJob("@every 5m", job.NewNetworkInsightsJob())
 	go func() {
 		time.Sleep(25 * time.Second)
 		var inboundService service.InboundService
 		if err := inboundService.RefreshNetworkInsightsPanel24h(); err != nil {
-			logger.Warning("initial network insights 24h snapshot:", err)
+			logger.Warning("initial network insights snapshot:", err)
 		}
 	}()
 

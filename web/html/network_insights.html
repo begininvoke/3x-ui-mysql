@@ -348,6 +348,8 @@
                         <a-radio-button value="count">{{ i18n "pages.networkInsights.sortByCount" }}</a-radio-button>
                         <a-radio-button value="name">{{ i18n "pages.networkInsights.sortByName" }}</a-radio-button>
                       </a-radio-group>
+                      <a-button type="danger" size="small" icon="delete" :loading="clearingPanel24h"
+                        @click="confirmClearPanel24h">{{ i18n "pages.networkInsights.clearPanel24h" }}</a-button>
                     </div>
                     <a-row :gutter="[16, 16]">
                       <a-col :xs="24" :lg="12">
@@ -359,7 +361,8 @@
                           :scroll="isMobile ? { x: 280 } : {}">
                         </a-table>
                         <div v-else class="empty-box" style="padding:20px 12px">
-                          <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
+                          <div class="empty-box-desc" v-if="panelStored24h && panelStored24h.totalRequests24h > 0">{{ i18n "pages.networkInsights.dest24NoDestParsed" }}</div>
+                          <div class="empty-box-desc" v-else>{{ i18n "pages.networkInsights.emptyHint" }}</div>
                         </div>
                       </a-col>
                       <a-col :xs="24" :lg="12">
@@ -371,7 +374,8 @@
                           :scroll="isMobile ? { x: 280 } : {}">
                         </a-table>
                         <div v-else class="empty-box" style="padding:20px 12px">
-                          <div class="empty-box-desc">{{ i18n "pages.networkInsights.emptyHint" }}</div>
+                          <div class="empty-box-desc" v-if="panelStored24h && panelStored24h.totalRequests24h > 0">{{ i18n "pages.networkInsights.dest24NoDestParsed" }}</div>
+                          <div class="empty-box-desc" v-else>{{ i18n "pages.networkInsights.emptyHint" }}</div>
                         </div>
                       </a-col>
                     </a-row>
@@ -489,6 +493,7 @@
         trafficPagination: { pageSize: 15, hideOnSinglePage: true, size: 'small' },
         accessLogPagination: { pageSize: 50, hideOnSinglePage: true, size: 'small', showSizeChanger: true, pageSizeOptions: ['25', '50', '100', '200'] },
         destRankPagination: { pageSize: 40, hideOnSinglePage: true, size: 'small' },
+        clearingPanel24h: false,
       },
       computed: {
         trafficRankedCount() {
@@ -578,6 +583,36 @@
         },
         apiActivityStatusURL() {
           return 'panel/api/inbounds/activityStatus';
+        },
+        confirmClearPanel24h() {
+          var self = this;
+          this.$confirm({
+            title: '{{ i18n "pages.networkInsights.clearPanel24hTitle" }}',
+            content: '{{ i18n "pages.networkInsights.clearPanel24hContent" }}',
+            class: themeSwitcher.currentTheme,
+            okText: '{{ i18n "delete" }}',
+            cancelText: '{{ i18n "cancel" }}',
+            onOk: function () { return self.clearPanel24h(); },
+          });
+        },
+        async clearPanel24h() {
+          this.clearingPanel24h = true;
+          try {
+            var resp = await axios.post('panel/api/inbounds/clearNetworkInsights24h');
+            var body = resp && resp.data;
+            if (body && body.success) {
+              this.$message.success((body.msg || '{{ i18n "pages.networkInsights.clearSuccess" }}').toString());
+              await this.fetchData();
+            } else if (body && !body.success) {
+              this.$message.error((body.msg || '{{ i18n "somethingWentWrong" }}').toString());
+            } else {
+              this.$message.error('{{ i18n "somethingWentWrong" }}');
+            }
+          } catch (e) {
+            console.error(e);
+            this.$message.error((e && e.message) ? e.message : '{{ i18n "somethingWentWrong" }}');
+          }
+          this.clearingPanel24h = false;
         },
         async fetchData() {
           this.refreshing = true;

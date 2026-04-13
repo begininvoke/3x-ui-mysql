@@ -104,7 +104,7 @@ type Setting struct {
 	Value string `json:"value" form:"value"`
 }
 
-// NetworkInsightsSnapshot stores rolling 24h access-log aggregates for the Network insights page (single row id=1).
+// NetworkInsightsSnapshot stores merged access-log destination aggregates for the Network insights page (single row id=1).
 type NetworkInsightsSnapshot struct {
 	Id               int    `gorm:"primaryKey"`
 	UpdatedAtUnix    int64  `gorm:"column:updated_at_unix"`

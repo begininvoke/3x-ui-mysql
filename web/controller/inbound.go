@@ -64,6 +64,7 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.POST("/ipWhitelist", a.saveIpWhitelist)
 
 	g.GET("/activityStatus", a.getActivityStatus)
+	g.POST("/clearNetworkInsights24h", a.clearNetworkInsights24h)
 }
 
 // getInbounds retrieves the list of inbounds for the logged-in user.
@@ -264,6 +265,16 @@ func (a *InboundController) getActivityStatus(c *gin.Context) {
 		return
 	}
 	jsonObj(c, overview, nil)
+}
+
+// clearNetworkInsights24h clears stored 24h destination hostname/IP rankings from the panel database.
+func (a *InboundController) clearNetworkInsights24h(c *gin.Context) {
+	err := a.inboundService.ClearNetworkInsightsPanel24h()
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.networkInsights.clearSuccess"), nil)
 }
 
 // addInboundClient adds a new client to an existing inbound.

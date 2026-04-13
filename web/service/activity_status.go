@@ -53,7 +53,7 @@ type ActivityStatusOverview struct {
 	TopUsersByActivity []ActivityUserRank       `json:"topUsersByActivity"`
 	TopUsersByTraffic  []ActivityTrafficRank    `json:"topUsersByTraffic"`
 	RecentAccessLog    []ActivityAccessLogEntry `json:"recentAccessLog"`
-	// PanelStored24h is read from the panel database (rolling 24h snapshot refreshed by a background job).
+	// PanelStored24h is read from the panel database (log-derived counts merged upward on refresh; cleared only via API).
 	PanelStored24h *PanelStored24hInsight `json:"panelStored24h"`
 }
 
@@ -277,6 +277,41 @@ func aggregateAccessLogLast24hDestinations(maxTail int64) (total int64, hostAgg 
 	return total, hostAgg, ipAgg, true, nil
 }
 
+func activityNamedSliceToMap(counts []ActivityNamedCount) map[string]int64 {
+	m := make(map[string]int64)
+	for _, c := range counts {
+		if c.Name == "" {
+			continue
+		}
+		if c.Count > m[c.Name] {
+			m[c.Name] = c.Count
+		}
+	}
+	return m
+}
+
+// mergeMaxDestAgg keeps every key seen before and takes the higher count for each key.
+// Combined with periodic log rescans, this prevents rankings from shrinking as the rolling
+// 24h window moves; use ClearNetworkInsightsPanel24h to reset intentionally.
+func mergeMaxDestAgg(prev map[string]int64, fromLog map[string]int64) map[string]int64 {
+	if len(prev) == 0 {
+		return fromLog
+	}
+	if len(fromLog) == 0 {
+		return prev
+	}
+	out := make(map[string]int64, len(prev)+len(fromLog))
+	for k, v := range prev {
+		out[k] = v
+	}
+	for k, v := range fromLog {
+		if v > out[k] {
+			out[k] = v
+		}
+	}
+	return out
+}
+
 // RefreshNetworkInsightsPanel24h recomputes 24h totals and destination ranks from the access log and stores them in the database.
 func (s *InboundService) RefreshNetworkInsightsPanel24h() error {
 	total, hostAgg, ipAgg, ok, err := aggregateAccessLogLast24hDestinations(accessLogSnapshotMaxTail)
@@ -286,8 +321,27 @@ func (s *InboundService) RefreshNetworkInsightsPanel24h() error {
 	if !ok {
 		return nil
 	}
-	topHosts := topNamedCounts(hostAgg, panelHostnameSnapshotLimit)
-	topIPs := topNamedCounts(ipAgg, panelHostnameSnapshotLimit)
+	db := database.GetDB()
+	row := model.NetworkInsightsSnapshot{Id: 1}
+	if err := db.FirstOrCreate(&row, model.NetworkInsightsSnapshot{Id: 1}).Error; err != nil {
+		return err
+	}
+	var prevHosts []ActivityNamedCount
+	if row.TopHostnamesJSON != "" {
+		_ = json.Unmarshal([]byte(row.TopHostnamesJSON), &prevHosts)
+	}
+	var prevIPs []ActivityNamedCount
+	if row.TopIpsJSON != "" {
+		_ = json.Unmarshal([]byte(row.TopIpsJSON), &prevIPs)
+	}
+	mergedHostAgg := mergeMaxDestAgg(activityNamedSliceToMap(prevHosts), hostAgg)
+	mergedIPAgg := mergeMaxDestAgg(activityNamedSliceToMap(prevIPs), ipAgg)
+	mergedTotal := row.TotalRequests24h
+	if total > mergedTotal {
+		mergedTotal = total
+	}
+	topHosts := topNamedCounts(mergedHostAgg, panelHostnameSnapshotLimit)
+	topIPs := topNamedCounts(mergedIPAgg, panelHostnameSnapshotLimit)
 	rawHosts, err := json.Marshal(topHosts)
 	if err != nil {
 		return err
@@ -296,16 +350,34 @@ func (s *InboundService) RefreshNetworkInsightsPanel24h() error {
 	if err != nil {
 		return err
 	}
+	return db.Model(&row).Updates(map[string]any{
+		"updated_at_unix":    time.Now().Unix(),
+		"total_requests_24h": mergedTotal,
+		"top_hostnames_json": string(rawHosts),
+		"top_ips_json":       string(rawIPs),
+	}).Error
+}
+
+// ClearNetworkInsightsPanel24h resets stored panel destination rankings and the panel request total.
+func (s *InboundService) ClearNetworkInsightsPanel24h() error {
 	db := database.GetDB()
 	row := model.NetworkInsightsSnapshot{Id: 1}
 	if err := db.FirstOrCreate(&row, model.NetworkInsightsSnapshot{Id: 1}).Error; err != nil {
 		return err
 	}
+	emptyHosts, err := json.Marshal([]ActivityNamedCount{})
+	if err != nil {
+		return err
+	}
+	emptyIPs, err := json.Marshal([]ActivityNamedCount{})
+	if err != nil {
+		return err
+	}
 	return db.Model(&row).Updates(map[string]any{
 		"updated_at_unix":    time.Now().Unix(),
-		"total_requests_24h": total,
-		"top_hostnames_json": string(rawHosts),
-		"top_ips_json":       string(rawIPs),
+		"total_requests_24h": int64(0),
+		"top_hostnames_json": string(emptyHosts),
+		"top_ips_json":       string(emptyIPs),
 	}).Error
 }
 
