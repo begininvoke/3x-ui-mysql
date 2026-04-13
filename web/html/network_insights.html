@@ -348,7 +348,6 @@
                         <a-radio-button value="count">{{ i18n "pages.networkInsights.sortByCount" }}</a-radio-button>
                         <a-radio-button value="name">{{ i18n "pages.networkInsights.sortByName" }}</a-radio-button>
                       </a-radio-group>
-                      <a-spin v-if="dest24Fetching" size="small" />
                     </div>
                     <a-row :gutter="[16, 16]">
                       <a-col :xs="24" :lg="12">
@@ -483,9 +482,6 @@
         logSearch: '',
         logEventFilter: 'all',
         overview: {},
-        dest24TopIps: [],
-        dest24Loaded: false,
-        dest24Fetching: false,
         destSortMode: 'count',
         colsDestRank: colsDestRank,
         colsTraffic: colsTraffic,
@@ -532,7 +528,9 @@
           return this.sortNamedList(list, this.destSortMode).slice(0, 40);
         },
         sorted24Ips() {
-          return this.sortNamedList(this.dest24TopIps, this.destSortMode).slice(0, 40);
+          var p = this.overview.panelStored24h;
+          var list = (p && Array.isArray(p.topDestIps)) ? p.topDestIps : [];
+          return this.sortNamedList(list, this.destSortMode).slice(0, 40);
         },
       },
       methods: {
@@ -554,40 +552,6 @@
         },
         onOverviewTabChange(key) {
           this.activeTab = key;
-          if (key === 'dest24') {
-            this.fetchDest24h(false);
-          }
-        },
-        applyDest24LiveResponse(raw) {
-          var r = raw && typeof raw === 'object' ? raw : {};
-          this.dest24TopIps = Array.isArray(r.topDestIps) ? r.topDestIps : [];
-          if (r.panelStored24h && typeof r.panelStored24h === 'object') {
-            this.overview = this.overview || {};
-            this.overview.panelStored24h = r.panelStored24h;
-          }
-        },
-        clearDest24LiveData() {
-          this.dest24TopIps = [];
-          this.dest24Loaded = false;
-        },
-        async fetchDest24h(force) {
-          if (this.dest24Fetching) return;
-          if (!force && this.dest24Loaded) return;
-          this.dest24Fetching = true;
-          try {
-            var resp = await axios.get(this.apiActivityStatusURL(), { params: { hours: 24 } });
-            var body = resp && resp.data;
-            if (body && body.success) {
-              this.applyDest24LiveResponse(body.obj);
-              this.dest24Loaded = true;
-            } else {
-              this.applyDest24LiveResponse({});
-            }
-          } catch (e) {
-            console.error(e);
-            this.applyDest24LiveResponse({});
-          }
-          this.dest24Fetching = false;
         },
         formatLogTs(ts) {
           if (!ts) return '—';
@@ -618,7 +582,6 @@
         async fetchData() {
           this.refreshing = true;
           this.loadError = '';
-          this.clearDest24LiveData();
           try {
             var resp = await axios.get(this.apiActivityStatusURL(), { params: { hours: this.hours } });
             var body = resp && resp.data;
@@ -631,14 +594,10 @@
               this.loadError = '{{ i18n "somethingWentWrong" }}';
               this.applyOverview({});
             }
-            if (this.activeTab === 'dest24') {
-              await this.fetchDest24h(true);
-            }
           } catch (e) {
             console.error(e);
             this.loadError = (e && e.message) ? e.message : '{{ i18n "somethingWentWrong" }}';
             this.applyOverview({});
-            this.clearDest24LiveData();
           }
           this.loading = false;
           this.fetched = true;

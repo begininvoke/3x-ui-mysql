@@ -51,6 +51,7 @@ var defaultValueMap = map[string]string{
 	"tgCpu":                       "80",
 	"tgLang":                      "en-US",
 	"ipLimitBlockDuration":        "1800",
+	"ipLimitLiveActivityWindow":   "15",
 	"trafficLimitBuffer":          "5",
 	"ipLimitWhitelist":            "",
 	"twoFactorEnable":             "false",
@@ -666,6 +667,23 @@ func (s *SettingService) GetIpLimitBlockDurationSec() int64 {
 
 func (s *SettingService) SetIpLimitBlockDuration(seconds int) error {
 	return s.setInt("ipLimitBlockDuration", seconds)
+}
+
+// GetIpLimitLiveActivityWindowSec returns how long (seconds) a source IP stays "live" for concurrent LimitIP counting.
+// Values outside 5–3600 fall back to defaultValueMap or 15.
+func (s *SettingService) GetIpLimitLiveActivityWindowSec() int64 {
+	d, err := s.getInt("ipLimitLiveActivityWindow")
+	if err == nil && d >= 5 && d <= 3600 {
+		return int64(d)
+	}
+	def, convErr := strconv.Atoi(defaultValueMap["ipLimitLiveActivityWindow"])
+	if convErr != nil || def < 5 {
+		return 15
+	}
+	if def > 3600 {
+		return 3600
+	}
+	return int64(def)
 }
 
 func (s *SettingService) GetTrafficLimitBuffer() (int, error) {

@@ -110,6 +110,7 @@ type NetworkInsightsSnapshot struct {
 	UpdatedAtUnix    int64  `gorm:"column:updated_at_unix"`
 	TotalRequests24h int64  `gorm:"column:total_requests_24h"`
 	TopHostnamesJSON string `gorm:"column:top_hostnames_json;type:text"`
+	TopIpsJSON       string `gorm:"column:top_ips_json;type:text"`
 }
 
 // TrafficDaily stores per-day, per-hostname traffic deltas for dashboard display.

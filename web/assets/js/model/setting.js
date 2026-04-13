@@ -58,6 +58,7 @@ class AllSetting {
         this.updateProxy = "";
 
         this.ipLimitBlockDuration = 1800;
+        this.ipLimitLiveActivityWindow = 15;
         this.trafficLimitBuffer = 5;
         this.ipLimitWhitelist = "";
         this.timeLocation = "Local";

@@ -132,7 +132,7 @@
 "colEvent" = "Event"
 "colOutbound" = "Outbound (proxy)"
 "tabDest24h" = "24h top destinations"
-"dest24Hint" = "Hostnames (left) are totals for the last 24 hours saved in the panel database and refreshed about every 5 minutes. Destination IPs (right) are read live from the access log tail for the last 24 hours."
+"dest24Hint" = "Hostnames and destination IPs are rolling 24h counts stored in the panel database (refreshed about every 5 minutes), so they survive page refresh and panel restarts. Blocked (blackhole) destinations are excluded from these rankings."
 "topHostnamesPanel" = "Top hostnames (panel 24h)"
 "panel24Requests" = "24h requests (panel)"
 "panel24Saved" = "Last saved"

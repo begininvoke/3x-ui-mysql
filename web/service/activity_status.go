@@ -62,6 +62,20 @@ type PanelStored24hInsight struct {
 	UpdatedAt        int64                `json:"updatedAt"`
 	TotalRequests24h int64                `json:"totalRequests24h"`
 	TopDestHostnames []ActivityNamedCount `json:"topDestHostnames"`
+	TopDestIPs       []ActivityNamedCount `json:"topDestIps"`
+}
+
+func activityLogFreedomBlackholes() (freedoms, blackholes []string) {
+	var settingService SettingService
+	tpl, terr := settingService.GetXrayConfigTemplate()
+	if terr != nil || tpl == "" {
+		return nil, nil
+	}
+	var cfgMap map[string]any
+	if err := json.Unmarshal([]byte(tpl), &cfgMap); err != nil {
+		return nil, nil
+	}
+	return FreedomBlackholeTagsFromDefaultXrayConfig(cfgMap)
 }
 
 func hostFromActivityAddr(s string) string {
@@ -196,27 +210,30 @@ func (s *InboundService) GetActivityStatusOverview(hours int) (*ActivityStatusOv
 	return out, nil
 }
 
-// aggregateAccessLogLast24hHostnames scans the access log tail and counts rows in the last 24h and non-IP destination hosts.
+// aggregateAccessLogLast24hDestinations scans the access log tail and counts rows in the last 24h.
+// Blocked (blackhole) lines are excluded from totals and destination aggregates.
 // If there is no access log path or file, ok is false and err is nil.
-func aggregateAccessLogLast24hHostnames(maxTail int64) (total int64, hostAgg map[string]int64, ok bool, err error) {
+func aggregateAccessLogLast24hDestinations(maxTail int64) (total int64, hostAgg map[string]int64, ipAgg map[string]int64, ok bool, err error) {
 	sinceUnix := time.Now().Add(-24 * time.Hour).Unix()
 	path, perr := xray.GetAccessLogPath()
 	if perr != nil || path == "" || path == "none" {
-		return 0, nil, false, nil
+		return 0, nil, nil, false, nil
 	}
 	if _, statErr := os.Stat(path); statErr != nil {
-		return 0, nil, false, nil
+		return 0, nil, nil, false, nil
 	}
 
+	freedoms, blackholes := activityLogFreedomBlackholes()
 	hostAgg = make(map[string]int64)
+	ipAgg = make(map[string]int64)
 	f, err := os.Open(path)
 	if err != nil {
-		return 0, nil, false, err
+		return 0, nil, nil, false, err
 	}
 	defer f.Close()
 	st, err := f.Stat()
 	if err != nil {
-		return 0, nil, false, err
+		return 0, nil, nil, false, err
 	}
 	size := st.Size()
 	start := int64(0)
@@ -224,7 +241,7 @@ func aggregateAccessLogLast24hHostnames(maxTail int64) (total int64, hostAgg map
 		start = size - maxTail
 	}
 	if _, err = f.Seek(start, io.SeekStart); err != nil {
-		return 0, nil, false, err
+		return 0, nil, nil, false, err
 	}
 	br := bufio.NewReader(f)
 	if start > 0 {
@@ -238,10 +255,12 @@ func aggregateAccessLogLast24hHostnames(maxTail int64) (total int64, hostAgg map
 			entry, parsed := ParseXrayAccessLogLine(line)
 			if parsed {
 				ts := entry.DateTime.Unix()
-				if ts >= sinceUnix {
+				if ts >= sinceUnix && AccessLogEventKind(line, freedoms, blackholes) != "blocked" {
 					total++
 					if h := hostFromActivityAddr(entry.ToAddress); h != "" {
-						if net.ParseIP(h) == nil {
+						if net.ParseIP(h) != nil {
+							ipAgg[h]++
+						} else {
 							hostAgg[h]++
 						}
 					}
@@ -252,23 +271,28 @@ func aggregateAccessLogLast24hHostnames(maxTail int64) (total int64, hostAgg map
 			break
 		}
 		if rerr != nil {
-			return 0, nil, false, rerr
+			return 0, nil, nil, false, rerr
 		}
 	}
-	return total, hostAgg, true, nil
+	return total, hostAgg, ipAgg, true, nil
 }
 
-// RefreshNetworkInsightsPanel24h recomputes 24h totals and hostname ranks from the access log and stores them in the database.
+// RefreshNetworkInsightsPanel24h recomputes 24h totals and destination ranks from the access log and stores them in the database.
 func (s *InboundService) RefreshNetworkInsightsPanel24h() error {
-	total, hostAgg, ok, err := aggregateAccessLogLast24hHostnames(accessLogSnapshotMaxTail)
+	total, hostAgg, ipAgg, ok, err := aggregateAccessLogLast24hDestinations(accessLogSnapshotMaxTail)
 	if err != nil {
 		return err
 	}
 	if !ok {
 		return nil
 	}
-	top := topNamedCounts(hostAgg, panelHostnameSnapshotLimit)
-	raw, err := json.Marshal(top)
+	topHosts := topNamedCounts(hostAgg, panelHostnameSnapshotLimit)
+	topIPs := topNamedCounts(ipAgg, panelHostnameSnapshotLimit)
+	rawHosts, err := json.Marshal(topHosts)
+	if err != nil {
+		return err
+	}
+	rawIPs, err := json.Marshal(topIPs)
 	if err != nil {
 		return err
 	}
@@ -280,7 +304,8 @@ func (s *InboundService) RefreshNetworkInsightsPanel24h() error {
 	return db.Model(&row).Updates(map[string]any{
 		"updated_at_unix":    time.Now().Unix(),
 		"total_requests_24h": total,
-		"top_hostnames_json": string(raw),
+		"top_hostnames_json": string(rawHosts),
+		"top_ips_json":       string(rawIPs),
 	}).Error
 }
 
@@ -290,14 +315,19 @@ func (s *InboundService) panelStored24hFromDB() *PanelStored24hInsight {
 	if err := db.First(&row, 1).Error; err != nil {
 		return nil
 	}
-	var list []ActivityNamedCount
+	var hosts []ActivityNamedCount
 	if row.TopHostnamesJSON != "" {
-		_ = json.Unmarshal([]byte(row.TopHostnamesJSON), &list)
+		_ = json.Unmarshal([]byte(row.TopHostnamesJSON), &hosts)
+	}
+	var ips []ActivityNamedCount
+	if row.TopIpsJSON != "" {
+		_ = json.Unmarshal([]byte(row.TopIpsJSON), &ips)
 	}
 	return &PanelStored24hInsight{
 		UpdatedAt:        row.UpdatedAtUnix,
 		TotalRequests24h: row.TotalRequests24h,
-		TopDestHostnames: list,
+		TopDestHostnames: hosts,
+		TopDestIPs:       ips,
 	}
 }
 
@@ -310,13 +340,7 @@ func fillActivityOverviewFromAccessLog(out *ActivityStatusOverview, sinceUnix in
 		return
 	}
 
-	var settingService SettingService
-	tpl, terr := settingService.GetXrayConfigTemplate()
-	var cfgMap map[string]any
-	if terr == nil && tpl != "" {
-		_ = json.Unmarshal([]byte(tpl), &cfgMap)
-	}
-	freedoms, blackholes := FreedomBlackholeTagsFromDefaultXrayConfig(cfgMap)
+	freedoms, blackholes := activityLogFreedomBlackholes()
 
 	hostAgg := make(map[string]int64)
 	ipAgg := make(map[string]int64)
@@ -357,11 +381,13 @@ func fillActivityOverviewFromAccessLog(out *ActivityStatusOverview, sinceUnix in
 				ts := entry.DateTime.Unix()
 				if sinceUnix <= 0 || ts >= sinceUnix {
 					total++
-					if h := hostFromActivityAddr(entry.ToAddress); h != "" {
-						if net.ParseIP(h) != nil {
-							ipAgg[h]++
-						} else {
-							hostAgg[h]++
+					if AccessLogEventKind(line, freedoms, blackholes) != "blocked" {
+						if h := hostFromActivityAddr(entry.ToAddress); h != "" {
+							if net.ParseIP(h) != nil {
+								ipAgg[h]++
+							} else {
+								hostAgg[h]++
+							}
 						}
 					}
 					if fh := hostFromActivityAddr(entry.FromAddress); fh != "" {

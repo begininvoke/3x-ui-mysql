@@ -141,6 +141,13 @@
             </template>
         </a-setting-list-item>
         <a-setting-list-item paddings="small">
+            <template #title>IP limit live window (seconds)</template>
+            <template #description>Only connections from distinct source IPs seen within this sliding window count toward each client’s Limit IP. Larger values are stricter (more IPs can appear “live” at once). Allowed: 5–3600. Default: 15.</template>
+            <template #control>
+                <a-input-number :min="5" :max="3600" v-model="allSetting.ipLimitLiveActivityWindow" :style="{ width: '100%' }"></a-input-number>
+            </template>
+        </a-setting-list-item>
+        <a-setting-list-item paddings="small">
             <template #title>Traffic Limit Buffer (%)</template>
             <template #description>Disable client before reaching 100% of their traffic limit to prevent overshoot. E.g. 5% means a 1GB client is disabled at ~950MB. Set 0 to disable.</template>
             <template #control>

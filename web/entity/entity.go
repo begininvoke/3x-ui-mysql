@@ -50,12 +50,13 @@ type AllSetting struct {
 	TgOutboundPingNotify bool   `json:"tgOutboundPingNotify" form:"tgOutboundPingNotify"` // Telegram alerts when outbound ping status changes
 
 	// Security settings
-	IpLimitBlockDuration int    `json:"ipLimitBlockDuration" form:"ipLimitBlockDuration"` // IP block duration in seconds when limit exceeded
-	TrafficLimitBuffer   int    `json:"trafficLimitBuffer" form:"trafficLimitBuffer"`     // Buffer percentage to disable client before exact limit
-	IpLimitWhitelist     string `json:"ipLimitWhitelist" form:"ipLimitWhitelist"`         // Comma-separated IPs that are never blocked
-	TimeLocation         string `json:"timeLocation" form:"timeLocation"`                 // Time zone location
-	TwoFactorEnable      bool   `json:"twoFactorEnable" form:"twoFactorEnable"`           // Enable two-factor authentication
-	TwoFactorToken       string `json:"twoFactorToken" form:"twoFactorToken"`             // Two-factor authentication token
+	IpLimitBlockDuration      int    `json:"ipLimitBlockDuration" form:"ipLimitBlockDuration"`           // IP block duration in seconds when limit exceeded
+	IpLimitLiveActivityWindow int    `json:"ipLimitLiveActivityWindow" form:"ipLimitLiveActivityWindow"` // Seconds: distinct source IPs seen within this window count toward LimitIP
+	TrafficLimitBuffer        int    `json:"trafficLimitBuffer" form:"trafficLimitBuffer"`               // Buffer percentage to disable client before exact limit
+	IpLimitWhitelist          string `json:"ipLimitWhitelist" form:"ipLimitWhitelist"`                   // Comma-separated IPs that are never blocked
+	TimeLocation              string `json:"timeLocation" form:"timeLocation"`                           // Time zone location
+	TwoFactorEnable           bool   `json:"twoFactorEnable" form:"twoFactorEnable"`                     // Enable two-factor authentication
+	TwoFactorToken            string `json:"twoFactorToken" form:"twoFactorToken"`                       // Two-factor authentication token
 
 	// Subscription server settings
 	SubEnable                   bool   `json:"subEnable" form:"subEnable"`                                     // Enable subscription server
@@ -187,6 +188,10 @@ func (s *AllSetting) CheckValid() error {
 	_, err := time.LoadLocation(s.TimeLocation)
 	if err != nil {
 		return common.NewError("time location not exist:", s.TimeLocation)
+	}
+
+	if s.IpLimitLiveActivityWindow < 5 || s.IpLimitLiveActivityWindow > 3600 {
+		return common.NewErrorf("IP limit live activity window must be between 5 and 3600 seconds, got %d", s.IpLimitLiveActivityWindow)
 	}
 
 	return nil

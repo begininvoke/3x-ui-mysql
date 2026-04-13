@@ -21,10 +21,6 @@ import (
 	"github.com/mhsanaei/3x-ui/v2/xray"
 )
 
-// How long an IP stays "live" for concurrent IP limit counting (seconds).
-// Only connections seen within this window compete for the client's LimitIP slots.
-const ipLimitLiveActivityWindowSec = 15
-
 var (
 	accessLogAcceptedLineIPRe = regexp.MustCompile(`from (?:tcp:|udp:)?\[?([0-9a-fA-F\.:]+)\]?:\d+ accepted`)
 	accessLogLineEmailRe      = regexp.MustCompile(`email: (.+)$`)
@@ -400,9 +396,11 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 		}
 	}
 
-	// Expire IPs not seen within the live activity window
+	// Expire IPs not seen within the live activity window (panel setting)
 	now := time.Now().Unix()
-	expiryWindow := int64(ipLimitLiveActivityWindowSec)
+	var settingService service.SettingService
+	liveWindowSec := settingService.GetIpLimitLiveActivityWindowSec()
+	expiryWindow := liveWindowSec
 	for ip, ts := range ipMap {
 		if now-ts > expiryWindow {
 			delete(ipMap, ip)
@@ -410,7 +408,6 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 	}
 
 	// Convert back to slice, excluding whitelisted IPs from the count
-	var settingService service.SettingService
 	allIps := make([]IPWithTimestamp, 0, len(ipMap))
 	for ip, timestamp := range ipMap {
 		if settingService.IsIPWhitelisted(ip) {
@@ -427,7 +424,7 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 
 	var keptIps []IPWithTimestamp
 
-	// Check if we exceed the limit (only "live" IPs within ipLimitLiveActivityWindowSec)
+	// Check if we exceed the limit (only "live" IPs within liveWindowSec)
 	if len(allIps) > limitIp {
 		shouldCleanLog = true
 
@@ -448,7 +445,7 @@ func (j *CheckClientIpJob) updateInboundClientIps(inboundClientIps *model.Inboun
 		var inboundService service.InboundService
 		blockDuration := settingService.GetIpLimitBlockDurationSec()
 		reason := fmt.Sprintf("IP limit exceeded: %d/%d live IPs (window: %ds)",
-			len(allIps), limitIp, ipLimitLiveActivityWindowSec)
+			len(allIps), limitIp, liveWindowSec)
 		for _, ipTime := range bannedIps {
 			j.disAllowedIps = append(j.disAllowedIps, ipTime.IP)
 			if err := inboundService.SaveBlockedIP(ipTime.IP, clientEmail, time.Now().Unix(), blockDuration, reason); err != nil {
