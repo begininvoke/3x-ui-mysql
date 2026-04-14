@@ -80,8 +80,9 @@ type Status struct {
 	} `json:"xray"`
 	Uptime   uint64    `json:"uptime"`
 	Loads    []float64 `json:"loads"`
-	TcpCount int       `json:"tcpCount"`
-	UdpCount int       `json:"udpCount"`
+	TcpCount   int            `json:"tcpCount"`
+	UdpCount   int            `json:"udpCount"`
+	TcpByState map[string]int `json:"tcpByState"`
 	NetIO    struct {
 		Up   uint64 `json:"up"`
 		Down uint64 `json:"down"`
@@ -389,6 +390,12 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 	status.TcpCount, err = sys.GetTCPCount()
 	if err != nil {
 		logger.Warning("get tcp connections failed:", err)
+	}
+
+	status.TcpByState, err = sys.GetTCPCountByState()
+	if err != nil {
+		logger.Warning("get tcp connections by state failed:", err)
+		status.TcpByState = nil
 	}
 
 	status.UdpCount, err = sys.GetUDPCount()

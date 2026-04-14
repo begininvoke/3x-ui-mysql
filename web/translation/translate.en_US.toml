@@ -188,6 +188,7 @@
 "systemLoad" = "System Load"
 "systemLoadDesc" = "System load average for the past 1, 5, and 15 minutes"
 "connectionCount" = "Connection Stats"
+"tcpStatesTitle" = "TCP by state (this server)"
 "ipAddresses" = "IP Addresses"
 "toggleIpVisibility" = "Toggle visibility of the IP"
 "overallSpeed" = "Overall Speed"

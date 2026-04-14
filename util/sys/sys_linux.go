@@ -48,6 +48,62 @@ func getLinesNum(filename string) (int, error) {
 	return sum, nil
 }
 
+// linuxTCPProcHex maps /proc/net/tcp st column (hex, case-insensitive) to IANA-style names.
+var linuxTCPProcHex = map[string]string{
+	"01": "ESTABLISHED",
+	"02": "SYN_SENT",
+	"03": "SYN_RECV",
+	"04": "FIN_WAIT1",
+	"05": "FIN_WAIT2",
+	"06": "TIME_WAIT",
+	"07": "CLOSE",
+	"08": "CLOSE_WAIT",
+	"09": "LAST_ACK",
+	"0A": "LISTEN",
+	"0B": "CLOSING",
+}
+
+func countProcNetTCPByState(path string, acc map[string]int) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	lines := bytes.Split(data, []byte("\n"))
+	for i, raw := range lines {
+		if i == 0 || len(raw) == 0 {
+			continue
+		}
+		line := strings.TrimSpace(string(raw))
+		fields := strings.Fields(line)
+		if len(fields) < 4 {
+			continue
+		}
+		hexSt := strings.ToUpper(fields[3])
+		name := linuxTCPProcHex[hexSt]
+		if name == "" {
+			name = "UNKNOWN(" + hexSt + ")"
+		}
+		acc[name]++
+	}
+	return nil
+}
+
+// GetTCPCountByState returns counts of TCP sockets grouped by state from /proc/net/tcp and tcp6.
+func GetTCPCountByState() (map[string]int, error) {
+	root := HostProc()
+	acc := make(map[string]int)
+	if err := countProcNetTCPByState(fmt.Sprintf("%s/net/tcp", root), acc); err != nil {
+		return nil, err
+	}
+	if err := countProcNetTCPByState(fmt.Sprintf("%s/net/tcp6", root), acc); err != nil {
+		return nil, err
+	}
+	return acc, nil
+}
+
 // GetTCPCount returns the number of active TCP connections by reading
 // /proc/net/tcp and /proc/net/tcp6 when available.
 func GetTCPCount() (int, error) {

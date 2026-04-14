@@ -133,6 +133,7 @@
 "systemLoad" = "系统负载"
 "systemLoadDesc" = "过去 1、5 和 15 分钟的系统平均负载"
 "connectionCount" = "连接数"
+"tcpStatesTitle" = "TCP 各状态（本机）"
 "ipAddresses" = "IP地址"
 "toggleIpVisibility" = "切换IP可见性"
 "overallSpeed" = "整体速度"
