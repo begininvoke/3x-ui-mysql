@@ -298,6 +298,8 @@ func (p *process) Stop() error {
 		return errors.New("xray is not running")
 	}
 
+	p.onlineClients = nil
+
 	// Remove temporary config file used for test runs so main config is never touched
 	if p.configPath != "" {
 		if p.configPath != GetConfigPath() {

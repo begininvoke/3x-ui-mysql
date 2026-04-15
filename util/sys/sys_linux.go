@@ -63,24 +63,24 @@ var linuxTCPProcHex = map[string]string{
 	"0B": "CLOSING",
 }
 
-func countProcNetTCPByState(path string, acc map[string]int) error {
+func aggregateProcNetTCP(path string, acc map[string]int) (int, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil
+			return 0, nil
 		}
-		return err
+		return 0, err
 	}
-	lines := bytes.Split(data, []byte("\n"))
-	for i, raw := range lines {
+	n := 0
+	for i, raw := range bytes.Split(data, []byte("\n")) {
 		if i == 0 || len(raw) == 0 {
 			continue
 		}
-		line := strings.TrimSpace(string(raw))
-		fields := strings.Fields(line)
+		fields := strings.Fields(strings.TrimSpace(string(raw)))
 		if len(fields) < 4 {
 			continue
 		}
+		n++
 		hexSt := strings.ToUpper(fields[3])
 		name := linuxTCPProcHex[hexSt]
 		if name == "" {
@@ -88,37 +88,35 @@ func countProcNetTCPByState(path string, acc map[string]int) error {
 		}
 		acc[name]++
 	}
-	return nil
+	return n, nil
+}
+
+// GetTCPConnectionStats reads /proc/net/tcp and tcp6 once each and returns total parsed rows and per-state counts.
+func GetTCPConnectionStats() (int, map[string]int, error) {
+	root := HostProc()
+	acc := make(map[string]int)
+	total := 0
+	for _, fn := range []string{"tcp", "tcp6"} {
+		n, err := aggregateProcNetTCP(fmt.Sprintf("%s/net/%s", root, fn), acc)
+		if err != nil {
+			return 0, nil, err
+		}
+		total += n
+	}
+	return total, acc, nil
 }
 
 // GetTCPCountByState returns counts of TCP sockets grouped by state from /proc/net/tcp and tcp6.
 func GetTCPCountByState() (map[string]int, error) {
-	root := HostProc()
-	acc := make(map[string]int)
-	if err := countProcNetTCPByState(fmt.Sprintf("%s/net/tcp", root), acc); err != nil {
-		return nil, err
-	}
-	if err := countProcNetTCPByState(fmt.Sprintf("%s/net/tcp6", root), acc); err != nil {
-		return nil, err
-	}
-	return acc, nil
+	_, m, err := GetTCPConnectionStats()
+	return m, err
 }
 
 // GetTCPCount returns the number of active TCP connections by reading
 // /proc/net/tcp and /proc/net/tcp6 when available.
 func GetTCPCount() (int, error) {
-	root := HostProc()
-
-	tcp4, err := safeGetLinesNum(fmt.Sprintf("%v/net/tcp", root))
-	if err != nil {
-		return 0, err
-	}
-	tcp6, err := safeGetLinesNum(fmt.Sprintf("%v/net/tcp6", root))
-	if err != nil {
-		return 0, err
-	}
-
-	return tcp4 + tcp6, nil
+	n, _, err := GetTCPConnectionStats()
+	return n, err
 }
 
 func GetUDPCount() (int, error) {

@@ -1027,10 +1027,9 @@ func (s *InboundService) addInboundTraffic(tx *gorm.DB, traffics []*xray.Traffic
 
 func (s *InboundService) addClientTraffic(tx *gorm.DB, traffics []*xray.ClientTraffic) (err error) {
 	if len(traffics) == 0 {
-		// Empty onlineUsers
-		if p != nil {
-			p.SetOnlineClients(make([]string, 0))
-		}
+		// Xray often returns no per-client stat rows when nobody had traffic since the last
+		// reset (see GetTraffic(true)). Do not clear the previous list in that case, or
+		// GetOnlineClients() would almost always be empty between bursts.
 		return nil
 	}
 

@@ -27,11 +27,6 @@ func GetConnectionCount(proto string) (int, error) {
 	return len(stats), nil
 }
 
-// GetTCPCount returns the number of active TCP connections.
-func GetTCPCount() (int, error) {
-	return GetConnectionCount("tcp")
-}
-
 // GetUDPCount returns the number of active UDP connections.
 func GetUDPCount() (int, error) {
 	return GetConnectionCount("udp")

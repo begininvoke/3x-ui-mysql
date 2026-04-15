@@ -143,6 +143,21 @@ type ConnectionSample struct {
 	UDP int   `json:"udp"`
 }
 
+// tcpConnStatsTTL limits how often TCP totals and per-state maps are refreshed.
+// The dashboard polls every ~2s; enumerating all TCP sockets more often can stall the panel.
+const tcpConnStatsTTL = 12 * time.Second
+
+func cloneIntMap(m map[string]int) map[string]int {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]int, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
 // ServerService provides business logic for server monitoring and management.
 // It handles system status collection, IP detection, and application statistics.
 type ServerService struct {
@@ -162,6 +177,11 @@ type ServerService struct {
 	connHistory        []ConnectionSample
 	cachedCpuSpeedMhz  float64
 	lastCpuInfoAttempt time.Time
+
+	tcpStatsMu       sync.Mutex
+	cachedTCPAt      time.Time
+	cachedTCPCount   int
+	cachedTCPByState map[string]int
 }
 
 // AggregateCpuHistory returns up to maxPoints averaged buckets of size bucketSeconds over recent data.
@@ -386,17 +406,26 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 		logger.Warning("can not find io counters")
 	}
 
-	// TCP/UDP connections
-	status.TcpCount, err = sys.GetTCPCount()
-	if err != nil {
-		logger.Warning("get tcp connections failed:", err)
+	// TCP (total + by state): single syscall / proc pass where possible, throttled to avoid blocking the 2s status loop.
+	s.tcpStatsMu.Lock()
+	if time.Since(s.cachedTCPAt) < tcpConnStatsTTL && s.cachedTCPByState != nil {
+		status.TcpCount = s.cachedTCPCount
+		status.TcpByState = cloneIntMap(s.cachedTCPByState)
+	} else {
+		total, byState, terr := sys.GetTCPConnectionStats()
+		if terr != nil {
+			logger.Warning("get tcp connection stats failed:", terr)
+			status.TcpCount = s.cachedTCPCount
+			status.TcpByState = cloneIntMap(s.cachedTCPByState)
+		} else {
+			s.cachedTCPAt = time.Now()
+			s.cachedTCPCount = total
+			s.cachedTCPByState = cloneIntMap(byState)
+			status.TcpCount = total
+			status.TcpByState = cloneIntMap(byState)
+		}
 	}
-
-	status.TcpByState, err = sys.GetTCPCountByState()
-	if err != nil {
-		logger.Warning("get tcp connections by state failed:", err)
-		status.TcpByState = nil
-	}
+	s.tcpStatsMu.Unlock()
 
 	status.UdpCount, err = sys.GetUDPCount()
 	if err != nil {
