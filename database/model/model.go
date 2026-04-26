@@ -169,11 +169,11 @@ type Client struct {
 // InboundAdminActivity tracks actions performed by inbound admins for audit purposes.
 type InboundAdminActivity struct {
 	Id          int    `json:"id" gorm:"primaryKey;autoIncrement"`
-	InboundId   int    `json:"inboundId" gorm:"index"`        // The inbound being managed
-	AdminTgId   int64  `json:"adminTgId" gorm:"index"`        // Admin's Telegram ID
-	AdminTgName string `json:"adminTgName"`                   // Admin's Telegram username/name
-	Action      string `json:"action"`                        // Action performed (created_user, edited_user, disabled_user)
-	ClientEmail string `json:"clientEmail" gorm:"index"`      // Affected client email
-	Details     string `json:"details" gorm:"type:text"`      // JSON details of the action
-	CreatedAt   int64  `json:"createdAt"`                     // Timestamp of the action
+	InboundId   int    `json:"inboundId" gorm:"index"`   // The inbound being managed
+	AdminTgId   int64  `json:"adminTgId" gorm:"index"`   // Admin's Telegram ID
+	AdminTgName string `json:"adminTgName"`              // Admin's Telegram username/name
+	Action      string `json:"action"`                   // Action performed (created_user, edited_user, disabled_user)
+	ClientEmail string `json:"clientEmail" gorm:"index"` // Affected client email
+	Details     string `json:"details" gorm:"type:text"` // JSON details of the action
+	CreatedAt   int64  `json:"createdAt"`                // Timestamp of the action
 }
