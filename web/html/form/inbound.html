@@ -105,6 +105,19 @@
             value="dbInbound._expiryTime" v-model="dbInbound._expiryTime">
         </a-persian-datepicker>
     </a-form-item>
+    
+    <a-form-item>
+        <template slot="label">
+            <a-tooltip>
+                <template slot="title">
+                    <span>Comma-separated list of Telegram user IDs who can manage this inbound's users. Format: 123456789,987654321</span>
+                </template>
+                Inbound Admins
+                <a-icon type="question-circle"></a-icon>
+            </a-tooltip>
+        </template>
+        <a-input v-model.trim="dbInbound.adminTgIds" placeholder="e.g., 123456789,987654321"></a-input>
+    </a-form-item>
 </a-form>
 
 <!-- vmess settings -->

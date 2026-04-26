@@ -54,6 +54,7 @@ func initModels() error {
 		&model.PanelRestart{},
 		&model.BlockedIP{},
 		&model.NetworkInsightsSnapshot{},
+		&model.InboundAdminActivity{},
 	}
 	for _, model := range models {
 		if err := db.AutoMigrate(model); err != nil {

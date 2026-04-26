@@ -44,6 +44,7 @@ type Inbound struct {
 	TrafficReset         string               `json:"trafficReset" form:"trafficReset" gorm:"default:never;index:idx_enable_traffic_reset,priority:2"` // Traffic reset schedule
 	LastTrafficResetTime int64                `json:"lastTrafficResetTime" form:"lastTrafficResetTime" gorm:"default:0"`                               // Last traffic reset timestamp
 	ClientStats          []xray.ClientTraffic `gorm:"foreignKey:InboundId;references:Id" json:"clientStats" form:"clientStats"`                        // Client traffic statistics
+	AdminTgIDs           string               `json:"adminTgIds" form:"adminTgIds" gorm:"type:text"`                                                   // Comma-separated Telegram IDs of inbound admins
 
 	// Xray configuration fields
 	Listen         string   `json:"listen" form:"listen"`
@@ -163,4 +164,16 @@ type Client struct {
 	Reset       int    `json:"reset" form:"reset"`             // Reset period in days
 	CreatedAt   int64  `json:"created_at,omitempty"`           // Creation timestamp
 	UpdatedAt   int64  `json:"updated_at,omitempty"`           // Last update timestamp
+}
+
+// InboundAdminActivity tracks actions performed by inbound admins for audit purposes.
+type InboundAdminActivity struct {
+	Id          int    `json:"id" gorm:"primaryKey;autoIncrement"`
+	InboundId   int    `json:"inboundId" gorm:"index"`        // The inbound being managed
+	AdminTgId   int64  `json:"adminTgId" gorm:"index"`        // Admin's Telegram ID
+	AdminTgName string `json:"adminTgName"`                   // Admin's Telegram username/name
+	Action      string `json:"action"`                        // Action performed (created_user, edited_user, disabled_user)
+	ClientEmail string `json:"clientEmail" gorm:"index"`      // Affected client email
+	Details     string `json:"details" gorm:"type:text"`      // JSON details of the action
+	CreatedAt   int64  `json:"createdAt"`                     // Timestamp of the action
 }
