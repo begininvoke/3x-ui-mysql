@@ -2685,27 +2685,6 @@ func (t *Tgbot) checkInboundAdmin(tgId int64) bool {
 	return count > 0
 }
 
-// getAdminInboundIds returns a list of inbound IDs that the given Telegram ID can manage.
-func (t *Tgbot) getAdminInboundIds(tgId int64) []int {
-	db := database.GetDB()
-	var inbounds []model.Inbound
-	tgIdStr := strconv.FormatInt(tgId, 10)
-	db.Where("admin_tg_ids LIKE ?", "%"+tgIdStr+"%").Find(&inbounds)
-
-	var inboundIds []int
-	for _, inbound := range inbounds {
-		// Check if the tgId actually exists in the comma-separated list
-		adminIds := strings.Split(inbound.AdminTgIDs, ",")
-		for _, adminId := range adminIds {
-			if strings.TrimSpace(adminId) == tgIdStr {
-				inboundIds = append(inboundIds, inbound.Id)
-				break
-			}
-		}
-	}
-	return inboundIds
-}
-
 // isInboundAdminFor checks if the given Telegram ID is an admin for the specific inbound.
 func (t *Tgbot) isInboundAdminFor(tgId int64, inboundId int) bool {
 	db := database.GetDB()
