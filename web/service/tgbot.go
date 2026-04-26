@@ -1613,6 +1613,14 @@ func (t *Tgbot) answerCallback(callbackQuery *telego.CallbackQuery, isAdmin bool
 					t.sendCallbackAnswerTgBot(callbackQuery.ID, err.Error())
 					return
 				}
+
+				// Check if inbound admin has permission to add clients to this inbound
+				if isInboundAdmin && !t.isInboundAdminFor(tgId, inboundIdInt) {
+					t.sendCallbackAnswerTgBot(callbackQuery.ID, t.I18nBot("tgbot.noAccess"))
+					t.SendMsgToTgbot(chatId, "❌ You don't have permission to add clients to this inbound.")
+					return
+				}
+
 				receiver_inbound_ID = inboundIdInt
 				inbound, err := t.inboundService.GetInbound(inboundIdInt)
 				if err != nil {
@@ -2212,7 +2220,16 @@ func (t *Tgbot) answerCallback(callbackQuery *telego.CallbackQuery, isAdmin bool
 		client_TrPassword = t.randomLowerAndNum(10)
 		client_Method = ""
 
-		inbounds, err := t.getInboundsAddClient()
+		var inbounds *telego.InlineKeyboardMarkup
+		var err error
+
+		// Check if user is an inbound admin (but not superadmin)
+		if isInboundAdmin {
+			inbounds, err = t.getInboundsAddClientForAdmin(tgId)
+		} else {
+			inbounds, err = t.getInboundsAddClient()
+		}
+
 		if err != nil {
 			t.sendCallbackAnswerTgBot(callbackQuery.ID, err.Error())
 			return
@@ -2721,7 +2738,7 @@ func (t *Tgbot) logInboundAdminActivity(inboundId int, adminTgId int64, adminTgN
 		logger.Warning("Failed to log inbound admin activity:", err)
 	}
 
-	// Notify superadmins
+	// Notify superadmin (Admin Chat ID from panel settings)
 	var inbound model.Inbound
 	if err := db.First(&inbound, inboundId).Error; err == nil {
 		msg := fmt.Sprintf("🔔 Inbound Admin Activity\n\n"+
@@ -2734,8 +2751,13 @@ func (t *Tgbot) logInboundAdminActivity(inboundId int, adminTgId int64, adminTgN
 			adminTgName, adminTgId, inbound.Remark, action, clientEmail, details,
 			time.Now().Format("2006-01-02 15:04:05"))
 
-		for _, superAdminId := range adminIds {
-			t.SendMsgToTgbot(superAdminId, msg)
+		// Get Admin Chat ID from settings and send notification
+		tgBotChatId, err := t.settingService.GetTgBotChatId()
+		if err == nil && tgBotChatId != "" {
+			chatIdInt, err := strconv.ParseInt(tgBotChatId, 10, 64)
+			if err == nil {
+				t.SendMsgToTgbot(chatIdInt, msg)
+			}
 		}
 	}
 }
@@ -3692,6 +3714,64 @@ func (t *Tgbot) getInboundsAddClient() (*telego.InlineKeyboardMarkup, error) {
 		}
 		callbackData := t.encodeQuery(fmt.Sprintf("%s %d", "add_client_to", inbound.Id))
 		buttons = append(buttons, tu.InlineKeyboardButton(fmt.Sprintf("%v - %v", inbound.Remark, status)).WithCallbackData(callbackData))
+	}
+
+	cols := 1
+	if len(buttons) >= 6 {
+		cols = 2
+	}
+
+	keyboard := tu.InlineKeyboardGrid(tu.InlineKeyboardCols(cols, buttons...))
+	return keyboard, nil
+}
+
+// getInboundsAddClientForAdmin creates an inline keyboard for adding clients - filtered by admin permissions
+func (t *Tgbot) getInboundsAddClientForAdmin(tgId int64) (*telego.InlineKeyboardMarkup, error) {
+	db := database.GetDB()
+	tgIdStr := strconv.FormatInt(tgId, 10)
+
+	var inbounds []*model.Inbound
+	db.Where("admin_tg_ids LIKE ?", "%"+tgIdStr+"%").Find(&inbounds)
+
+	// Filter to ensure the tgId is actually in the comma-separated list
+	var filteredInbounds []*model.Inbound
+	for _, inbound := range inbounds {
+		adminIds := strings.Split(inbound.AdminTgIDs, ",")
+		for _, adminId := range adminIds {
+			if strings.TrimSpace(adminId) == tgIdStr {
+				filteredInbounds = append(filteredInbounds, inbound)
+				break
+			}
+		}
+	}
+
+	if len(filteredInbounds) == 0 {
+		return nil, errors.New(t.I18nBot("tgbot.answers.noManagedInbounds"))
+	}
+
+	excludedProtocols := map[model.Protocol]bool{
+		model.Tunnel:    true,
+		model.Mixed:     true,
+		model.WireGuard: true,
+		model.HTTP:      true,
+	}
+
+	var buttons []telego.InlineKeyboardButton
+	for _, inbound := range filteredInbounds {
+		if excludedProtocols[inbound.Protocol] {
+			continue
+		}
+
+		status := "❌"
+		if inbound.Enable {
+			status = "✅"
+		}
+		callbackData := t.encodeQuery(fmt.Sprintf("%s %d", "add_client_to", inbound.Id))
+		buttons = append(buttons, tu.InlineKeyboardButton(fmt.Sprintf("%v - %v", inbound.Remark, status)).WithCallbackData(callbackData))
+	}
+
+	if len(buttons) == 0 {
+		return nil, errors.New(t.I18nBot("tgbot.answers.noManagedInbounds"))
 	}
 
 	cols := 1
