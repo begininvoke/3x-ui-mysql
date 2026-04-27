@@ -2682,18 +2682,18 @@ func (t *Tgbot) SubmitAddClient(adminTgId int64, adminTgName string) (bool, erro
 		if client_TotalGB > 0 {
 			trafficGB = fmt.Sprintf("%d GB", client_TotalGB/(1024*1024*1024))
 		}
-		
+
 		expiryDisplay := "Never"
 		if client_ExpiryTime > 0 {
 			expiryDisplay = time.Unix(client_ExpiryTime/1000, 0).Format("2006-01-02 15:04:05")
 		}
-		
+
 		ipLimitDisplay := "Unlimited"
 		if client_LimitIP > 0 {
 			ipLimitDisplay = fmt.Sprintf("%d", client_LimitIP)
 		}
-		
-		details := fmt.Sprintf("Traffic: %s, Expiry: %s, IP Limit: %s, Enabled: %v", 
+
+		details := fmt.Sprintf("Traffic: %s, Expiry: %s, IP Limit: %s, Enabled: %v",
 			trafficGB, expiryDisplay, ipLimitDisplay, client_Enable)
 		t.logInboundAdminActivity(receiver_inbound_ID, adminTgId, adminTgName, "created_user", client_Email, details)
 	}
