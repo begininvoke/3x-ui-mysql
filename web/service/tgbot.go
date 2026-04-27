@@ -2675,9 +2675,26 @@ func (t *Tgbot) SubmitAddClient(adminTgId int64, adminTgName string) (bool, erro
 
 	success, err := t.inboundService.AddInboundClient(newInbound)
 
-	// Log activity if the user is an inbound admin (not a superadmin)
-	if success && err == nil && !checkAdmin(adminTgId) && t.isInboundAdminFor(adminTgId, receiver_inbound_ID) {
-		details := fmt.Sprintf("Total: %d GB, Expiry: %d, Enabled: %v", client_TotalGB, client_ExpiryTime, client_Enable)
+	// Log activity for inbound admins (send notification to superadmin)
+	if success && err == nil && t.isInboundAdminFor(adminTgId, receiver_inbound_ID) {
+		// Convert bytes to GB for display
+		trafficGB := "Unlimited"
+		if client_TotalGB > 0 {
+			trafficGB = fmt.Sprintf("%d GB", client_TotalGB/(1024*1024*1024))
+		}
+		
+		expiryDisplay := "Never"
+		if client_ExpiryTime > 0 {
+			expiryDisplay = time.Unix(client_ExpiryTime/1000, 0).Format("2006-01-02 15:04:05")
+		}
+		
+		ipLimitDisplay := "Unlimited"
+		if client_LimitIP > 0 {
+			ipLimitDisplay = fmt.Sprintf("%d", client_LimitIP)
+		}
+		
+		details := fmt.Sprintf("Traffic: %s, Expiry: %s, IP Limit: %s, Enabled: %v", 
+			trafficGB, expiryDisplay, ipLimitDisplay, client_Enable)
 		t.logInboundAdminActivity(receiver_inbound_ID, adminTgId, adminTgName, "created_user", client_Email, details)
 	}
 
